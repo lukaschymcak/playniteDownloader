@@ -1,16 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <UseWPF Condition="'$(TargetFramework)' == 'net10.0-windows'">true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AssemblyName>PlayniteDownloaderPlugin</AssemblyName>
     <RootNamespace>PlayniteDownloaderPlugin</RootNamespace>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
-    <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="PlayniteSDK" Version="6.4.0" />
@@ -25,13 +22,5 @@
     <None Update="plugin.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows'">
-    <Compile Remove="UI\SidePanelViewModel.cs" />
-    <Compile Remove="UI\SearchDialogViewModel.cs" />
-    <Compile Remove="UI\SidePanel.xaml.cs" />
-    <Compile Remove="UI\SearchDialog.xaml.cs" />
-    <Page Remove="UI\SidePanel.xaml" />
-    <Page Remove="UI\SearchDialog.xaml" />
   </ItemGroup>
 </Project>
