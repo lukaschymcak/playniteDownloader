@@ -8,6 +8,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>PlayniteDownloaderPlugin</AssemblyName>
     <RootNamespace>PlayniteDownloaderPlugin</RootNamespace>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="PlayniteSDK" Version="6.4.0" />
