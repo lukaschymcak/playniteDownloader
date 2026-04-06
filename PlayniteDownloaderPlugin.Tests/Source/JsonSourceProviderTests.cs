@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using Moq;
+using PlayniteDownloaderPlugin.Models;
 using PlayniteDownloaderPlugin.Source;
 using Xunit;
 
@@ -28,7 +29,7 @@ public class JsonSourceProviderTests
         var provider = new JsonSourceProvider("src1", "TestSource",
             "http://example.com/source.json", MakeClient(json));
 
-        var results = await provider.SearchAsync("Cyberpunk 2077", CancellationToken.None);
+        List<DownloadResult> results = await provider.SearchAsync("Cyberpunk 2077", CancellationToken.None);
 
         Assert.Single(results);
         Assert.Equal("Cyberpunk 2077", results[0].Title);
@@ -51,7 +52,7 @@ public class JsonSourceProviderTests
         var provider = new JsonSourceProvider("src1", "TestSource",
             "http://example.com/source.json", MakeClient(json));
 
-        var results = await provider.SearchAsync("Cyberpunk 2077", CancellationToken.None);
+        List<DownloadResult> results = await provider.SearchAsync("Cyberpunk 2077", CancellationToken.None);
 
         Assert.Empty(results);
     }
@@ -70,7 +71,7 @@ public class JsonSourceProviderTests
         var provider = new JsonSourceProvider("src1", "TestSource",
             "http://example.com/source.json", MakeClient(json));
 
-        var results = await provider.SearchAsync("Cyberpunk 2077", CancellationToken.None);
+        List<DownloadResult> results = await provider.SearchAsync("Cyberpunk 2077", CancellationToken.None);
 
         Assert.Single(results);
         Assert.True(results[0].MatchScore > 0.5f);
@@ -83,7 +84,7 @@ public class JsonSourceProviderTests
         var provider = new JsonSourceProvider("src1", "TestSource",
             "http://example.com/source.json", new HttpClient(handler));
 
-        var results = await provider.SearchAsync("Any Game", CancellationToken.None);
+        List<DownloadResult> results = await provider.SearchAsync("Any Game", CancellationToken.None);
 
         Assert.Empty(results);
     }

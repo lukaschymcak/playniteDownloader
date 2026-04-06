@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Newtonsoft.Json;
 using PlayniteDownloaderPlugin.Models;
 
@@ -9,6 +10,7 @@ public class SourceManager
     private readonly List<SourceEntry> _builtinEntries;
     private readonly List<SourceEntry> _customSources = new();
     private readonly string? _persistPath;
+    private readonly HttpClient _httpClient = JsonSourceProvider.CreateDefaultClient();
 
     public SourceManager(IEnumerable<ISourceProvider> builtinProviders,
         IEnumerable<SourceEntry>? builtinEntries = null,
@@ -35,7 +37,7 @@ public class SourceManager
 
         IEnumerable<Task<List<DownloadResult>>> customTasks = _customSources
             .Where(s => s.Enabled)
-            .Select(s => (ISourceProvider)new JsonSourceProvider(s.Id, s.Name, s.Url))
+            .Select(s => new JsonSourceProvider(s.Id, s.Name, s.Url, _httpClient))
             .Select(p => p.SearchAsync(gameName, ct));
 
         List<DownloadResult>[] all = await Task.WhenAll(builtinTasks.Concat(customTasks));

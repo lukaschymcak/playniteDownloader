@@ -26,7 +26,7 @@ public class JsonSourceProvider : ISourceProvider
         _http = http ?? CreateDefaultClient();
     }
 
-    private static HttpClient CreateDefaultClient()
+    internal static HttpClient CreateDefaultClient()
     {
         HttpClient client = new HttpClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd(BrowserUserAgent);
@@ -67,7 +67,11 @@ public class JsonSourceProvider : ISourceProvider
 
             return results.OrderByDescending(r => r.MatchScore).ToList();
         }
-        catch (Exception)
+        catch (HttpRequestException)
+        {
+            return new List<DownloadResult>();
+        }
+        catch (Newtonsoft.Json.JsonException)
         {
             return new List<DownloadResult>();
         }
