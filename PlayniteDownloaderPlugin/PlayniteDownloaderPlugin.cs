@@ -8,6 +8,7 @@ using PlayniteDownloaderPlugin.Integration;
 using PlayniteDownloaderPlugin.Models;
 using PlayniteDownloaderPlugin.Pipeline;
 using PlayniteDownloaderPlugin.Source;
+using PlayniteDownloaderPlugin.UI;
 
 namespace PlayniteDownloaderPlugin;
 
@@ -46,7 +47,7 @@ public class PlayniteDownloaderPlugin : GenericPlugin
         {
             Title = "Downloader",
             Type = SiderbarItemType.View,
-            Opened = () => null
+            Opened = () => new SidePanel(_queue, _sourceManager, _config, SaveConfig, _runner)
         };
     }
 
@@ -55,8 +56,12 @@ public class PlayniteDownloaderPlugin : GenericPlugin
         yield return new GameMenuItem
         {
             Description = "Search Downloads",
-            Action = _ =>
+            Action = a =>
             {
+                Game game = a.Games.First();
+                SearchDialog dialog = new SearchDialog(
+                    game, _sourceManager, _queue, _config, PlayniteApi);
+                dialog.ShowDialog();
             }
         };
     }

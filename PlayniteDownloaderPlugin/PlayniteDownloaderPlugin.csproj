@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWPF Condition="'$(TargetFramework)' == 'net10.0-windows'">true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -24,5 +25,13 @@
     <None Update="plugin.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows'">
+    <Compile Remove="UI\SidePanelViewModel.cs" />
+    <Compile Remove="UI\SearchDialogViewModel.cs" />
+    <Compile Remove="UI\SidePanel.xaml.cs" />
+    <Compile Remove="UI\SearchDialog.xaml.cs" />
+    <Page Remove="UI\SidePanel.xaml" />
+    <Page Remove="UI\SearchDialog.xaml" />
   </ItemGroup>
 </Project>
