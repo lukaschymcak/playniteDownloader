@@ -1,0 +1,9 @@
+{
+  "Id": "a3b4c5d6-e7f8-9012-abcd-ef1234567890",
+  "Name": "Playnite Downloader",
+  "Author": "You",
+  "Version": "0.1.0",
+  "Module": "PlayniteDownloaderPlugin.dll",
+  "Type": "GenericPlugin",
+  "Links": []
+}
