@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace PlayniteDownloaderPlugin.Pipeline;
 
 public static class InstallResolver

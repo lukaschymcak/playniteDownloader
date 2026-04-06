@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
 using PlayniteDownloaderPlugin.Models;
 using PlayniteDownloaderPlugin.Pipeline;
@@ -105,7 +106,7 @@ public class SidePanelViewModel : INotifyPropertyChanged
             StatusMessage = "Settings saved.";
         });
 
-        _runner.EntryUpdated += _ => App.Current?.Dispatcher.BeginInvoke(Refresh);
+        _runner.EntryUpdated += _ => Application.Current?.Dispatcher.BeginInvoke(Refresh);
         Refresh();
         RefreshSources();
     }

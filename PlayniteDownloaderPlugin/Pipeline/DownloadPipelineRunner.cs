@@ -1,3 +1,4 @@
+using System.Net.Http;
 using PlayniteDownloaderPlugin.Download;
 using PlayniteDownloaderPlugin.Integration;
 using PlayniteDownloaderPlugin.Models;
