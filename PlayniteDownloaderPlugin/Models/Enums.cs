@@ -18,9 +18,3 @@ public enum DownloaderStatus
     Error
 }
 
-public enum UriType
-{
-    Magnet,
-    Hoster,
-    DirectHttp
-}

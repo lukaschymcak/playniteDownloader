@@ -5,7 +5,6 @@ namespace PlayniteDownloaderPlugin.Download;
 public class RdAddMagnetResponse
 {
     [JsonProperty("id")] public string Id { get; set; } = string.Empty;
-    [JsonProperty("uri")] public string Uri { get; set; } = string.Empty;
 }
 
 public class RdTorrentInfo

@@ -4,6 +4,8 @@ namespace PlayniteDownloaderPlugin.Download;
 
 public static class DownloaderFactory
 {
+    private static readonly HttpClient _sharedRdHttp = new HttpClient();
+
     private static readonly HashSet<string> KnownHosters = new(StringComparer.OrdinalIgnoreCase)
     {
         "1fichier.com", "rapidgator.net", "nitroflare.com",
@@ -18,7 +20,7 @@ public static class DownloaderFactory
             string host = new Uri(uri).Host.TrimStart('w', '.');
             return KnownHosters.Any(h => host.EndsWith(h, StringComparison.OrdinalIgnoreCase));
         }
-        catch { return false; }
+        catch (UriFormatException) { return false; }
     }
 
     public static async Task<(List<string> urls, bool usedRealDebrid)> ResolveUrlsAsync(
@@ -34,7 +36,7 @@ public static class DownloaderFactory
                     "Real-Debrid is required for magnet links and hosted file links. " +
                     "Enable Real-Debrid in settings or choose a direct HTTP link.");
 
-            RealDebridClient rdClient = new RealDebridClient(config.RealDebridApiToken);
+            RealDebridClient rdClient = new RealDebridClient(config.RealDebridApiToken, _sharedRdHttp);
             List<string> urls = await rdClient.GetDownloadUrlAsync(uri, ct);
             return (urls, true);
         }

@@ -11,6 +11,9 @@ public class HttpDownloader : IDownloader
 
     private readonly HttpClient _http;
     private bool _isPaused;
+    private bool _isCancelled;
+    private bool _deleteFileOnCancel;
+    private CancellationTokenSource _cts = new CancellationTokenSource();
     private string _resolvedFileName = string.Empty;
     private string _currentUrl = string.Empty;
     private string _currentSavePath = string.Empty;
@@ -32,11 +35,14 @@ public class HttpDownloader : IDownloader
         _currentUrl = url;
         _currentSavePath = savePath;
         _isPaused = false;
+        _isCancelled = false;
+        _deleteFileOnCancel = false;
         _bytesDownloaded = 0;
         _speed = 0;
         _status = DownloaderStatus.Active;
 
-        await DownloadWithRetryAsync(url, savePath, ct);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        await DownloadWithRetryAsync(url, savePath, _cts.Token);
     }
 
     private async Task DownloadWithRetryAsync(string url, string savePath, CancellationToken ct)
@@ -49,9 +55,17 @@ public class HttpDownloader : IDownloader
                 await ExecuteDownloadAsync(url, savePath, ct);
                 return;
             }
-            catch (OperationCanceledException) when (_isPaused)
+            catch (OperationCanceledException) when (_isPaused && !_isCancelled)
             {
                 _status = DownloaderStatus.Paused;
+                FireProgress();
+                return;
+            }
+            catch (OperationCanceledException) when (_isCancelled)
+            {
+                if (_deleteFileOnCancel)
+                    DeleteCurrentFile();
+                _status = DownloaderStatus.Error;
                 FireProgress();
                 return;
             }
@@ -62,7 +76,8 @@ public class HttpDownloader : IDownloader
                 await Task.Delay((int)delayMs, ct);
             }
         }
-        _status = DownloaderStatus.Error;
+
+        _status = _isCancelled ? DownloaderStatus.Error : DownloaderStatus.Paused;
         FireProgress();
     }
 
@@ -158,6 +173,13 @@ public class HttpDownloader : IDownloader
         return string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c));
     }
 
+    private void DeleteCurrentFile()
+    {
+        if (string.IsNullOrEmpty(_currentSavePath) || string.IsNullOrEmpty(_resolvedFileName)) return;
+        string file = Path.Combine(_currentSavePath, _resolvedFileName);
+        if (File.Exists(file)) File.Delete(file);
+    }
+
     private void FireProgress() => ProgressChanged?.Invoke(new DownloadProgress
     {
         BytesDownloaded = _bytesDownloaded,
@@ -170,25 +192,27 @@ public class HttpDownloader : IDownloader
     public void Pause()
     {
         _isPaused = true;
+        _cts.Cancel();
         _status = DownloaderStatus.Paused;
     }
 
-    public void Resume()
+    public async Task ResumeAsync()
     {
         if (_status != DownloaderStatus.Paused) return;
-        _ = StartAsync(_currentUrl, _currentSavePath, CancellationToken.None);
+        await StartAsync(_currentUrl, _currentSavePath, CancellationToken.None);
     }
 
     public void Cancel(bool deleteFile = true)
     {
+        bool isActive = _status == DownloaderStatus.Active;
         _isPaused = true;
-        _status = DownloaderStatus.Paused;
-        if (deleteFile && !string.IsNullOrEmpty(_currentSavePath)
-            && !string.IsNullOrEmpty(_resolvedFileName))
-        {
-            string file = Path.Combine(_currentSavePath, _resolvedFileName);
-            if (File.Exists(file)) File.Delete(file);
-        }
+        _isCancelled = true;
+        _deleteFileOnCancel = deleteFile;
+        _cts.Cancel();
+        _status = DownloaderStatus.Error;
+
+        if (!isActive)
+            DeleteCurrentFile();
     }
 
     public DownloadProgress GetStatus() => new()

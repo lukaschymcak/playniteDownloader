@@ -18,7 +18,6 @@ public class RealDebridClient
         TimeSpan? pollTimeout = null)
     {
         _http = http ?? new HttpClient();
-        _http.BaseAddress = new Uri(BaseUrl);
         _http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", apiToken);
         _pollTimeout = pollTimeout ?? DefaultPollTimeout;

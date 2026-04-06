@@ -77,7 +77,7 @@ public class HttpDownloaderTests : IDisposable
 
         if (downloadedFile != null)
             Assert.False(File.Exists(downloadedFile), "Partial file should be deleted on cancel");
-        Assert.Equal(DownloaderStatus.Paused, downloader.GetStatus().Status);
+        Assert.Equal(DownloaderStatus.Error, downloader.GetStatus().Status);
     }
 }
 

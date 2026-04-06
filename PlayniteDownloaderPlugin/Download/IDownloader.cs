@@ -13,10 +13,10 @@ public class DownloadProgress
 
 public interface IDownloader
 {
-    event Action<DownloadProgress> ProgressChanged;
+    event Action<DownloadProgress>? ProgressChanged;
     Task StartAsync(string url, string savePath, CancellationToken ct);
     void Pause();
-    void Resume();
+    Task ResumeAsync();
     void Cancel(bool deleteFile = true);
     DownloadProgress GetStatus();
 }

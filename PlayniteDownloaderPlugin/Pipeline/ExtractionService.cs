@@ -9,31 +9,28 @@ public static class ExtractionService
     {
         if (!Directory.Exists(directory)) return null;
 
-        var files = Directory.GetFiles(directory);
+        string[] files = Directory.GetFiles(directory);
 
-        var part1 = files.FirstOrDefault(f =>
+        string? part1 = files.FirstOrDefault(f =>
             f.EndsWith(".part1.rar", StringComparison.OrdinalIgnoreCase));
         if (part1 != null) return part1;
 
-        var rarFile = files.FirstOrDefault(f =>
+        string? multiPartRar = files.FirstOrDefault(f =>
             f.EndsWith(".rar", StringComparison.OrdinalIgnoreCase) &&
-            !f.Contains(".part", StringComparison.OrdinalIgnoreCase));
-        if (rarFile != null)
-        {
-            var r00Sibling = Path.ChangeExtension(rarFile, ".r00");
-            if (File.Exists(r00Sibling)) return rarFile;
-        }
+            !f.Contains(".part", StringComparison.OrdinalIgnoreCase) &&
+            File.Exists(Path.ChangeExtension(f, ".r00")));
+        if (multiPartRar != null) return multiPartRar;
 
-        foreach (var ext in new[] { ".zip", ".rar", ".7z", ".tar", ".tar.gz" })
+        foreach (string ext in new[] { ".zip", ".rar", ".7z", ".tar", ".tar.gz" })
         {
-            var found = files.FirstOrDefault(f =>
+            string? found = files.FirstOrDefault(f =>
                 f.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
             if (found != null) return found;
         }
 
-        foreach (var sub in Directory.GetDirectories(directory))
+        foreach (string subDir in Directory.GetDirectories(directory))
         {
-            var result = FindArchiveEntryPoint(sub);
+            string? result = FindArchiveEntryPoint(subDir);
             if (result != null) return result;
         }
 
@@ -49,23 +46,24 @@ public static class ExtractionService
         if (!Directory.Exists(outputPath))
             Directory.CreateDirectory(outputPath);
 
-        using var archive = ArchiveFactory.Open(archivePath);
-        var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
-        var total = entries.Count;
-        var done = 0;
-
-        foreach (var entry in entries)
+        await Task.Run(() =>
         {
-            ct.ThrowIfCancellationRequested();
-            entry.WriteToDirectory(outputPath, new ExtractionOptions
-            {
-                ExtractFullPath = true,
-                Overwrite = true
-            });
-            done++;
-            onProgress(done / (float)total);
-        }
+            using IArchive archive = ArchiveFactory.Open(archivePath);
+            List<IArchiveEntry> entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+            int total = entries.Count;
+            int done = 0;
 
-        await Task.CompletedTask;
+            foreach (IArchiveEntry entry in entries)
+            {
+                ct.ThrowIfCancellationRequested();
+                entry.WriteToDirectory(outputPath, new ExtractionOptions
+                {
+                    ExtractFullPath = true,
+                    Overwrite = true
+                });
+                done++;
+                onProgress(done / (float)total);
+            }
+        }, ct);
     }
 }

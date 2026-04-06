@@ -13,13 +13,13 @@ public class DownloadQueue
 
     public static DownloadQueue LoadFrom(string stateDir)
     {
-        var queue = new DownloadQueue(stateDir);
-        var path = Path.Combine(stateDir, "queue.json");
+        DownloadQueue queue = new DownloadQueue(stateDir);
+        string path = Path.Combine(stateDir, "queue.json");
         if (!File.Exists(path)) return queue;
 
-        var json = File.ReadAllText(path);
-        var entries = JsonConvert.DeserializeObject<List<QueueEntry>>(json) ?? new List<QueueEntry>();
-        foreach (var entry in entries)
+        string json = File.ReadAllText(path);
+        List<QueueEntry> entries = JsonConvert.DeserializeObject<List<QueueEntry>>(json) ?? new List<QueueEntry>();
+        foreach (QueueEntry entry in entries)
         {
             if (entry.Status == DownloadStatus.Active || entry.Status == DownloadStatus.Extracting
                 || entry.Status == DownloadStatus.Paused)
@@ -35,18 +35,18 @@ public class DownloadQueue
         {
             entry.Status = DownloadStatus.Waiting;
             _entries.Add(entry);
+            Persist();
         }
-        Persist();
     }
 
     public void Cancel(string entryId)
     {
         lock (_lock)
         {
-            var entry = _entries.FirstOrDefault(e => e.Id == entryId);
+            QueueEntry? entry = _entries.FirstOrDefault(e => e.Id == entryId);
             if (entry != null) _entries.Remove(entry);
+            Persist();
         }
-        Persist();
     }
 
     public QueueEntry? Dequeue()
@@ -61,10 +61,10 @@ public class DownloadQueue
     {
         lock (_lock)
         {
-            var idx = _entries.FindIndex(e => e.Id == updated.Id);
+            int idx = _entries.FindIndex(e => e.Id == updated.Id);
             if (idx >= 0) _entries[idx] = updated;
+            Persist();
         }
-        Persist();
     }
 
     public IReadOnlyList<QueueEntry> GetAll()
@@ -72,12 +72,9 @@ public class DownloadQueue
         lock (_lock) return _entries.ToList();
     }
 
-    public void Persist()
+    private void Persist()
     {
-        var path = Path.Combine(_stateDir, "queue.json");
-        lock (_lock)
-        {
-            File.WriteAllText(path, JsonConvert.SerializeObject(_entries, Formatting.Indented));
-        }
+        string path = Path.Combine(_stateDir, "queue.json");
+        File.WriteAllText(path, JsonConvert.SerializeObject(_entries, Formatting.Indented));
     }
 }

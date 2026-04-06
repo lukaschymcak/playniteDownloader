@@ -25,8 +25,8 @@ public class DownloadQueueTests : IDisposable
     [Fact]
     public void Enqueue_AddsEntryWithWaitingStatus()
     {
-        var queue = new DownloadQueue(_stateDir);
-        var entry = MakeEntry();
+        DownloadQueue queue = new DownloadQueue(_stateDir);
+        QueueEntry entry = MakeEntry();
 
         queue.Enqueue(entry);
 
@@ -37,8 +37,8 @@ public class DownloadQueueTests : IDisposable
     [Fact]
     public void Cancel_RemovesEntryFromQueue()
     {
-        var queue = new DownloadQueue(_stateDir);
-        var entry = MakeEntry();
+        DownloadQueue queue = new DownloadQueue(_stateDir);
+        QueueEntry entry = MakeEntry();
         queue.Enqueue(entry);
 
         queue.Cancel(entry.Id);
@@ -47,28 +47,26 @@ public class DownloadQueueTests : IDisposable
     }
 
     [Fact]
-    public void Persist_SavesQueueToJson()
+    public void Enqueue_PersistsQueueToJson()
     {
-        var queue = new DownloadQueue(_stateDir);
+        DownloadQueue queue = new DownloadQueue(_stateDir);
         queue.Enqueue(MakeEntry("g1"));
         queue.Enqueue(MakeEntry("g2"));
 
-        queue.Persist();
-
-        var jsonPath = Path.Combine(_stateDir, "queue.json");
+        string jsonPath = Path.Combine(_stateDir, "queue.json");
         Assert.True(File.Exists(jsonPath));
-        var loaded = DownloadQueue.LoadFrom(_stateDir);
+        DownloadQueue loaded = DownloadQueue.LoadFrom(_stateDir);
         Assert.Equal(2, loaded.GetAll().Count);
     }
 
     [Fact]
     public void GetAll_ReturnsEntriesInAddOrder()
     {
-        var queue = new DownloadQueue(_stateDir);
+        DownloadQueue queue = new DownloadQueue(_stateDir);
         queue.Enqueue(MakeEntry("first"));
         queue.Enqueue(MakeEntry("second"));
 
-        var entries = queue.GetAll();
+        IReadOnlyList<QueueEntry> entries = queue.GetAll();
 
         Assert.Equal("first", entries[0].GameId);
         Assert.Equal("second", entries[1].GameId);
