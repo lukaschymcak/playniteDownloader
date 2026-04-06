@@ -6,18 +6,19 @@ using PlayniteDownloaderPlugin.Models;
 using PlayniteDownloaderPlugin.Pipeline;
 using PlayniteDownloaderPlugin.Source;
 
-namespace PlayniteDownloaderPlugin.UI;
-
-public partial class SearchDialog : Window
+namespace PlayniteDownloaderPlugin.UI
 {
-    public SearchDialog(Game game, SourceManager sourceManager,
-        DownloadQueue queue, UserConfig config, IPlayniteAPI playniteApi)
+    public partial class SearchDialog : Window
     {
-        InitializeComponent();
-        SearchDialogViewModel vm = new SearchDialogViewModel(
-            game.Id.ToString(), game.Name, sourceManager, queue, config, playniteApi);
-        vm.CloseDialog = Close;
-        DataContext = vm;
+        public SearchDialog(Game game, SourceManager sourceManager,
+            DownloadQueue queue, UserConfig config, IPlayniteAPI playniteApi)
+        {
+            InitializeComponent();
+            SearchDialogViewModel vm = new SearchDialogViewModel(
+                game.Id.ToString(), game.Name, sourceManager, queue, config, playniteApi);
+            vm.CloseDialog = Close;
+            DataContext = vm;
+        }
     }
 }
 #endif
