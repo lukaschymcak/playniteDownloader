@@ -1,0 +1,7 @@
+Id: lukas_BlankPlugin_Plugin
+Name: BlankPlugin
+Author: lukas
+Version: 1.0.0
+Module: BlankPlugin.dll
+Type: GenericPlugin
+Icon: icon.png

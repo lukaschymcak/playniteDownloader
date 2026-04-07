@@ -1,0 +1,93 @@
+{
+  "version": 3,
+  "targets": {
+    ".NETFramework,Version=v4.6.2": {
+      "PlayniteSDK/6.2.0": {
+        "type": "package",
+        "compile": {
+          "lib/net462/Playnite.SDK.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net462/Playnite.SDK.dll": {
+            "related": ".xml"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "PlayniteSDK/6.2.0": {
+      "sha512": "2vMy+HVt+IzR64jhJ4hBli2gOMstlqdZH/dLEK9wIm0lDNscBKZdfSRhPmivL2L3iX7GAG8Kf+6crDVCrA+tlQ==",
+      "type": "package",
+      "path": "playnitesdk/6.2.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "images/applogo.png",
+        "lib/net462/Playnite.SDK.dll",
+        "lib/net462/Playnite.SDK.xml",
+        "playnitesdk.6.2.0.nupkg.sha512",
+        "playnitesdk.nuspec"
+      ]
+    }
+  },
+  "projectFileDependencyGroups": {
+    ".NETFramework,Version=v4.6.2": [
+      "PlayniteSDK >= 6.2.0"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\Lukas\\.nuget\\packages\\": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\Lukas\\Documents\\PlaynitePluginProject\\BlankPlugin\\source\\BlankPlugin.csproj",
+      "projectName": "BlankPlugin",
+      "projectPath": "C:\\Users\\Lukas\\Documents\\PlaynitePluginProject\\BlankPlugin\\source\\BlankPlugin.csproj",
+      "packagesPath": "C:\\Users\\Lukas\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Lukas\\Documents\\PlaynitePluginProject\\BlankPlugin\\source\\obj\\",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "C:\\Users\\Lukas\\AppData\\Roaming\\NuGet\\NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net462"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net462": {
+          "targetAlias": "net462",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
+    },
+    "frameworks": {
+      "net462": {
+        "targetAlias": "net462",
+        "dependencies": {
+          "PlayniteSDK": {
+            "target": "Package",
+            "version": "[6.2.0, )"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.312\\RuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

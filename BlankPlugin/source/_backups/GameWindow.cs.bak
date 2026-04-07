@@ -1,0 +1,1182 @@
+using Playnite.SDK;
+using Playnite.SDK.Models;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Net.NetworkInformation;
+using System.Windows.Documents;
+using System.Windows.Threading;
+
+namespace BlankPlugin
+{
+    /// <summary>
+    /// Main plugin window. Shows game info, fetches manifest from Morrenus,
+    /// lets the user select depots and download them. All pipeline steps run
+    /// on a background thread; progress is streamed to the log box.
+    /// </summary>
+    public class GameWindow : UserControl
+    {
+        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly Guid SteamPluginGuid = new Guid("CB91DFC9-B977-43BF-8E70-55F46E410FAB");
+
+        // ── Services ─────────────────────────────────────────────────────────────
+        private readonly Game _game;
+        private readonly BlankPluginSettings _settings;
+        private readonly MorrenusClient _client;
+        private readonly DepotDownloaderRunner _downloader;
+
+        // ── State ────────────────────────────────────────────────────────────────
+        private GameData _gameData;
+        private Thread _workerThread;
+        private bool _downloading;
+        private string _resolvedAppId;
+        private string _currentDownloadDir;
+
+        // ── Network speed monitor ─────────────────────────────────────────────────
+        private DispatcherTimer _speedTimer;
+        private long _lastBytesReceived = -1;
+        private readonly Queue<long> _speedSamples = new Queue<long>();
+        private const int SpeedSampleWindow = 5; // seconds to average over
+
+        // ── ETA / elapsed tracking ───────────────────────────────────────────────
+        private DateTime _downloadStartTime;
+        private TextBlock _etaLabel;
+
+        // ── Post-download actions ──────────────────────────────────────────────
+        private Button _postSteamlessBtn;
+        private Button _postRegisterBtn;
+        private volatile bool _downloadCompleted;
+        private string _lastDestPath;
+
+        // ── UI: Status bar ────────────────────────────────────────────────────────
+        private TextBlock _statusLabel;
+        private TextBlock _apiStatusDot;
+        private TextBlock _usageLabel;
+
+        // ── UI: Game info ─────────────────────────────────────────────────────────
+        private TextBlock _gameInfoLabel;
+        //   state A — resolving
+        private TextBlock _resolveStatusLabel;
+        //   state B — confident match
+        private UIElement _foundPanel;
+        private TextBlock _foundLabel;
+        private Button _fetchBtn;
+        //   state C — search needed
+        private UIElement _searchPanel;
+        private TextBox _searchTextBox;
+        private Button _searchBtn;
+        private ComboBox _searchResultsCombo;
+        private Button _fetchBtnSearch;
+
+        // ── UI: Depots ────────────────────────────────────────────────────────────
+        private ScrollViewer _depotScroll;
+        private StackPanel _depotList;
+
+        // ── UI: Options ───────────────────────────────────────────────────────────
+        private CheckBox _steamlessCheck;
+        private CheckBox _registerSteamCheck;
+        private TextBox _downloadPathBox;
+
+        // ── UI: Progress / log ────────────────────────────────────────────────────
+        private Button _downloadBtn;
+        private Button _stopBtn;
+        private Button _deleteBtn;
+        private ProgressBar _progressBar;
+        private TextBlock _speedLabel;
+        private TextBox _logBox;
+
+        public GameWindow(Game game, BlankPluginSettings settings)
+        {
+            _game = game;
+            _settings = settings;
+            _client = new MorrenusClient(() => _settings.ApiKey);
+            _downloader = new DepotDownloaderRunner();
+
+            Content = BuildLayout();
+
+            _gameInfoLabel.Text = _game != null
+                ? _game.Name
+                : "No game selected — open via right-click on a game.";
+            _downloadPathBox.Text = _settings.DownloadPath;
+
+            ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
+            if (_game != null)
+                ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
+        }
+
+        // ── Layout ───────────────────────────────────────────────────────────────
+
+        private UIElement BuildLayout()
+        {
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                      // 0 status bar
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                      // 1 game info
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // 2 depots
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                      // 3 options
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                      // 4 progress
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(120) });                  // 5 log
+
+            var statusBar = BuildApiStatusBar();
+            Grid.SetRow(statusBar, 0);
+            root.Children.Add(statusBar);
+
+            var gameRow = BuildGameInfoRow();
+            Grid.SetRow(gameRow, 1);
+            root.Children.Add(gameRow);
+
+            var depotPanel = BuildDepotPanel();
+            Grid.SetRow(depotPanel, 2);
+            root.Children.Add(depotPanel);
+
+            var optionsPanel = BuildOptionsPanel();
+            Grid.SetRow(optionsPanel, 3);
+            root.Children.Add(optionsPanel);
+
+            var progressRow = BuildProgressRow();
+            Grid.SetRow(progressRow, 4);
+            root.Children.Add(progressRow);
+
+            var logPanel = BuildLogPanel();
+            Grid.SetRow(logPanel, 5);
+            root.Children.Add(logPanel);
+
+            // TextElement.Foreground is an inheritable attached property — setting it
+            // on the root propagates to all descendant TextBlocks that don't override it,
+            // preventing the default black-on-dark-background unreadability in Playnite.
+            var border = new Border { Padding = new Thickness(12), Child = root };
+            TextElement.SetForeground(border, Brushes.WhiteSmoke);
+            return border;
+        }
+
+        private UIElement BuildApiStatusBar()
+        {
+            var panel = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+            _apiStatusDot = new TextBlock
+            {
+                Text = "●",
+                Foreground = Brushes.Gray,
+                FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            _statusLabel = new TextBlock { Text = "Checking API...", VerticalAlignment = VerticalAlignment.Center };
+            _usageLabel = new TextBlock
+            {
+                Text = "",
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            DockPanel.SetDock(_usageLabel, Dock.Right);
+            panel.Children.Add(_usageLabel);
+            panel.Children.Add(_apiStatusDot);
+            panel.Children.Add(_statusLabel);
+            return panel;
+        }
+
+        private UIElement BuildGameInfoRow()
+        {
+            var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+            // Title
+            _gameInfoLabel = new TextBlock
+            {
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            panel.Children.Add(_gameInfoLabel);
+
+            // ── State A: resolving ────────────────────────────────────────────────
+            _resolveStatusLabel = new TextBlock
+            {
+                Text = "Identifying game...",
+                Foreground = Brushes.Gray,
+                FontStyle = FontStyles.Italic,
+                Visibility = _game != null ? Visibility.Visible : Visibility.Collapsed
+            };
+            panel.Children.Add(_resolveStatusLabel);
+
+            // ── State B: confident match ──────────────────────────────────────────
+            var foundRow = new DockPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 0) };
+
+            _fetchBtn = new Button
+            {
+                Content = "Fetch from Morrenus",
+                Padding = new Thickness(16, 8, 16, 8),
+                FontWeight = FontWeights.SemiBold,
+                IsEnabled = false
+            };
+            _fetchBtn.Click += OnFetchClicked;
+            DockPanel.SetDock(_fetchBtn, Dock.Right);
+
+            _foundLabel = new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Brushes.LimeGreen,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            foundRow.Children.Add(_fetchBtn);
+            foundRow.Children.Add(_foundLabel);
+            _foundPanel = foundRow;
+            panel.Children.Add(_foundPanel);
+
+            // ── State C: search needed ────────────────────────────────────────────
+            var searchStack = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 0) };
+
+            searchStack.Children.Add(new TextBlock
+            {
+                Text = "Could not auto-identify game. Search by name:",
+                Foreground = Brushes.Orange,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            var searchInputRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+            _searchBtn = new Button
+            {
+                Content = "Search",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            _searchBtn.Click += OnSearchClicked;
+            DockPanel.SetDock(_searchBtn, Dock.Right);
+            _searchTextBox = new TextBox
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Text = _game != null ? _game.Name : ""
+            };
+            searchInputRow.Children.Add(_searchBtn);
+            searchInputRow.Children.Add(_searchTextBox);
+            searchStack.Children.Add(searchInputRow);
+
+            _searchResultsCombo = new ComboBox
+            {
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            _searchResultsCombo.SelectionChanged += OnSearchResultSelected;
+            searchStack.Children.Add(_searchResultsCombo);
+
+            _fetchBtnSearch = new Button
+            {
+                Content = "Fetch from Morrenus",
+                Padding = new Thickness(16, 8, 16, 8),
+                FontWeight = FontWeights.SemiBold,
+                IsEnabled = false,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            _fetchBtnSearch.Click += OnFetchClicked;
+            searchStack.Children.Add(_fetchBtnSearch);
+
+            _searchPanel = searchStack;
+            panel.Children.Add(_searchPanel);
+
+            return panel;
+        }
+
+        private UIElement BuildDepotPanel()
+        {
+            _depotList = new StackPanel();
+            _depotList.Children.Add(new TextBlock
+            {
+                Text = "Click \"Fetch from Morrenus\" to load available depots.",
+                Foreground = Brushes.Gray,
+                Margin = new Thickness(4)
+            });
+
+            _depotScroll = new ScrollViewer
+            {
+                Content = _depotList,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            return _depotScroll;
+        }
+
+        private UIElement BuildOptionsPanel()
+        {
+            var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+            // Download path row
+            var pathRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+            var pathLabel = new TextBlock
+            {
+                Text = "Download to:",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                Width = 90
+            };
+            DockPanel.SetDock(pathLabel, Dock.Left);
+            _downloadPathBox = new TextBox();
+            pathRow.Children.Add(pathLabel);
+            pathRow.Children.Add(_downloadPathBox);
+            panel.Children.Add(pathRow);
+
+            // Steam account row — label | username box (fill) | button
+            var steamRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+
+            var steamLabel = new TextBlock
+            {
+                Text = "Steam account:",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                Width = 100,
+                ToolTip = "Optional — logging in removes CDN download throttling"
+            };
+            DockPanel.SetDock(steamLabel, Dock.Left);
+
+            var authBtn = new Button
+            {
+                Content = "Authenticate",
+                Padding = new Thickness(10, 3, 10, 3),
+                Margin = new Thickness(6, 0, 0, 0),
+                ToolTip = "Opens a console window to log in to Steam (required once for Steam Guard)"
+            };
+            DockPanel.SetDock(authBtn, Dock.Right);
+
+            var usernameBox = new TextBox
+            {
+                Text = _settings.SteamUsername,
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Leave blank to download without a Steam account (slower CDN)"
+            };
+            usernameBox.TextChanged += (s, e) =>
+            {
+                _settings.SteamUsername = usernameBox.Text.Trim();
+                _settings.EndEdit();
+            };
+
+            authBtn.Click += (s, e) => OnAuthenticateClicked(usernameBox.Text.Trim());
+
+            // Order matters for DockPanel: docked items first, fill item last
+            steamRow.Children.Add(steamLabel);
+            steamRow.Children.Add(authBtn);
+            steamRow.Children.Add(usernameBox);
+            panel.Children.Add(steamRow);
+
+            _steamlessCheck = new CheckBox
+            {
+                Content = "Strip DRM with Steamless (optional)",
+                Margin = new Thickness(0, 2, 0, 2)
+            };
+            _registerSteamCheck = new CheckBox
+            {
+                Content = "Register with Steam as installed (writes appmanifest .acf)",
+                Margin = new Thickness(0, 2, 0, 2)
+            };
+            panel.Children.Add(_steamlessCheck);
+            panel.Children.Add(_registerSteamCheck);
+            return panel;
+        }
+
+        private void OnAuthenticateClicked(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                AppendLog("Enter your Steam username in the field first.");
+                return;
+            }
+
+            // Prompt for password — we only need it once; the session is saved by DD.
+            var darkBg  = new SolidColorBrush(Color.FromRgb(40, 40, 40));
+            var lightFg = Brushes.WhiteSmoke;
+
+            var pwdWindow = new Window
+            {
+                Title = "Steam Password",
+                Width = 360,
+                Height = 140,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                ResizeMode = ResizeMode.NoResize,
+                Background = darkBg
+            };
+
+            var stack = new StackPanel { Margin = new Thickness(16) };
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Password for " + username + ":",
+                Foreground = lightFg,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            var pwdBox = new PasswordBox
+            {
+                Margin = new Thickness(0, 0, 0, 10),
+                Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
+                Foreground = lightFg,
+                CaretBrush = lightFg
+            };
+
+            var okBtn = new Button
+            {
+                Content = "Open Auth Window",
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Padding = new Thickness(12, 4, 12, 4)
+            };
+            okBtn.Click += (s, e) => pwdWindow.DialogResult = true;
+            stack.Children.Add(pwdBox);
+            stack.Children.Add(okBtn);
+            pwdWindow.Content = stack;
+            pwdBox.Focus();
+
+            if (pwdWindow.ShowDialog() != true) return;
+
+            var password = pwdBox.Password;
+            if (string.IsNullOrEmpty(password)) return;
+
+            AppendLog("--- Steam Authentication ---");
+            AppendLog("A console window will open. Complete any Steam Guard prompt there, then close it.");
+
+            ThreadPool.QueueUserWorkItem(_ =>
+                _downloader.Authenticate(username, password, line => AppendLog(line)));
+        }
+
+        private UIElement BuildProgressRow()
+        {
+            var container = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
+
+            // Speed line — hidden until a download is running
+            _speedLabel = new TextBlock
+            {
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Margin = new Thickness(0, 0, 0, 2),
+                Visibility = Visibility.Collapsed
+            };
+            container.Children.Add(_speedLabel);
+
+            // ETA line — hidden until a download is running
+            _etaLabel = new TextBlock
+            {
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Margin = new Thickness(0, 0, 0, 2),
+                Visibility = Visibility.Collapsed
+            };
+            container.Children.Add(_etaLabel);
+
+            // Progress bar
+            _progressBar = new ProgressBar
+            {
+                Height = 18,
+                Minimum = 0,
+                Maximum = 100,
+                Value = 0,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            container.Children.Add(_progressBar);
+
+            // Action buttons
+            var buttonRow = new DockPanel();
+
+            _downloadBtn = new Button
+            {
+                Content = "Download Selected Depots",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 0, 6, 0),
+                IsEnabled = false
+            };
+            _downloadBtn.Click += OnDownloadClicked;
+            DockPanel.SetDock(_downloadBtn, Dock.Left);
+
+            _stopBtn = new Button
+            {
+                Content = "Stop",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 0, 6, 0),
+                IsEnabled = false
+            };
+            _stopBtn.Click += OnStopClicked;
+            DockPanel.SetDock(_stopBtn, Dock.Left);
+
+            _deleteBtn = new Button
+            {
+                Content = "Delete Folder",
+                Padding = new Thickness(12, 6, 12, 6),
+                IsEnabled = false
+            };
+            _deleteBtn.Click += OnDeleteClicked;
+            DockPanel.SetDock(_deleteBtn, Dock.Left);
+
+            buttonRow.Children.Add(_downloadBtn);
+            buttonRow.Children.Add(_stopBtn);
+            buttonRow.Children.Add(_deleteBtn);
+            container.Children.Add(buttonRow);
+
+            // Post-download action buttons — hidden until download completes
+            var postRow = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+
+            _postSteamlessBtn = new Button
+            {
+                Content = "Run Steamless",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 0, 6, 0),
+                Visibility = Visibility.Collapsed,
+                ToolTip = "Strip Steam DRM from downloaded executables"
+            };
+            _postSteamlessBtn.Click += OnPostSteamlessClicked;
+            DockPanel.SetDock(_postSteamlessBtn, Dock.Left);
+
+            _postRegisterBtn = new Button
+            {
+                Content = "Register with Steam",
+                Padding = new Thickness(12, 6, 12, 6),
+                Visibility = Visibility.Collapsed,
+                ToolTip = "Write Steam appmanifest .acf so Steam recognizes the game"
+            };
+            _postRegisterBtn.Click += OnPostRegisterClicked;
+            DockPanel.SetDock(_postRegisterBtn, Dock.Left);
+
+            postRow.Children.Add(_postSteamlessBtn);
+            postRow.Children.Add(_postRegisterBtn);
+            container.Children.Add(postRow);
+
+            return container;
+        }
+
+        private UIElement BuildLogPanel()
+        {
+            _logBox = new TextBox
+            {
+                IsReadOnly = true,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.NoWrap
+            };
+            return new Border
+            {
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1),
+                Child = _logBox
+            };
+        }
+
+        // ── API status ───────────────────────────────────────────────────────────
+
+        private void RefreshApiStatus()
+        {
+            if (string.IsNullOrWhiteSpace(_settings.ApiKey))
+            {
+                Dispatch(() =>
+                {
+                    _apiStatusDot.Foreground = Brushes.Orange;
+                    _statusLabel.Text = "No API key configured — open Settings.";
+                });
+                return;
+            }
+
+            var healthy = _client.CheckHealth();
+            var stats = healthy ? _client.GetUserStats() : null;
+
+            Dispatch(() =>
+            {
+                if (healthy)
+                {
+                    _apiStatusDot.Foreground = Brushes.LimeGreen;
+                    _statusLabel.Text = "Morrenus online";
+                    if (stats != null && string.IsNullOrEmpty(stats.Error))
+                        _usageLabel.Text = "User: " + stats.Username + "  |  Daily: " + stats.DailyUsage + "/" + stats.DailyLimit;
+                }
+                else
+                {
+                    _apiStatusDot.Foreground = Brushes.Red;
+                    _statusLabel.Text = "Morrenus offline";
+                }
+            });
+        }
+
+        // ── AppID resolution ─────────────────────────────────────────────────────
+
+        private void ResolveAppId()
+        {
+            // Step 1a: Steam library plugin — GameId IS the AppID
+            if (_game.PluginId == SteamPluginGuid)
+            {
+                SetConfident(_game.GameId, "✓  " + _game.Name + "  (" + _game.GameId + ")");
+                return;
+            }
+
+            // Step 1b: Steam store URL in game links
+            var steamId = TryExtractSteamIdFromLinks();
+            if (steamId != null)
+            {
+                SetConfident(steamId, "✓  " + _game.Name + "  (" + steamId + ")");
+                return;
+            }
+
+            // Step 2: search by name
+            try
+            {
+                var results = _client.SearchGames(_game.Name);
+                if (results.Count == 1)
+                    SetConfident(results[0].GameId, "✓  " + results[0].GameName + "  (" + results[0].GameId + ")");
+                else
+                    Dispatch(() => ShowSearchPanel(results));
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("ResolveAppId search failed: " + ex.Message);
+                Dispatch(() => ShowSearchPanel(new List<MorrenusSearchResult>()));
+            }
+        }
+
+        private void SetConfident(string appId, string displayText)
+        {
+            _resolvedAppId = appId;
+            Dispatch(() =>
+            {
+                _resolveStatusLabel.Visibility = Visibility.Collapsed;
+                _foundLabel.Text = displayText;
+                _foundPanel.Visibility = Visibility.Visible;
+                _fetchBtn.IsEnabled = true;
+            });
+        }
+
+        private void ShowSearchPanel(List<MorrenusSearchResult> initialResults)
+        {
+            _resolveStatusLabel.Visibility = Visibility.Collapsed;
+            _searchPanel.Visibility = Visibility.Visible;
+
+            if (initialResults.Count > 0)
+            {
+                foreach (var r in initialResults)
+                    _searchResultsCombo.Items.Add(r);
+                _searchResultsCombo.Visibility = Visibility.Visible;
+                _searchResultsCombo.SelectedIndex = 0; // fires SelectionChanged → sets _resolvedAppId
+            }
+        }
+
+        private string TryExtractSteamIdFromLinks()
+        {
+            if (_game.Links == null) return null;
+            foreach (var link in _game.Links)
+            {
+                if (link?.Url == null) continue;
+                var m = Regex.Match(link.Url, @"store\.steampowered\.com/app/(\d+)");
+                if (m.Success) return m.Groups[1].Value;
+            }
+            return null;
+        }
+
+        private void OnSearchClicked(object sender, RoutedEventArgs e)
+        {
+            var query = _searchTextBox.Text.Trim();
+            if (string.IsNullOrEmpty(query)) return;
+
+            _searchBtn.IsEnabled = false;
+            _searchResultsCombo.Items.Clear();
+            _searchResultsCombo.Visibility = Visibility.Collapsed;
+            _fetchBtnSearch.IsEnabled = false;
+            _resolvedAppId = null;
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var results = _client.SearchGames(query);
+                    Dispatch(() =>
+                    {
+                        _searchBtn.IsEnabled = true;
+                        if (results.Count == 0)
+                        {
+                            AppendLog("No results for \"" + query + "\".");
+                            return;
+                        }
+                        foreach (var r in results)
+                            _searchResultsCombo.Items.Add(r);
+                        _searchResultsCombo.Visibility = Visibility.Visible;
+                        _searchResultsCombo.SelectedIndex = 0;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Dispatch(() =>
+                    {
+                        _searchBtn.IsEnabled = true;
+                        AppendLog("Search failed: " + ex.Message);
+                    });
+                }
+            });
+        }
+
+        private void OnSearchResultSelected(object sender, SelectionChangedEventArgs e)
+        {
+            if (_searchResultsCombo.SelectedItem is MorrenusSearchResult result)
+            {
+                _resolvedAppId = result.GameId;
+                _fetchBtnSearch.IsEnabled = !_downloading;
+            }
+        }
+
+        // ── Fetch ────────────────────────────────────────────────────────────────
+
+        private void OnFetchClicked(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_resolvedAppId))
+            {
+                AppendLog("ERROR: No AppID resolved. Search for the game first.");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_settings.ApiKey))
+            {
+                AppendLog("ERROR: No API key configured. Open Settings first.");
+                return;
+            }
+
+            var appId = _resolvedAppId;
+            SetBusy(true, "Fetching manifest...");
+            _depotList.Children.Clear();
+
+            _workerThread = new Thread(() =>
+            {
+                try
+                {
+                    AppendLog("Downloading manifest for AppID " + appId + "...");
+                    var zipPath = _client.DownloadManifest(appId,
+                        new Progress<int>(pct => Dispatch(() => _progressBar.Value = pct)));
+
+                    AppendLog("Processing ZIP...");
+                    var data = new ZipProcessor().Process(zipPath);
+                    _gameData = data;
+
+                    Dispatch(() => PopulateDepots(data));
+                    AppendLog("Ready. " + data.Depots.Count + " depots available.");
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("ERROR: " + ex.Message);
+                    logger.Error("Fetch failed: " + ex);
+                }
+                finally
+                {
+                    Dispatch(() => SetBusy(false, ""));
+                }
+            });
+            _workerThread.IsBackground = true;
+            _workerThread.Start();
+        }
+
+        private void PopulateDepots(GameData data)
+        {
+            _depotList.Children.Clear();
+
+            if (data.Depots.Count == 0)
+            {
+                _depotList.Children.Add(new TextBlock
+                {
+                    Text = "No downloadable depots found.",
+                    Foreground = Brushes.Gray,
+                    Margin = new Thickness(4)
+                });
+                return;
+            }
+
+            var sorted = data.Depots
+                .OrderBy(kv => OsSortKey(kv.Value.OsList))
+                .ThenBy(kv => kv.Value.Description)
+                .ToList();
+
+            foreach (var kv in sorted)
+            {
+                var depotId = kv.Key;
+                var info = kv.Value;
+                var cb = new CheckBox
+                {
+                    Tag = depotId,
+                    Margin = new Thickness(4, 2, 4, 2),
+                    IsChecked = info.OsList == null || info.OsList.Equals("windows", StringComparison.OrdinalIgnoreCase)
+                };
+                var sizeText = info.Size > 0 ? "  [" + FormatSize(info.Size) + "]" : "";
+                cb.Content = string.Format("[{0}] {1}{2}  (id: {3})",
+                    (info.OsList ?? "?").ToUpper(), info.Description, sizeText, depotId);
+                _depotList.Children.Add(cb);
+            }
+
+            _downloadBtn.IsEnabled = true;
+        }
+
+        // ── Download ─────────────────────────────────────────────────────────────
+
+        private void OnDownloadClicked(object sender, RoutedEventArgs e)
+        {
+            if (_gameData == null || _downloading) return;
+
+            var destPath = _downloadPathBox.Text.Trim();
+            if (string.IsNullOrEmpty(destPath) || !Directory.Exists(destPath))
+            {
+                AppendLog("ERROR: Download path is empty or does not exist.");
+                return;
+            }
+
+            if (!_downloader.IsReady)
+            {
+                AppendLog("ERROR: dotnet or DepotDownloader.dll not found. " +
+                          "Install .NET 9 runtime and ensure it is on PATH.");
+                return;
+            }
+
+            var selected = new List<string>();
+            foreach (var child in _depotList.Children)
+            {
+                if (child is CheckBox cb && cb.IsChecked == true && cb.Tag is string id)
+                    selected.Add(id);
+            }
+
+            if (selected.Count == 0)
+            {
+                AppendLog("No depots selected.");
+                return;
+            }
+
+            _gameData.SelectedDepots = selected;
+            _currentDownloadDir = _downloader.ComputeDownloadDir(_gameData, destPath);
+
+            var runSteamless  = _steamlessCheck.IsChecked == true;
+            var registerSteam = _registerSteamCheck.IsChecked == true;
+
+            _downloadCompleted = false;
+            _lastDestPath = destPath;
+            _postSteamlessBtn.Visibility = Visibility.Collapsed;
+            _postRegisterBtn.Visibility = Visibility.Collapsed;
+
+            SetBusy(true, "Allocating disk space — this may take a while for large games...");
+            _progressBar.IsIndeterminate = true;
+            _progressBar.Value = 0;
+            _speedLabel.Text = "";
+            _speedLabel.Visibility = Visibility.Visible;
+            _deleteBtn.IsEnabled = true;
+            _downloadStartTime = DateTime.UtcNow;
+            _etaLabel.Visibility = Visibility.Visible;
+            StartSpeedMonitor();
+
+            _workerThread = new Thread(() =>
+            {
+                try
+                {
+                    var username = _settings.SteamUsername;
+                    if (!string.IsNullOrWhiteSpace(username))
+                        AppendLog("Using Steam account: " + username);
+
+                    _downloader.Run(_gameData, destPath,
+                        onLog:         line   => AppendLog(line),
+                        onProgress:    pct    => Dispatch(() =>
+                        {
+                            if (_progressBar.IsIndeterminate)
+                            {
+                                _progressBar.IsIndeterminate = false;
+                                _statusLabel.Text = "Downloading...";
+                            }
+                            _progressBar.Value = pct;
+                        }),
+                        maxDownloads:  _settings.MaxDownloads,
+                        onStatus:      status => Dispatch(() => _statusLabel.Text = status),
+                        steamUsername: string.IsNullOrWhiteSpace(username) ? null : username);
+
+                    if (runSteamless)
+                    {
+                        AppendLog("--- Running Steamless ---");
+                        var installDir = Path.Combine(destPath, "steamapps", "common",
+                            string.IsNullOrEmpty(_gameData.InstallDir) ? _gameData.GameName : _gameData.InstallDir);
+                        new SteamlessRunner(_downloader.DotnetPath).Run(installDir, line => AppendLog(line));
+                    }
+
+                    if (registerSteam)
+                    {
+                        AppendLog("--- Writing Steam ACF ---");
+                        AcfWriter.Write(_gameData, destPath, line => AppendLog(line));
+                    }
+
+                    AppendLog("=== All done! ===");
+                    var elapsed = DateTime.UtcNow - _downloadStartTime;
+                    AppendLog("Download completed in " + FormatElapsedTime(elapsed));
+                    _downloadCompleted = true;
+                    Dispatch(() => {
+                        _progressBar.Value = 100; _speedLabel.Text = ""; _speedLabel.Visibility = Visibility.Collapsed; _etaLabel.Text = ""; _etaLabel.Visibility = Visibility.Collapsed;
+                        _postSteamlessBtn.Visibility = Visibility.Visible;
+                        _postRegisterBtn.Visibility = Visibility.Visible;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("ERROR: " + ex.Message);
+                    logger.Error("Download failed: " + ex);
+                }
+                finally
+                {
+                    Dispatch(() => SetBusy(false, ""));
+                }
+            });
+            _workerThread.IsBackground = true;
+            _workerThread.Start();
+        }
+
+        private void OnStopClicked(object sender, RoutedEventArgs e)
+        {
+            _downloader.Stop();
+            AppendLog("Stop requested.");
+        }
+
+        private void OnDeleteClicked(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_currentDownloadDir) || !Directory.Exists(_currentDownloadDir))
+            {
+                AppendLog("No download folder found to delete.");
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "Delete the following folder?\n\n" + _currentDownloadDir,
+                "Confirm Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            if (_downloading)
+            {
+                _downloader.Stop();
+                _workerThread?.Join(3000);
+            }
+
+            try
+            {
+                Directory.Delete(_currentDownloadDir, true);
+                AppendLog("Deleted: " + _currentDownloadDir);
+                _currentDownloadDir = null;
+                Dispatch(() =>
+                {
+                    _deleteBtn.IsEnabled = false;
+                    _progressBar.Value = 0;
+                    _speedLabel.Text = "";
+                    _speedLabel.Visibility = Visibility.Collapsed;
+                    _etaLabel.Text = "";
+                    _etaLabel.Visibility = Visibility.Collapsed;
+                    _postSteamlessBtn.Visibility = Visibility.Collapsed;
+                    _postRegisterBtn.Visibility = Visibility.Collapsed;
+                });
+            }
+            catch (Exception ex)
+            {
+                AppendLog("ERROR deleting folder: " + ex.Message);
+                logger.Error("Delete failed: " + ex);
+            }
+        }
+
+        private void OnPostSteamlessClicked(object sender, RoutedEventArgs e)
+        {
+            if (_gameData == null || string.IsNullOrEmpty(_lastDestPath)) return;
+            var installDir = Path.Combine(_lastDestPath, "steamapps", "common",
+                string.IsNullOrEmpty(_gameData.InstallDir) ? _gameData.GameName : _gameData.InstallDir);
+            _postSteamlessBtn.IsEnabled = false;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    AppendLog("--- Running Steamless ---");
+                    new SteamlessRunner(_downloader.DotnetPath).Run(installDir, line => AppendLog(line));
+                    AppendLog("Steamless finished.");
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("ERROR running Steamless: " + ex.Message);
+                }
+                finally
+                {
+                    Dispatch(() => _postSteamlessBtn.IsEnabled = true);
+                }
+            });
+        }
+
+        private void OnPostRegisterClicked(object sender, RoutedEventArgs e)
+        {
+            if (_gameData == null || string.IsNullOrEmpty(_lastDestPath)) return;
+            _postRegisterBtn.IsEnabled = false;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    AppendLog("--- Writing Steam ACF ---");
+                    AcfWriter.Write(_gameData, _lastDestPath, line => AppendLog(line));
+                    AppendLog("ACF manifest written.");
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("ERROR writing ACF: " + ex.Message);
+                }
+                finally
+                {
+                    Dispatch(() => _postRegisterBtn.IsEnabled = true);
+                }
+            });
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────────
+
+        private void SetBusy(bool busy, string status)
+        {
+            _downloading = busy;
+            if (!busy) { _progressBar.IsIndeterminate = false; StopSpeedMonitor(); }
+            var hasId = !string.IsNullOrWhiteSpace(_resolvedAppId);
+            _fetchBtn.IsEnabled       = !busy && hasId;
+            _fetchBtnSearch.IsEnabled = !busy && hasId;
+            _downloadBtn.IsEnabled    = !busy && _gameData != null && _gameData.Depots.Count > 0;
+            _stopBtn.IsEnabled        = busy;
+            if (!string.IsNullOrEmpty(status))
+                _statusLabel.Text = status;
+        }
+
+        // ── Network speed monitor ─────────────────────────────────────────────────
+
+        private void StartSpeedMonitor()
+        {
+            _lastBytesReceived = GetTotalBytesReceived();
+            _speedTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _speedTimer.Tick += OnSpeedTick;
+            _speedTimer.Start();
+        }
+
+        private void StopSpeedMonitor()
+        {
+            _speedTimer?.Stop();
+            _speedTimer = null;
+            _lastBytesReceived = -1;
+            _speedSamples.Clear();
+            _speedLabel.Text = "";
+            _speedLabel.Visibility = Visibility.Collapsed;
+            _etaLabel.Text = "";
+            _etaLabel.Visibility = Visibility.Collapsed;
+        }
+
+        private void OnSpeedTick(object sender, EventArgs e)
+        {
+            var current = GetTotalBytesReceived();
+            if (_lastBytesReceived >= 0)
+            {
+                _speedSamples.Enqueue(current - _lastBytesReceived);
+                while (_speedSamples.Count > SpeedSampleWindow)
+                    _speedSamples.Dequeue();
+
+                long sum = 0;
+                foreach (var s in _speedSamples) sum += s;
+                _speedLabel.Text = FormatSpeed(sum / _speedSamples.Count);
+
+                // ETA based on progress percentage and elapsed time
+                if (_progressBar.Value > 1 && !_progressBar.IsIndeterminate)
+                {
+                    var elapsed = DateTime.UtcNow - _downloadStartTime;
+                    var progress = _progressBar.Value;
+                    var remaining = TimeSpan.FromTicks((long)(elapsed.Ticks * (100 - progress) / progress));
+                    _etaLabel.Text = FormatTimeRemaining(remaining);
+                }
+            }
+            _lastBytesReceived = current;
+        }
+
+        private static long GetTotalBytesReceived()
+        {
+            long total = 0;
+            try
+            {
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus == OperationalStatus.Up &&
+                        ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                        total += ni.GetIPv4Statistics().BytesReceived;
+                }
+            }
+            catch { }
+            return total;
+        }
+
+        private static string FormatSpeed(long bytesPerSecond)
+        {
+            if (bytesPerSecond < 0) return "";
+            if (bytesPerSecond >= 1_048_576)
+                return (bytesPerSecond / 1_048_576.0).ToString("F1") + " MB/s";
+            if (bytesPerSecond >= 1024)
+                return (bytesPerSecond / 1024.0).ToString("F1") + " KB/s";
+            return bytesPerSecond + " B/s";
+        }
+
+        private static string FormatTimeRemaining(TimeSpan remaining)
+        {
+            if (remaining.TotalSeconds < 1) return "ETA: --";
+            if (remaining.TotalHours >= 1)
+                return string.Format("ETA: {0}h {1}m", (int)remaining.TotalHours, remaining.Minutes);
+            if (remaining.TotalMinutes >= 1)
+                return string.Format("ETA: {0}m {1}s", (int)remaining.TotalMinutes, remaining.Seconds);
+            return string.Format("ETA: {0}s", (int)remaining.TotalSeconds);
+        }
+
+        private static string FormatElapsedTime(TimeSpan elapsed)
+        {
+            if (elapsed.TotalHours >= 1)
+                return string.Format("{0}h {1}m {2}s", (int)elapsed.TotalHours, elapsed.Minutes, elapsed.Seconds);
+            if (elapsed.TotalMinutes >= 1)
+                return string.Format("{0}m {1}s", (int)elapsed.TotalMinutes, elapsed.Seconds);
+            return string.Format("{0}s", (int)elapsed.TotalSeconds);
+        }
+
+        private void AppendLog(string line)
+        {
+            if (Dispatcher.CheckAccess())
+            {
+                _logBox.AppendText(line + Environment.NewLine);
+                _logBox.ScrollToEnd();
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _logBox.AppendText(line + Environment.NewLine);
+                    _logBox.ScrollToEnd();
+                }));
+            }
+        }
+
+        private void Dispatch(Action action)
+        {
+            if (Dispatcher.CheckAccess())
+                action();
+            else
+                Dispatcher.Invoke(action);
+        }
+
+        private static int OsSortKey(string os)
+        {
+            if (os == null) return 3;
+            switch (os.ToLowerInvariant())
+            {
+                case "windows": return 1;
+                case "linux":   return 2;
+                default:        return 3;
+            }
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            if (bytes >= 1_073_741_824L)
+                return (bytes / 1_073_741_824.0).ToString("F1") + " GB";
+            if (bytes >= 1_048_576)
+                return (bytes / 1_048_576.0).ToString("F1") + " MB";
+            return (bytes / 1024.0).ToString("F1") + " KB";
+        }
+    }
+}

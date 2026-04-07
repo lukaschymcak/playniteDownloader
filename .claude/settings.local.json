@@ -37,7 +37,9 @@
       "Bash(ilspycmd -l \"C:/Users/Lukas/AppData/Roaming/Playnite/Extensions/playnite-successstory-plugin/SuccessStory.dll\")",
       "Bash(ilspycmd \"C:/Users/Lukas/AppData/Roaming/Playnite/Extensions/playnite-successstory-plugin/SuccessStory.dll\")",
       "Bash(tar -tf \"C:/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")",
-      "Bash(tar -tf \"/c/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")"
+      "Bash(tar -tf \"/c/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")",
+      "Bash(git remote:*)",
+      "Bash(git push:*)"
     ]
   }
 }
