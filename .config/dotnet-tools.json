@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "ilspycmd": {
+      "version": "8.2.0.7535",
+      "commands": [
+        "ilspycmd"
+      ],
+      "rollForward": false
+    }
+  }
+}

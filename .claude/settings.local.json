@@ -1,0 +1,43 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_AUTH_TOKEN": "b10f08601d3b4b59b761b281408055b3.ndjOp6mvuDVPfoCO",
+    "API_TIMEOUT_MS": "3000000",
+    "ANTHROPIC_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "glm-5.1",
+    "ANTHROPIC_MAX_TOKENS": "131072",
+    "ENABLE_THINKING": "true",
+    "ENABLE_STREAMING": "true",
+    "ANTHROPIC_TEMPERATURE": "0.1",
+    "ANTHROPIC_TOP_P": "0.1",
+    "ANTHROPIC_STREAM": "true",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_ANALYTICS": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "true"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf bin obj)",
+      "Bash(dotnet build:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "WebSearch",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(curl -s -L \"https://raw.githubusercontent.com/JosefNemec/Playnite/master/source/Playnite.DesktopApp/Themes/Desktop/Default/CustomControls/SidebarItem.xaml\")",
+      "Bash(curl -s -L \"https://api.github.com/search/code?q=IconObject+repo:JosefNemec/Playnite\" -H \"Accept: application/vnd.github.v3+json\")",
+      "Bash(curl -s -L \"https://raw.githubusercontent.com/JosefNemec/Playnite/refs/heads/master/source/Playnite.DesktopApp/ViewModels/SidebarWrapperItem.cs\")",
+      "Bash(curl -s -L \"https://api.github.com/repos/JosefNemec/Playnite/git/trees/master?recursive=1\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(item['path']\\) for item in data.get\\('tree',[]\\) if 'Sidebar' in item['path']]\")",
+      "Bash(python3 -c \" import subprocess result = subprocess.run\\(['ildasm', '/text', '/nobar', 'SuccessStory.dll'], capture_output=True, text=True\\) lines = result.stdout.split\\('\\\\n'\\) for i, line in enumerate\\(lines\\): if 'Sidebar' in line or 'GetSidebar' in line: start = max\\(0, i-2\\) end = min\\(len\\(lines\\), i+5\\) for j in range\\(start, end\\): print\\(f'{j}: {lines[j]}'\\) print\\('---'\\) \")",
+      "Bash(dotnet tool:*)",
+      "Bash(ilspycmd -l \"C:/Users/Lukas/AppData/Roaming/Playnite/Extensions/playnite-successstory-plugin/SuccessStory.dll\")",
+      "Bash(ilspycmd \"C:/Users/Lukas/AppData/Roaming/Playnite/Extensions/playnite-successstory-plugin/SuccessStory.dll\")",
+      "Bash(tar -tf \"C:/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")",
+      "Bash(tar -tf \"/c/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")"
+    ]
+  }
+}
