@@ -39,7 +39,14 @@
       "Bash(tar -tf \"C:/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")",
       "Bash(tar -tf \"/c/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")",
       "Bash(git remote:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(./ManifestChecker/bin/Release/net9.0/ManifestChecker.exe 1135690:*)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(cmd.exe /c \"dir /s /b \\\\\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\MSBuild.exe\\\\\"\")",
+      "Bash(cmd.exe /c \"dir /s /b \\\\\"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\MSBuild.exe\\\\\"\")",
+      "Bash(cmd.exe /c \"where /r C:\\\\Program^ Files MSBuild.exe\")"
     ]
   }
 }

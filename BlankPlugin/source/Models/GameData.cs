@@ -12,8 +12,6 @@ namespace BlankPlugin
         public string GameName { get; set; }
         public string InstallDir { get; set; }
         public string BuildId { get; set; }
-        public string HeaderUrl { get; set; }
-        public string AppToken { get; set; }
 
         /// <summary>depot id → DepotInfo (key, desc, oslist, size)</summary>
         public Dictionary<string, DepotInfo> Depots { get; set; } = new Dictionary<string, DepotInfo>();
@@ -33,7 +31,6 @@ namespace BlankPlugin
         public string Key { get; set; }
         public string Description { get; set; }
         public string OsList { get; set; }
-        public string Language { get; set; }
         public long Size { get; set; }
     }
 }

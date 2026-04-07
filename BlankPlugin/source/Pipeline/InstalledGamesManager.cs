@@ -89,6 +89,12 @@ namespace BlankPlugin
         }
 
         /// <summary>
+        /// Re-reads the JSON file from disk, replacing the in-memory cache.
+        /// Call before any operation that needs the freshest data (e.g. update checks).
+        /// </summary>
+        public void Reload() => Load();
+
+        /// <summary>
         /// Returns all installed games.
         /// </summary>
         public List<InstalledGame> GetAll()

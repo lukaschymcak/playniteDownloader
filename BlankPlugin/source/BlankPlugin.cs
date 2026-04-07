@@ -21,6 +21,7 @@ namespace BlankPlugin
         internal BlankPluginSettings Settings { get; private set; }
         internal InstalledGamesManager InstalledGames { get; private set; }
 
+        private UpdateChecker _updateChecker;
         private Game _lastSelectedGame;
 
         public BlankPlugin(IPlayniteAPI api) : base(api)
@@ -38,11 +39,25 @@ namespace BlankPlugin
         {
             logger.Info("BlankPlugin started.");
             InstalledGames = new InstalledGamesManager(GetPluginUserDataPath());
+
+            // Initialize update checker
+            var runner = new ManifestCheckerRunner();
+            _updateChecker = new UpdateChecker(runner, InstalledGames, PlayniteApi);
+
+            // Run update check on startup (fire and forget — does not block Playnite)
+            _ = _updateChecker.RunAsync();
         }
 
         public override void OnApplicationStopped(OnApplicationStoppedEventArgs args)
         {
             logger.Info("BlankPlugin stopped.");
+            _updateChecker?.Cancel();
+        }
+
+        public override void OnLibraryUpdated(OnLibraryUpdatedEventArgs args)
+        {
+            logger.Info("BlankPlugin: library updated, triggering update check.");
+            _ = _updateChecker?.RunAsync();
         }
 
         public override IEnumerable<SidebarItem> GetSidebarItems()
@@ -169,6 +184,29 @@ namespace BlankPlugin
                                 MessageBox.Show("Steamless error: " + ex.Message, "Error",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
                             }
+                        }
+                    };
+
+                    yield return new GameMenuItem
+                    {
+                        MenuSection = "BlankPlugin",
+                        Description = "Update Game",
+                        Action = menuArgs =>
+                        {
+                            var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
+                            {
+                                ShowMinimizeButton = false,
+                                ShowMaximizeButton = false,
+                                ShowCloseButton = true
+                            });
+                            window.Title = "Update Game — " + installed.GameName;
+                            window.Width = 480;
+                            window.Height = 300;
+                            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                            window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
+                            window.Content = new UpdateGameDialog(
+                                installed, Settings, InstalledGames, PlayniteApi, _updateChecker);
+                            window.ShowDialog();
                         }
                     };
                 }

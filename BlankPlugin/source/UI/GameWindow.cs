@@ -109,7 +109,7 @@ namespace BlankPlugin
         private TextBlock _speedLabel;
         private TextBox _logBox;
 
-        public GameWindow(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager = null, IPlayniteAPI api = null)
+        public GameWindow(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager = null, IPlayniteAPI api = null, bool skipInstalledCheck = false)
         {
             _game = game;
             _settings = settings;
@@ -130,7 +130,7 @@ namespace BlankPlugin
                 _gameInfoLabel.Text = _game.Name;
                 _downloadPathBox.Text = _settings.DownloadPath;
 
-                if (_installedGamesManager != null)
+                if (_installedGamesManager != null && !skipInstalledCheck)
                     CheckIfInstalled();
 
                 ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
