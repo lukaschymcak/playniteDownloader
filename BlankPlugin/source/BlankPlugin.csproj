@@ -67,12 +67,6 @@
     <None Include="deps\ZstdSharp.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="deps\ManifestChecker.exe">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="deps\ManifestChecker.runtimeconfig.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="deps\Steamless\Steamless.CLI.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -111,7 +105,11 @@
       DestinationFolder="$(OutDir)deps\"
       SkipUnchangedFiles="true"
       ContinueOnError="true" />
-    <!-- runtimeconfig.json is embedded in the single-file exe; no separate copy needed -->
+    <Copy
+      SourceFiles="$(SolutionDir)..\..\ManifestChecker\bin\$(Configuration)\net9.0\win-x64\publish\ManifestChecker.runtimeconfig.json"
+      DestinationFolder="$(OutDir)deps\"
+      SkipUnchangedFiles="true"
+      ContinueOnError="true" />
   </Target>
 
 </Project>
