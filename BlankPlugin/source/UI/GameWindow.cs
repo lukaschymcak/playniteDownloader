@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using Playnite.SDK;
 using Playnite.SDK.Models;
 using System;
@@ -10,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Net.NetworkInformation;
 using System.Windows.Documents;
 using System.Windows.Threading;
@@ -29,6 +31,7 @@ namespace BlankPlugin
         // ── Services ─────────────────────────────────────────────────────────────
         private readonly Game _game;
         private readonly BlankPluginSettings _settings;
+        private readonly IPlayniteAPI _api;
         private readonly MorrenusClient _client;
         private readonly DepotDownloaderRunner _downloader;
 
@@ -53,6 +56,21 @@ namespace BlankPlugin
         private Button _postSteamlessBtn;
         private Button _postRegisterBtn;
         private string _lastDestPath;
+
+        // ── Installed game tracking ──────────────────────────────────────────
+        private readonly InstalledGamesManager _installedGamesManager;
+        private InstalledGame _installedGame; // null if not installed via plugin
+
+        // ── Installed game UI ────────────────────────────────────────────────
+        private UIElement _installedPanel;
+        private Button _uninstallBtn;
+        private Button _openFolderBtn;
+        private Button _reinstallBtn;
+
+        // ── Library mode UI ──────────────────────────────────────────────────
+        private StackPanel _libraryList;
+        private TextBlock _librarySummaryLabel;
+        private TextBox _libraryFilterBox;
 
         // ── UI: Status bar ────────────────────────────────────────────────────────
         private TextBlock _statusLabel;
@@ -91,23 +109,34 @@ namespace BlankPlugin
         private TextBlock _speedLabel;
         private TextBox _logBox;
 
-        public GameWindow(Game game, BlankPluginSettings settings)
+        public GameWindow(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager = null, IPlayniteAPI api = null)
         {
             _game = game;
             _settings = settings;
+            _api = api;
             _client = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
+            _installedGamesManager = installedGamesManager;
 
-            Content = BuildLayout();
+            if (_game == null)
+            {
+                // Library mode: show installed games, no download workflow
+                Content = BuildLibraryLayout();
+            }
+            else
+            {
+                // Download mode: show game info and depot download workflow
+                Content = BuildLayout();
+                _gameInfoLabel.Text = _game.Name;
+                _downloadPathBox.Text = _settings.DownloadPath;
 
-            _gameInfoLabel.Text = _game != null
-                ? _game.Name
-                : "No game selected — open via right-click on a game.";
-            _downloadPathBox.Text = _settings.DownloadPath;
+                if (_installedGamesManager != null)
+                    CheckIfInstalled();
 
-            ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
-            if (_game != null)
-                ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
+                ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
+                if (_installedGame == null)
+                    ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
+            }
         }
 
         // ── Layout ───────────────────────────────────────────────────────────────
@@ -281,6 +310,50 @@ namespace BlankPlugin
             _searchPanel = searchStack;
             panel.Children.Add(_searchPanel);
 
+            // ── State D: already installed ──────────────────────────────────────
+            var installedRow = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 0) };
+
+            installedRow.Children.Add(new TextBlock
+            {
+                Text = "This game is installed through BlankPlugin.",
+                Foreground = Brushes.Cyan,
+                FontWeight = FontWeights.Medium,
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+
+            var installedBtnRow = new StackPanel { Orientation = Orientation.Horizontal };
+
+            _openFolderBtn = new Button
+            {
+                Content = "Open Install Folder",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            _openFolderBtn.Click += OnOpenFolderClicked;
+
+            _reinstallBtn = new Button
+            {
+                Content = "Reinstall",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            _reinstallBtn.Click += OnReinstallClicked;
+
+            _uninstallBtn = new Button
+            {
+                Content = "Uninstall",
+                Padding = new Thickness(12, 6, 12, 6)
+            };
+            _uninstallBtn.Click += OnUninstallClicked;
+
+            installedBtnRow.Children.Add(_openFolderBtn);
+            installedBtnRow.Children.Add(_reinstallBtn);
+            installedBtnRow.Children.Add(_uninstallBtn);
+            installedRow.Children.Add(installedBtnRow);
+
+            _installedPanel = installedRow;
+            panel.Children.Add(_installedPanel);
+
             return panel;
         }
 
@@ -390,18 +463,27 @@ namespace BlankPlugin
             }
 
             // Prompt for password — we only need it once; the session is saved by DD.
-            var darkBg  = new SolidColorBrush(Color.FromRgb(40, 40, 40));
             var lightFg = Brushes.WhiteSmoke;
 
-            var pwdWindow = new Window
+            Window pwdWindow;
+            if (_api != null)
             {
-                Title = "Steam Password",
-                Width = 360,
-                Height = 140,
-                WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                ResizeMode = ResizeMode.NoResize,
-                Background = darkBg
-            };
+                pwdWindow = _api.Dialogs.CreateWindow(new WindowCreationOptions
+                {
+                    ShowMinimizeButton = false,
+                    ShowMaximizeButton = false,
+                    ShowCloseButton = true
+                });
+                pwdWindow.Owner = _api.Dialogs.GetCurrentAppWindow();
+            }
+            else
+            {
+                pwdWindow = new Window { ResizeMode = ResizeMode.NoResize };
+            }
+            pwdWindow.Title = "Steam Password";
+            pwdWindow.Width = 360;
+            pwdWindow.Height = 140;
+            pwdWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
             var stack = new StackPanel { Margin = new Thickness(16) };
 
@@ -817,11 +899,31 @@ namespace BlankPlugin
         {
             if (_gameData == null || _downloading) return;
 
-            var destPath = _downloadPathBox.Text.Trim();
-            if (string.IsNullOrEmpty(destPath) || !Directory.Exists(destPath))
+            // Detect Steam libraries and let user pick one
+            var libraries = SteamLibraryHelper.GetSteamLibraries();
+            string destPath;
+
+            if (libraries.Count > 0)
             {
-                AppendLog("ERROR: Download path is empty or does not exist.");
-                return;
+                var ownerWindow = Window.GetWindow(this);
+                var selectedLib = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libraries, _api);
+                if (selectedLib == null)
+                {
+                    AppendLog("Download cancelled — no library selected.");
+                    return;
+                }
+                destPath = selectedLib;
+                _downloadPathBox.Text = destPath;
+                AppendLog("Using Steam library: " + destPath);
+            }
+            else
+            {
+                destPath = _downloadPathBox.Text.Trim();
+                if (string.IsNullOrEmpty(destPath) || !Directory.Exists(destPath))
+                {
+                    AppendLog("ERROR: Download path is empty or does not exist. No Steam libraries detected either.");
+                    return;
+                }
             }
 
             if (!_downloader.IsReady)
@@ -899,6 +1001,137 @@ namespace BlankPlugin
                     {
                         AppendLog("--- Writing Steam ACF ---");
                         AcfWriter.Write(_gameData, destPath, line => AppendLog(line));
+                    }
+
+                    // Save to installed games tracker
+                    if (_installedGamesManager != null)
+                    {
+                        try
+                        {
+                            var installDir = string.IsNullOrEmpty(_gameData.InstallDir)
+                                ? _gameData.GameName
+                                : _gameData.InstallDir;
+                            var installPath = Path.Combine(destPath, "steamapps", "common", installDir);
+
+                            long sizeOnDisk = 0;
+                            if (Directory.Exists(installPath))
+                            {
+                                try { sizeOnDisk = GetDirectorySize(installPath); }
+                                catch { /* best effort */ }
+                            }
+
+                            var installedEntry = new InstalledGame
+                            {
+                                AppId = _gameData.AppId,
+                                GameName = _gameData.GameName,
+                                InstallPath = installPath,
+                                LibraryPath = destPath,
+                                InstallDir = installDir,
+                                InstalledDate = DateTime.UtcNow,
+                                SizeOnDisk = sizeOnDisk,
+                                SelectedDepots = new List<string>(_gameData.SelectedDepots),
+                                ManifestGIDs = new Dictionary<string, string>(_gameData.Manifests),
+                                PlayniteGameId = _game?.Id ?? Guid.Empty,
+                                DrmStripped = runSteamless,
+                                RegisteredWithSteam = registerSteam
+                            };
+                            _installedGamesManager.Save(installedEntry);
+                            AppendLog("Game saved to installed library.");
+
+                            // Register with Playnite library when installed from ZIP (no game context)
+                            if (_game == null && _api != null)
+                            {
+                                try
+                                {
+                                    var newGame = new Game(_gameData.GameName)
+                                    {
+                                        GameId           = _gameData.AppId,
+                                        PluginId         = SteamPluginGuid,
+                                        InstallDirectory = installedEntry.InstallPath,
+                                        IsInstalled      = true
+                                    };
+
+                                    Dispatch(() => _api.Database.Games.Add(newGame));
+                                    AppendLog("Added to Playnite library.");
+
+                                    var igdb = new IgdbClient(_settings.IgdbClientId, _settings.IgdbClientSecret);
+
+                                    if (igdb.HasCredentials)
+                                    {
+                                        // Ask user if they want IGDB metadata
+                                        bool wantsMetadata = false;
+                                        Dispatch(() =>
+                                        {
+                                            wantsMetadata = MessageBox.Show(
+                                                "\"" + _gameData.GameName + "\" was added to your Playnite library.\n\n" +
+                                                "Search IGDB for metadata (description, genres, cover art)?",
+                                                "Download Metadata",
+                                                MessageBoxButton.YesNo,
+                                                MessageBoxImage.Question) == MessageBoxResult.Yes;
+                                        });
+
+                                        if (wantsMetadata)
+                                        {
+                                            IgdbGameResult igdbSelection = null;
+                                            Dispatch(() =>
+                                            {
+                                                igdbSelection = IgdbMetadataPickerDialog.ShowPicker(
+                                                    Window.GetWindow(this), _gameData.GameName, igdb, _api);
+                                            });
+
+                                            if (igdbSelection != null)
+                                            {
+                                                AppendLog("Fetching metadata for: " + igdbSelection.Name + "...");
+                                                var metadata = igdb.GetMetadata(igdbSelection.Id);
+                                                if (metadata != null)
+                                                {
+                                                    Dispatch(() => ApplyIgdbMetadata(newGame, metadata, igdb));
+                                                    AppendLog("Metadata applied.");
+                                                }
+                                            }
+                                            else
+                                            {
+                                                AppendLog("Metadata search cancelled.");
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // No IGDB credentials — silently grab Steam CDN cover
+                                        var coverPath = CoverDownloader.Download(_gameData.GameName, _gameData.AppId, null);
+                                        if (coverPath != null)
+                                        {
+                                            Dispatch(() =>
+                                            {
+                                                try
+                                                {
+                                                    var fileId = _api.Database.AddFile(coverPath, newGame.Id);
+                                                    newGame.CoverImage = fileId;
+                                                    _api.Database.Games.Update(newGame);
+                                                }
+                                                catch (Exception exCover)
+                                                {
+                                                    logger.Warn("Could not store Steam CDN cover: " + exCover.Message);
+                                                }
+                                            });
+                                            try { File.Delete(coverPath); } catch { }
+                                            AppendLog("Cover art stored from Steam CDN.");
+                                        }
+                                    }
+
+                                    installedEntry.PlayniteGameId = newGame.Id;
+                                    _installedGamesManager.Save(installedEntry);
+                                }
+                                catch (Exception exLib)
+                                {
+                                    AppendLog("WARNING: Could not add to Playnite library: " + exLib.Message);
+                                }
+                            }
+                        }
+                        catch (Exception exSave)
+                        {
+                            AppendLog("WARNING: Could not save to installed games: " + exSave.Message);
+                        }
                     }
 
                     AppendLog("=== All done! ===");
@@ -1042,6 +1275,638 @@ namespace BlankPlugin
                     Dispatch(() => _postRegisterBtn.IsEnabled = true);
                 }
             });
+        }
+
+        // ── Installed game detection ──────────────────────────────────────────────
+
+        private void CheckIfInstalled()
+        {
+            // Try to find by Playnite game ID
+            _installedGame = _installedGamesManager.FindByPlayniteId(_game.Id);
+
+            // If not found, try by Steam AppId
+            if (_installedGame == null && _game.PluginId == SteamPluginGuid)
+                _installedGame = _installedGamesManager.FindByAppId(_game.GameId);
+
+            if (_installedGame != null)
+            {
+                Dispatch(() =>
+                {
+                    _resolveStatusLabel.Visibility = Visibility.Collapsed;
+                    _foundPanel.Visibility = Visibility.Collapsed;
+                    _searchPanel.Visibility = Visibility.Collapsed;
+                    _installedPanel.Visibility = Visibility.Visible;
+                    _downloadBtn.IsEnabled = false;
+                    _downloadBtn.Content = "Already Installed";
+
+                    // Resolve the AppId for potential reinstall
+                    _resolvedAppId = _installedGame.AppId;
+                });
+            }
+        }
+
+        private void OnOpenFolderClicked(object sender, RoutedEventArgs e)
+        {
+            if (_installedGame != null && Directory.Exists(_installedGame.InstallPath))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", _installedGame.InstallPath);
+            }
+            else
+            {
+                AppendLog("Install folder not found.");
+            }
+        }
+
+        private void OnReinstallClicked(object sender, RoutedEventArgs e)
+        {
+            // Clear installed state and re-enable download flow
+            _installedGame = null;
+            _installedPanel.Visibility = Visibility.Collapsed;
+            _downloadBtn.Content = "Download Selected Depots";
+            _downloadBtn.IsEnabled = false;
+            _resolveStatusLabel.Visibility = _game != null ? Visibility.Visible : Visibility.Collapsed;
+
+            // Re-run AppID resolution
+            if (_game != null)
+                ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
+        }
+
+        private void OnUninstallClicked(object sender, RoutedEventArgs e)
+        {
+            if (_installedGame == null) return;
+
+            var result = MessageBox.Show(
+                string.Format("Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
+                    _installedGame.GameName, _installedGame.InstallPath),
+                "Uninstall Game",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            try
+            {
+                // Preserve saves before deleting
+                PreserveSaveFiles(_installedGame);
+
+                // Delete game folder
+                if (Directory.Exists(_installedGame.InstallPath))
+                    Directory.Delete(_installedGame.InstallPath, true);
+
+                // Delete ACF manifest
+                if (!string.IsNullOrEmpty(_installedGame.LibraryPath))
+                {
+                    var acfPath = Path.Combine(_installedGame.LibraryPath, "steamapps",
+                        "appmanifest_" + _installedGame.AppId + ".acf");
+                    if (File.Exists(acfPath))
+                        File.Delete(acfPath);
+                }
+
+                _installedGamesManager.Remove(_installedGame.AppId);
+                AppendLog("Uninstalled: " + _installedGame.GameName);
+
+                // Reset UI to normal state
+                _installedGame = null;
+                _installedPanel.Visibility = Visibility.Collapsed;
+                _downloadBtn.Content = "Download Selected Depots";
+                _downloadBtn.IsEnabled = false;
+                _resolveStatusLabel.Visibility = _game != null ? Visibility.Visible : Visibility.Collapsed;
+
+                if (_game != null)
+                    ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error during uninstall: " + ex.Message, "Uninstall Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void PreserveSaveFiles(InstalledGame game)
+        {
+            try
+            {
+                var backupDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "BlankPlugin", "save_backups", game.AppId);
+
+                var saveLocations = new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "My Games", game.GameName),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), game.GameName),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), game.GameName)
+                };
+
+                foreach (var savePath in saveLocations)
+                {
+                    if (Directory.Exists(savePath))
+                    {
+                        var dest = Path.Combine(backupDir, Path.GetFileName(savePath));
+                        CopyDirectory(savePath, dest);
+                    }
+                }
+            }
+            catch
+            {
+                // Save preservation is best-effort; don't block uninstall
+            }
+        }
+
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+            foreach (var file in Directory.GetFiles(sourceDir))
+                File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), true);
+            foreach (var dir in Directory.GetDirectories(sourceDir))
+                CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
+        }
+
+        // ── Library mode ─────────────────────────────────────────────────────────
+
+        private UIElement BuildLibraryLayout()
+        {
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                       // 0 status bar
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                       // 1 header + filter
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // 2 games list
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });                       // 3 summary + buttons
+
+            var statusBar = BuildApiStatusBar();
+            Grid.SetRow(statusBar, 0);
+            root.Children.Add(statusBar);
+
+            // Row 1: title + filter box
+            var header = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+            _libraryFilterBox = new TextBox
+            {
+                Width = 180,
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Filter by game name"
+            };
+            _libraryFilterBox.TextChanged += (s, e) => RefreshLibraryList();
+            DockPanel.SetDock(_libraryFilterBox, Dock.Right);
+            header.Children.Add(_libraryFilterBox);
+
+            header.Children.Add(new TextBlock
+            {
+                Text = "Installed Games",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            Grid.SetRow(header, 1);
+            root.Children.Add(header);
+
+            // Row 2: scrollable games list
+            _libraryList = new StackPanel();
+            var scroll = new ScrollViewer
+            {
+                Content = _libraryList,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            Grid.SetRow(scroll, 2);
+            root.Children.Add(scroll);
+
+            // Row 3: summary label + Refresh + Install from ZIP
+            var bottomBar = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+
+            var installZipBtn = new Button
+            {
+                Content = "Install from ZIP",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            installZipBtn.Click += OnInstallFromZipClicked;
+            DockPanel.SetDock(installZipBtn, Dock.Right);
+            bottomBar.Children.Add(installZipBtn);
+
+            var refreshBtn = new Button
+            {
+                Content = "Refresh",
+                Padding = new Thickness(12, 6, 12, 6)
+            };
+            refreshBtn.Click += (s, e) => RefreshLibraryList();
+            DockPanel.SetDock(refreshBtn, Dock.Right);
+            bottomBar.Children.Add(refreshBtn);
+
+            _librarySummaryLabel = new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170))
+            };
+            bottomBar.Children.Add(_librarySummaryLabel);
+
+            Grid.SetRow(bottomBar, 3);
+            root.Children.Add(bottomBar);
+
+            var border = new Border { Padding = new Thickness(12), Child = root };
+            TextElement.SetForeground(border, Brushes.WhiteSmoke);
+
+            RefreshLibraryList();
+            ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
+
+            return border;
+        }
+
+        private void RefreshLibraryList()
+        {
+            if (_libraryList == null || _installedGamesManager == null) return;
+
+            var filter = _libraryFilterBox?.Text?.Trim() ?? "";
+            var all = _installedGamesManager.ScanLibrary();
+            var filtered = all
+                .Where(g => string.IsNullOrEmpty(filter) ||
+                            g.GameName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
+                .OrderBy(g => g.GameName)
+                .ToList();
+
+            _libraryList.Children.Clear();
+
+            if (_librarySummaryLabel != null)
+            {
+                var totalSize = all.Sum(g => g.SizeOnDisk);
+                _librarySummaryLabel.Text = all.Count + " game(s)  |  " + SteamLibraryHelper.FormatSize(totalSize);
+            }
+
+            if (filtered.Count == 0)
+            {
+                _libraryList.Children.Add(new TextBlock
+                {
+                    Text = string.IsNullOrEmpty(filter)
+                        ? "No games installed through BlankPlugin."
+                        : "No games match the filter.",
+                    Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
+                    FontStyle = FontStyles.Italic,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 24, 0, 0)
+                });
+                return;
+            }
+
+            foreach (var game in filtered)
+                _libraryList.Children.Add(CreateLibraryGameEntry(game));
+        }
+
+        private Border CreateLibraryGameEntry(InstalledGame game)
+        {
+            var card = new Border
+            {
+                BorderBrush = new SolidColorBrush(Color.FromRgb(55, 55, 60)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(0, 0, 0, 6),
+                Background = new SolidColorBrush(Color.FromRgb(37, 37, 42)),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                ClipToBounds = true
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });              // thumbnail
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // info
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });                  // buttons
+
+            // ── Thumbnail ────────────────────────────────────────────────────────────
+            var thumbContainer = new Border
+            {
+                Width = 90,
+                Background = new SolidColorBrush(Color.FromRgb(25, 25, 28)),
+                ClipToBounds = true
+            };
+
+            var coverSource = GetGameCoverSource(game);
+            if (coverSource != null)
+            {
+                var img = new Image
+                {
+                    Source = coverSource,
+                    Stretch = Stretch.UniformToFill,
+                    StretchDirection = StretchDirection.Both
+                };
+                thumbContainer.Child = img;
+            }
+            else
+            {
+                // Placeholder — game initials
+                thumbContainer.Child = new TextBlock
+                {
+                    Text = game.GameName.Length > 0 ? game.GameName[0].ToString().ToUpper() : "?",
+                    FontSize = 28,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(80, 80, 90)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+            }
+
+            Grid.SetColumn(thumbContainer, 0);
+            grid.Children.Add(thumbContainer);
+
+            // ── Game info ────────────────────────────────────────────────────────────
+            var info = new StackPanel
+            {
+                Margin = new Thickness(12, 10, 8, 10),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            info.Children.Add(new TextBlock
+            {
+                Text = game.GameName,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 13,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            info.Children.Add(new TextBlock
+            {
+                Text = SteamLibraryHelper.FormatSize(game.SizeOnDisk) + "   ·   " +
+                       game.InstalledDate.ToString("yyyy-MM-dd"),
+                Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 160)),
+                FontSize = 11,
+                Margin = new Thickness(0, 3, 0, 0)
+            });
+
+            info.Children.Add(new TextBlock
+            {
+                Text = game.InstallPath,
+                Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 110)),
+                FontSize = 10,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            Grid.SetColumn(info, 1);
+            grid.Children.Add(info);
+
+            // ── Buttons ──────────────────────────────────────────────────────────────
+            var btnStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0)
+            };
+
+            var openBtn = new Button
+            {
+                Content = "Open",
+                Width = 52,
+                Height = 26,
+                FontSize = 11,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            openBtn.Click += (s, e) =>
+            {
+                if (Directory.Exists(game.InstallPath))
+                    System.Diagnostics.Process.Start("explorer.exe", game.InstallPath);
+            };
+
+            var uninstallBtn = new Button
+            {
+                Content = "Uninstall",
+                Width = 72,
+                Height = 26,
+                FontSize = 11
+            };
+            uninstallBtn.Click += (s, e) => UninstallLibraryGame(game, card);
+
+            btnStack.Children.Add(openBtn);
+            btnStack.Children.Add(uninstallBtn);
+
+            Grid.SetColumn(btnStack, 2);
+            grid.Children.Add(btnStack);
+
+            card.MouseLeftButtonDown += (s, e) =>
+            {
+                if (e.ClickCount == 2 && Directory.Exists(game.InstallPath))
+                    System.Diagnostics.Process.Start("explorer.exe", game.InstallPath);
+            };
+
+            card.Child = grid;
+            return card;
+        }
+
+        /// <summary>
+        /// Returns an ImageSource for the game thumbnail.
+        /// Priority: Playnite DB cover → Steam CDN header → null (caller shows placeholder).
+        /// </summary>
+        private ImageSource GetGameCoverSource(InstalledGame game)
+        {
+            // 1. Playnite database cover (locally stored, no network needed)
+            if (_api != null && game.PlayniteGameId != Guid.Empty)
+            {
+                try
+                {
+                    var playniteGame = _api.Database.Games.Get(game.PlayniteGameId);
+                    if (playniteGame != null && !string.IsNullOrEmpty(playniteGame.CoverImage))
+                    {
+                        var path = _api.Database.GetFullFilePath(playniteGame.CoverImage);
+                        if (File.Exists(path))
+                            return new BitmapImage(new Uri(path, UriKind.Absolute));
+                    }
+                }
+                catch { /* fall through */ }
+            }
+
+            // 2. Steam CDN header — WPF loads this asynchronously after the card renders
+            if (!string.IsNullOrWhiteSpace(game.AppId))
+            {
+                try
+                {
+                    var uri = new Uri(
+                        "https://cdn.akamai.steamstatic.com/steam/apps/" + game.AppId + "/header.jpg",
+                        UriKind.Absolute);
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = uri;
+                    bmp.DecodePixelWidth = 90;
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    return bmp;
+                }
+                catch { /* fall through */ }
+            }
+
+            return null;
+        }
+
+        private void UninstallLibraryGame(InstalledGame game, Border entryBorder)
+        {
+            var result = MessageBox.Show(
+                string.Format("Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
+                    game.GameName, game.InstallPath),
+                "Uninstall Game",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            try
+            {
+                PreserveSaveFiles(game);
+
+                if (Directory.Exists(game.InstallPath))
+                    Directory.Delete(game.InstallPath, true);
+
+                if (!string.IsNullOrEmpty(game.LibraryPath))
+                {
+                    var acfPath = Path.Combine(game.LibraryPath, "steamapps",
+                        "appmanifest_" + game.AppId + ".acf");
+                    if (File.Exists(acfPath))
+                        File.Delete(acfPath);
+                }
+
+                _installedGamesManager.Remove(game.AppId);
+                _libraryList.Children.Remove(entryBorder);
+
+                var remaining = _installedGamesManager.GetAll();
+                var totalSize = remaining.Sum(g => g.SizeOnDisk);
+                if (_librarySummaryLabel != null)
+                    _librarySummaryLabel.Text = remaining.Count + " game(s)  |  " + SteamLibraryHelper.FormatSize(totalSize);
+
+                if (remaining.Count == 0)
+                    RefreshLibraryList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error during uninstall: " + ex.Message, "Uninstall Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OnInstallFromZipClicked(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Select Manifest ZIP",
+                Filter = "ZIP files (*.zip)|*.zip",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            var zipPath = dialog.FileName;
+            var btn = sender as Button;
+            if (btn != null) btn.IsEnabled = false;
+            if (_librarySummaryLabel != null) _librarySummaryLabel.Text = "Processing ZIP...";
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var data = new ZipProcessor().Process(zipPath);
+                    Dispatch(() => SwitchToDownloadMode(data));
+                }
+                catch (Exception ex)
+                {
+                    Dispatch(() =>
+                    {
+                        if (_librarySummaryLabel != null)
+                            _librarySummaryLabel.Text = "Error: " + ex.Message;
+                        if (btn != null) btn.IsEnabled = true;
+                    });
+                }
+            });
+        }
+
+        /// <summary>
+        /// Applies IGDB metadata to a Playnite Game object and persists it.
+        /// Must be called on the UI thread.
+        /// </summary>
+        private void ApplyIgdbMetadata(Game game, IgdbMetadata metadata, IgdbClient igdb)
+        {
+            if (!string.IsNullOrEmpty(metadata.Name))
+                game.Name = metadata.Name;
+
+            if (!string.IsNullOrEmpty(metadata.Summary))
+                game.Description = metadata.Summary;
+
+            if (metadata.Genres.Count > 0)
+                game.GenreIds = metadata.Genres.ConvertAll(g => _api.Database.Genres.Add(g).Id);
+
+            if (metadata.Developers.Count > 0)
+                game.DeveloperIds = metadata.Developers.ConvertAll(d => _api.Database.Companies.Add(d).Id);
+
+            if (metadata.Publishers.Count > 0)
+                game.PublisherIds = metadata.Publishers.ConvertAll(p => _api.Database.Companies.Add(p).Id);
+
+            if (metadata.Tags.Count > 0)
+                game.TagIds = metadata.Tags.ConvertAll(t => _api.Database.Tags.Add(t).Id);
+
+            if (metadata.ReleaseYear.HasValue)
+                game.ReleaseDate = new ReleaseDate(metadata.ReleaseYear.Value);
+
+            if (!string.IsNullOrEmpty(metadata.CoverImageId))
+            {
+                try
+                {
+                    var coverPath = igdb.DownloadCoverByImageId(metadata.CoverImageId);
+                    if (coverPath != null)
+                    {
+                        var fileId = _api.Database.AddFile(coverPath, game.Id);
+                        game.CoverImage = fileId;
+                        try { File.Delete(coverPath); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("Could not store IGDB cover: " + ex.Message);
+                }
+            }
+
+            // Background image — auto-select if only one, show picker if multiple
+            if (metadata.Artworks.Count > 0)
+            {
+                try
+                {
+                    var selectedArtId = IgdbBackgroundPickerDialog.ShowPicker(
+                        Window.GetWindow(this), metadata.Artworks, igdb, _api);
+
+                    if (!string.IsNullOrEmpty(selectedArtId))
+                    {
+                        var bgPath = igdb.DownloadArtworkByImageId(selectedArtId);
+                        if (bgPath != null)
+                        {
+                            var fileId = _api.Database.AddFile(bgPath, game.Id);
+                            game.BackgroundImage = fileId;
+                            try { File.Delete(bgPath); } catch { }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("Could not store IGDB background: " + ex.Message);
+                }
+            }
+
+            _api.Database.Games.Update(game);
+        }
+
+        private void SwitchToDownloadMode(GameData data)
+        {
+            _gameData = data;
+            Content = BuildLayout();
+
+            _gameInfoLabel.Text = data.GameName + "  (AppID: " + data.AppId + ")";
+            _downloadPathBox.Text = _settings.DownloadPath;
+            _resolvedAppId = data.AppId;
+
+            PopulateDepots(data);
+            ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
+        }
+
+        private static long GetDirectorySize(string path)
+        {
+            long size = 0;
+            foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try { size += new FileInfo(file).Length; }
+                catch { /* skip inaccessible files */ }
+            }
+            return size;
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────

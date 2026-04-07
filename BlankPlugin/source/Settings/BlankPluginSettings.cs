@@ -35,6 +35,20 @@ namespace BlankPlugin
             set => SetValue(ref _steamUsername, value ?? string.Empty);
         }
 
+        private string _igdbClientId = string.Empty;
+        public string IgdbClientId
+        {
+            get => _igdbClientId;
+            set => SetValue(ref _igdbClientId, value ?? string.Empty);
+        }
+
+        private string _igdbClientSecret = string.Empty;
+        public string IgdbClientSecret
+        {
+            get => _igdbClientSecret;
+            set => SetValue(ref _igdbClientSecret, value ?? string.Empty);
+        }
+
         // Parameterless constructor required by LoadPluginSettings
         public BlankPluginSettings() { }
 
@@ -44,10 +58,12 @@ namespace BlankPlugin
             var saved = plugin.LoadPluginSettings<BlankPluginSettings>();
             if (saved != null)
             {
-                ApiKey = saved.ApiKey;
-                DownloadPath = saved.DownloadPath;
-                MaxDownloads = saved.MaxDownloads > 0 ? saved.MaxDownloads : 20;
+                ApiKey        = saved.ApiKey;
+                DownloadPath  = saved.DownloadPath;
+                MaxDownloads  = saved.MaxDownloads > 0 ? saved.MaxDownloads : 20;
                 SteamUsername = saved.SteamUsername ?? string.Empty;
+                IgdbClientId     = saved.IgdbClientId     ?? string.Empty;
+                IgdbClientSecret = saved.IgdbClientSecret ?? string.Empty;
             }
         }
 
