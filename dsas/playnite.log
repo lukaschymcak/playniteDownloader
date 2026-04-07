@@ -1,0 +1,538 @@
+06-04 20:16:55.132|INFO |ProgramEntry:App arguments: ''
+06-04 20:16:55.622|WARN |PlayniteSettings:No existing settings found.
+06-04 20:16:55.622|WARN |PlayniteSettings:No settings backup found, creating default ones.
+06-04 20:16:55.760|WARN |PlayniteSettings:No existing windowPositions.json settings found.
+06-04 20:16:55.760|WARN |PlayniteSettings:No windowPositions.json settings backup found, creating default ones.
+06-04 20:16:55.760|WARN |PlayniteSettings:No existing fullscreenConfig.json settings found.
+06-04 20:16:55.760|WARN |PlayniteSettings:No fullscreenConfig.json settings backup found, creating default ones.
+06-04 20:16:56.884|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:17:02.318|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:17:02.363|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 41 ms to complete.
+06-04 20:17:02.512|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:17:02.678|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.FirstTimeStartupWindowFactory: 0848a0cc-8719-45dd-948a-9ceb71eb0b22
+06-04 20:17:04.594|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: b611e71b-18f1-4ed5-8dce-71e2726dca0e
+06-04 20:17:04.746|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: b611e71b-18f1-4ed5-8dce-71e2726dca0e, True
+06-04 20:17:05.667|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 8498940d-a594-428b-a844-459b3ebbd888
+06-04 20:17:05.786|DEBUG|Downloader:Downloading data from https://github.com/JosefNemec/PlayniteExtensions/releases/download/2.2/IGDBMetadata_Builtin_2_13.pext to C:\Users\Lukas\AppData\Local\Temp\Playnite\IGDBMetadata_Builtin.pext.
+06-04 20:17:05.930|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 8498940d-a594-428b-a844-459b3ebbd888, True
+06-04 20:17:05.938|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\AppData\Local\Temp\Playnite\IGDBMetadata_Builtin.pext
+06-04 20:17:06.162|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\AppData\Local\Temp\Playnite\IGDBMetadata_Builtin.pext
+06-04 20:17:06.271|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:17:06.817|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.FirstTimeStartupWindowFactory: 0848a0cc-8719-45dd-948a-9ceb71eb0b22, True
+06-04 20:17:06.906|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 3c351f55-58aa-4471-a7a6-34baa0548dbf
+06-04 20:17:07.056|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:17:07.094|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 3e5b748b-7891-42c2-bad8-d5f05c86bb0b
+06-04 20:17:07.350|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 3e5b748b-7891-42c2-bad8-d5f05c86bb0b, True
+06-04 20:17:07.440|INFO |MainViewModelBase:Starting Library Install Size scan
+06-04 20:17:07.440|INFO |MainViewModelBase:Finished Library Install Size scan
+06-04 20:17:07.525|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:17:12.573|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 20:17:41.690|INFO |ProgramEntry:App arguments: '--uridata,playnite://playnite/installaddon/felixkmh_DuplicateHider_Plugin'
+06-04 20:17:41.947|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 20:17:42.118|INFO |PlayniteApplication:Executing command "UriRequest" from pipe with arguments "playnite://playnite/installaddon/felixkmh_DuplicateHider_Plugin"
+06-04 20:17:42.118|INFO |PlayniteUriHandler:Processing Playnite URI playnite://playnite/installaddon/felixkmh_DuplicateHider_Plugin
+06-04 20:17:45.870|DEBUG|Downloader:Downloading data from https://github.com/felixkmh/DuplicateHider/releases/download/v3.14.5/felixkmh_DuplicateHider_Plugin_3_14_5.pext to C:\Users\Lukas\AppData\Local\Temp\Playnite\felixkmh_DuplicateHider_Plugin.pext.
+06-04 20:17:45.871|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 60187e37-3354-4e7d-aa9e-a38c60f36dc7
+06-04 20:17:46.300|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 60187e37-3354-4e7d-aa9e-a38c60f36dc7, True
+06-04 20:17:47.328|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 20:17:47.419|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 20:17:47.433|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 9590e9d4-0417-4453-bbbc-5dc2ba6a9117
+06-04 20:17:47.433|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 9590e9d4-0417-4453-bbbc-5dc2ba6a9117, True
+06-04 20:17:47.517|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 20:17:47.687|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 20:17:48.120|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\AppData\Local\Temp\Playnite\felixkmh_DuplicateHider_Plugin.pext
+06-04 20:17:48.216|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\AppData\Local\Temp\Playnite\felixkmh_DuplicateHider_Plugin.pext
+06-04 20:17:48.389|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:17:48.774|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 20:17:48.783|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:17:48.811|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 25109845-e2f9-4061-b196-6fa0aa53876f
+06-04 20:17:49.015|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:17:49.043|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:17:49.043|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: e8265fc0-330c-4375-a179-7a97c84ee218
+06-04 20:17:49.085|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 40 ms to complete.
+06-04 20:17:49.200|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:17:49.200|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: e8265fc0-330c-4375-a179-7a97c84ee218, True
+06-04 20:17:49.282|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 20:17:49.297|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:17:54.311|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 20:19:10.641|INFO |ProgramEntry:App arguments: '--uridata,playnite://playnite/installaddon/playnite-successstory-plugin'
+06-04 20:19:10.862|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 20:19:11.033|INFO |PlayniteApplication:Executing command "UriRequest" from pipe with arguments "playnite://playnite/installaddon/playnite-successstory-plugin"
+06-04 20:19:11.033|INFO |PlayniteUriHandler:Processing Playnite URI playnite://playnite/installaddon/playnite-successstory-plugin
+06-04 20:19:14.514|DEBUG|Downloader:Downloading data from https://github.com/Lacro59/playnite-successstory-plugin/releases/download/v3.7/playnite-successstory-plugin_3_7.pext to C:\Users\Lukas\AppData\Local\Temp\Playnite\playnite-successstory-plugin.pext.
+06-04 20:19:14.514|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 7e69b12a-dc02-45ba-b491-d70a7f8c01fc
+06-04 20:19:14.907|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 7e69b12a-dc02-45ba-b491-d70a7f8c01fc, True
+06-04 20:19:15.994|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 20:19:15.998|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 20:19:16.035|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 06fc9302-87ad-425f-a0af-839dfeca288a
+06-04 20:19:16.035|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 06fc9302-87ad-425f-a0af-839dfeca288a, True
+06-04 20:19:16.097|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 20:19:16.295|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 20:19:16.675|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\AppData\Local\Temp\Playnite\playnite-successstory-plugin.pext
+06-04 20:19:16.911|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\AppData\Local\Temp\Playnite\playnite-successstory-plugin.pext
+06-04 20:19:17.094|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:19:17.366|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 20:19:17.373|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:19:17.468|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 20:19:17.493|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 2f605eb8-671c-4b2c-96fd-a3f6435a172d
+06-04 20:19:17.667|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:19:17.679|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:19:17.679|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 8d847e4e-9486-403e-8e55-317382ec8e32
+06-04 20:19:17.719|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 39 ms to complete.
+06-04 20:19:17.812|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:19:17.812|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 8d847e4e-9486-403e-8e55-317382ec8e32, True
+06-04 20:19:17.884|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 6a38f3c3-b03c-4fde-90a8-15b07be028c6
+06-04 20:19:19.886|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 6a38f3c3-b03c-4fde-90a8-15b07be028c6, True
+06-04 20:19:19.927|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 9030d97a-a7b8-4366-b76c-6eb2c574ff13
+06-04 20:19:19.927|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 9030d97a-a7b8-4366-b76c-6eb2c574ff13, True
+06-04 20:19:19.950|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 20:19:19.950|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:19:24.963|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 20:19:47.340|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.SettingsWindowFactory: ede11dde-34a3-4835-a0e4-86469d1437ec
+06-04 20:19:53.920|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.AddonsWindowFactory: 3a181f51-7f8b-4483-8687-7afdd33f1a59
+06-04 20:20:52.271|INFO |ProgramEntry:App arguments: ''
+06-04 20:20:52.870|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:20:53.198|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 20:20:53.205|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:20:53.279|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 20:20:53.310|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 860e3844-6f75-4c91-974f-dc7118753e18
+06-04 20:20:53.506|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:20:53.537|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: c2a77b8c-5621-411c-9003-bc44b07eb2f8
+06-04 20:20:53.537|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:20:53.591|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 52 ms to complete.
+06-04 20:20:53.691|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:20:53.691|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: c2a77b8c-5621-411c-9003-bc44b07eb2f8, True
+06-04 20:20:53.797|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:20:53.852|INFO |MainViewModelBase:Starting Library Install Size scan
+06-04 20:20:53.852|INFO |MainViewModelBase:Finished Library Install Size scan
+06-04 20:20:58.800|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 20:21:04.477|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.AddonsWindowFactory: 58546f13-6018-429a-9b1f-fdad874869f9
+06-04 20:21:31.042|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.GameEditWindowFactory: 496aac05-26d9-4d26-b0f2-204e3b55d6dd
+06-04 20:21:34.991|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 2390aca2-8649-4cd7-b11b-1b33c8e5996b
+06-04 20:21:35.023|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.ItemSelectionWithSearchWindowFactory: cf83511f-6b6c-406b-bb35-303b54827abf
+06-04 20:21:35.036|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 27d0071b-1746-4908-a603-3df863c65ef1
+06-04 20:21:35.383|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 27d0071b-1746-4908-a603-3df863c65ef1, True
+06-04 20:21:40.858|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: fa20661e-e905-4d82-b36b-e5e6ceca23f7
+06-04 20:21:41.041|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: fa20661e-e905-4d82-b36b-e5e6ceca23f7, True
+06-04 20:21:45.861|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.ItemSelectionWithSearchWindowFactory: cf83511f-6b6c-406b-bb35-303b54827abf, True
+06-04 20:21:45.933|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.ImageSelectionWindowFactory: 2443caff-3353-46d1-b7c6-7e29b845a887
+06-04 20:21:48.003|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.ImageSelectionWindowFactory: 2443caff-3353-46d1-b7c6-7e29b845a887, True
+06-04 20:21:48.017|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: c5dcd931-f230-4cd7-a8c6-b9fe84ddcb74
+06-04 20:21:48.017|DEBUG|Downloader:Downloading data from https://images.igdb.com/igdb/image/upload/t_1080p/cobkt6.jpg to C:\Users\Lukas\AppData\Local\Temp\Playnite\80e06f38-9a54-445b-91e6-1c2f2298b4fe.jpg.
+06-04 20:21:48.061|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: c5dcd931-f230-4cd7-a8c6-b9fe84ddcb74, True
+06-04 20:21:48.061|DEBUG|Downloader:Downloading data from https://images.igdb.com/igdb/image/upload/t_1080p/mknszfnaifmhssbrmkpl.jpg to C:\Users\Lukas\AppData\Local\Temp\Playnite\a6877ba8-bba7-4104-a002-94dcabdbb9b8.jpg.
+06-04 20:21:48.061|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: d26736da-db72-49ea-b8b4-7d202ac77f35
+06-04 20:21:48.111|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: d26736da-db72-49ea-b8b4-7d202ac77f35, True
+06-04 20:21:48.134|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.MetadataComparisonWindowFactory: 62cd36c0-a3d4-4b4c-9193-99091615a7e0
+06-04 20:21:49.794|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.MetadataComparisonWindowFactory: 62cd36c0-a3d4-4b4c-9193-99091615a7e0, True
+06-04 20:21:49.810|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: e8ef1690-fe0d-4cc8-90fa-762c75ef1e3a
+06-04 20:21:49.824|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: e8ef1690-fe0d-4cc8-90fa-762c75ef1e3a, True
+06-04 20:21:49.872|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 4253c03c-711a-424b-9e17-5d0601563012
+06-04 20:21:49.872|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 4253c03c-711a-424b-9e17-5d0601563012, True
+06-04 20:21:49.941|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 2390aca2-8649-4cd7-b11b-1b33c8e5996b, True
+06-04 20:21:51.013|DEBUG|FileSystem:Copying file C:\Users\Lukas\AppData\Local\Temp\Playnite\temp_edit_preview_cover.jpg to C:\Users\Lukas\AppData\Roaming\Playnite\library\files\b150cd93-86c1-4598-9cb6-5198dc6805dc\a06ee514-6652-4c83-8a2f-e34162f98bbc.jpg
+06-04 20:21:51.013|DEBUG|FileSystem:Copying file C:\Users\Lukas\AppData\Local\Temp\Playnite\temp_edit_preview_background.jpg to C:\Users\Lukas\AppData\Roaming\Playnite\library\files\b150cd93-86c1-4598-9cb6-5198dc6805dc\864c2cdf-16c5-402b-ada4-d81308d4d37a.jpg
+06-04 20:21:51.031|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.GameEditWindowFactory: 496aac05-26d9-4d26-b0f2-204e3b55d6dd, True
+06-04 20:21:53.570|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:21:57.711|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:22:42.578|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:24:39.310|INFO |ProgramEntry:App arguments: ''
+06-04 20:24:39.536|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 20:24:39.703|INFO |PlayniteApplication:Executing command "Focus" from pipe with arguments ""
+06-04 20:24:41.785|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:24:48.291|INFO |PlayniteApplication:Shutting down Playnite
+06-04 20:24:48.296|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 20:24:48.313|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 5c63c9f1-87a5-4daf-a27b-db6c33f8b227
+06-04 20:24:48.313|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 5c63c9f1-87a5-4daf-a27b-db6c33f8b227, True
+06-04 20:24:51.393|INFO |ProgramEntry:App arguments: ''
+06-04 20:24:51.917|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:24:52.224|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 20:24:52.231|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:24:52.304|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 20:24:52.333|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 87692a90-2855-4802-b7da-50911c1d1304
+06-04 20:24:52.507|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:24:52.520|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:24:52.520|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 27310f69-b20e-49fd-b5da-949ee2fa430b
+06-04 20:24:52.570|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 49 ms to complete.
+06-04 20:24:52.665|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:24:52.671|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 27310f69-b20e-49fd-b5da-949ee2fa430b, True
+06-04 20:24:52.766|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:24:52.902|INFO |MainViewModelBase:Starting Library Install Size scan
+06-04 20:24:52.903|INFO |MainViewModelBase:Finished Library Install Size scan
+06-04 20:24:55.122|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:24:56.603|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:24:57.786|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 20:25:02.751|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.SettingsWindowFactory: 78ac21d1-e271-4fed-8dcc-a50eb420ce5a
+06-04 20:25:15.948|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.SettingsWindowFactory: 996dcc76-4194-4a49-b106-de4a1348a6cc
+06-04 20:25:18.809|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.AddonsWindowFactory: 9607de9f-ab7d-42b1-a2f3-fb6988462af3
+06-04 20:56:22.653|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 20:56:22.894|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 20:56:23.048|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 20:56:26.147|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 20:56:26.153|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 20:56:26.172|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 6676046e-f2fb-4fe5-a0a3-37e597021dc2
+06-04 20:56:26.172|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 6676046e-f2fb-4fe5-a0a3-37e597021dc2, True
+06-04 20:56:26.236|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 20:56:26.422|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 20:56:26.817|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 20:56:26.871|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 20:56:27.333|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:56:27.561|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 20:56:27.561|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:56:28.067|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 20:56:28.133|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 20:56:28.161|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: ed144d77-86d3-46ff-88f2-6f95fed6cd2a
+06-04 20:56:28.335|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:56:28.348|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:56:28.348|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 5c9b6c37-b035-4745-8474-f338e8b56015
+06-04 20:56:28.393|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 43 ms to complete.
+06-04 20:56:28.478|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:56:28.483|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 5c9b6c37-b035-4745-8474-f338e8b56015, True
+06-04 20:56:28.553|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 20:56:28.575|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:56:33.577|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 20:56:38.588|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:56:43.452|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.AddonsWindowFactory: 0593276a-d211-4ff0-b27d-65b7db0b6213
+06-04 20:56:51.270|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.AddonsWindowFactory: 0593276a-d211-4ff0-b27d-65b7db0b6213, True
+06-04 20:59:08.208|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 20:59:08.438|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 20:59:08.621|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 20:59:11.584|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 20:59:11.584|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 20:59:11.606|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: eb7a3b46-ab80-4c71-b620-4ec24955f093
+06-04 20:59:11.606|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: eb7a3b46-ab80-4c71-b620-4ec24955f093, True
+06-04 20:59:11.728|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 20:59:11.919|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 20:59:12.311|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 20:59:12.354|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 20:59:12.359|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 20:59:12.531|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 20:59:12.745|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 20:59:12.752|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 20:59:13.230|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 20:59:13.301|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 20:59:13.335|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 08127d7c-bf73-4db8-bcac-d73e39a04cef
+06-04 20:59:13.520|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 20:59:13.548|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 20:59:13.548|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 8df07a0b-02c5-4abb-90db-ba5433062b98
+06-04 20:59:13.608|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 57 ms to complete.
+06-04 20:59:13.707|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 20:59:13.716|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 8df07a0b-02c5-4abb-90db-ba5433062b98, True
+06-04 20:59:13.798|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 20:59:13.818|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 20:59:14.767|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 20:59:18.826|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 21:04:13.690|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 21:04:13.923|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 21:04:14.097|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 21:04:23.652|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 21:04:23.652|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 21:04:23.672|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 280747c2-d408-4984-91a5-eda0987c9b74
+06-04 21:04:23.672|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 280747c2-d408-4984-91a5-eda0987c9b74, True
+06-04 21:04:23.744|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 21:04:23.942|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 21:04:24.314|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:04:24.357|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 21:04:24.357|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:04:24.564|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 21:04:24.841|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 21:04:24.841|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 21:04:25.311|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 21:04:25.377|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 21:04:25.408|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: af027a61-1676-45be-abb4-d862333c4a57
+06-04 21:04:25.590|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 21:04:25.621|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 21:04:25.621|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: b5233e97-b68f-43e8-8661-4c7be3079349
+06-04 21:04:25.681|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 58 ms to complete.
+06-04 21:04:25.788|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 21:04:25.798|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: b5233e97-b68f-43e8-8661-4c7be3079349, True
+06-04 21:04:25.887|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 21:04:25.905|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 21:04:30.597|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:04:30.909|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 21:04:34.069|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:06:25.115|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 21:06:25.340|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 21:06:25.521|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 21:06:28.587|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 21:06:28.592|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 21:06:28.608|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 22d91bd1-7fef-4e0c-ac9c-db2743f7346a
+06-04 21:06:28.608|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 22d91bd1-7fef-4e0c-ac9c-db2743f7346a, True
+06-04 21:06:28.727|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 21:06:28.926|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 21:06:29.313|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:06:29.356|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 21:06:29.356|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:06:29.530|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 21:06:29.742|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 21:06:29.748|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 21:06:30.822|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 21:06:30.891|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 21:06:30.922|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: acfdec34-c8a6-4125-8e1c-aacecfc192f9
+06-04 21:06:31.108|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 21:06:31.139|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 21:06:31.139|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: ed611a54-3e7e-47ec-b3d1-1689d0802ee1
+06-04 21:06:31.200|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 58 ms to complete.
+06-04 21:06:31.295|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 21:06:31.295|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: ed611a54-3e7e-47ec-b3d1-1689d0802ee1, True
+06-04 21:06:31.387|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 21:06:31.409|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 21:06:36.424|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 21:06:38.577|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:06:45.044|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:46:48.798|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 21:46:49.027|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 21:46:49.189|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 21:46:51.365|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 21:46:51.365|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 21:46:51.388|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 2a307bda-00f1-43c7-a71d-26cbe815a579
+06-04 21:46:51.388|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 2a307bda-00f1-43c7-a71d-26cbe815a579, True
+06-04 21:46:51.448|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 21:46:51.643|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 21:46:52.020|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:46:52.059|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 21:46:52.059|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:46:52.231|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 21:46:52.458|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 21:46:52.465|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 21:46:52.930|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 21:46:53.006|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 21:46:53.039|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 2bb626f6-c20d-4f55-874f-2b8abc1f217c
+06-04 21:46:53.246|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 21:46:53.275|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 74d6ecb8-c0b4-4d8f-8691-d0a07fadf428
+06-04 21:46:53.275|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 21:46:53.335|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 57 ms to complete.
+06-04 21:46:53.441|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 21:46:53.452|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 74d6ecb8-c0b4-4d8f-8691-d0a07fadf428, True
+06-04 21:46:53.544|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 21:46:53.560|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 21:46:58.563|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 21:47:02.107|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:47:04.131|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:52:59.969|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 21:53:00.210|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 21:53:00.380|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 21:53:02.786|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 21:53:02.786|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 21:53:02.809|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: bf2454c1-4d27-4b67-8e07-4764d63856a1
+06-04 21:53:02.809|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: bf2454c1-4d27-4b67-8e07-4764d63856a1, True
+06-04 21:53:02.892|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 21:53:03.097|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 21:53:03.467|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:53:03.516|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 21:53:03.516|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:53:03.682|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 21:53:03.972|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 21:53:03.972|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 21:53:04.497|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 21:53:04.596|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 21:53:04.630|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: ad64f014-7959-4f42-9e6a-51d00e5d603f
+06-04 21:53:04.827|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 21:53:04.860|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 21:53:04.860|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: a97ee906-04f9-4876-b7a2-d34525c94f0a
+06-04 21:53:04.920|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 58 ms to complete.
+06-04 21:53:05.032|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 21:53:05.032|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: a97ee906-04f9-4876-b7a2-d34525c94f0a, True
+06-04 21:53:05.137|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 21:53:05.157|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 21:53:10.172|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 21:53:21.847|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 21:55:20.036|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 21:55:20.262|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 21:55:20.428|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 21:55:22.760|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 21:55:22.764|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 21:55:22.781|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 5c0cb10a-db86-4d93-9263-bbcb90db09ce
+06-04 21:55:22.781|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 5c0cb10a-db86-4d93-9263-bbcb90db09ce, True
+06-04 21:55:22.852|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 21:55:23.033|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 21:55:23.413|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:55:23.457|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 21:55:23.457|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 21:55:23.633|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 21:55:23.902|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 21:55:23.902|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 21:55:24.437|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 21:55:24.507|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 21:55:24.537|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: 812aa7ae-bb78-46f9-86e4-612bb3cca9f9
+06-04 21:55:24.730|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 21:55:24.760|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 21:55:24.760|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 283bf27c-0d25-4e2f-9420-a13a904f9cac
+06-04 21:55:24.821|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 58 ms to complete.
+06-04 21:55:24.926|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 21:55:24.936|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 283bf27c-0d25-4e2f-9420-a13a904f9cac, True
+06-04 21:55:25.029|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 21:55:25.052|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 21:55:30.061|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 21:55:36.632|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 22:36:11.496|INFO |ProgramEntry:App arguments: '--installext,C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext'
+06-04 22:36:11.733|INFO |PlayniteApplication:Application already running, shutting down.
+06-04 22:36:11.896|INFO |PlayniteApplication:Executing command "ExtensionInstall" from pipe with arguments "C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext"
+06-04 22:36:15.547|INFO |PlayniteApplication:Shutting down Playnite and starting an app.
+06-04 22:36:15.547|DEBUG|PlayniteApplication:Releasing Playnite resources...
+06-04 22:36:15.570|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 461f4ddc-a4c0-4abe-aa1c-7e1cf67cb49e
+06-04 22:36:15.576|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 461f4ddc-a4c0-4abe-aa1c-7e1cf67cb49e, True
+06-04 22:36:15.656|DEBUG|ProcessStarter:Starting process: C:\Users\Lukas\AppData\Local\Playnite\Playnite.DesktopApp.exe, --masterinstance --nolibupdate, , False
+06-04 22:36:15.856|INFO |ProgramEntry:App arguments: '--masterinstance,--nolibupdate'
+06-04 22:36:16.228|INFO |ExtensionInstaller:Installing extenstion/theme C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 22:36:16.266|DEBUG|ExtensionInstaller:Replacing existing extenstion/theme installation: C:\Users\Lukas\AppData\Roaming\Playnite\Extensions\lukas_BlankPlugin_Plugin.
+06-04 22:36:16.287|INFO |ExtensionInstaller:Installed extension C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\bin\lukas_BlankPlugin_Plugin_1_0_0.pext
+06-04 22:36:16.500|INFO |PlayniteApplication:Application started from 'C:\Users\Lukas\AppData\Local\Playnite'
+06-04 22:36:16.798|INFO |ExtensionFactory:Loaded plugin: DuplicateHider, version 3.14.5
+06-04 22:36:16.798|INFO |ExtensionFactory:Loaded plugin: IGDB metadata provider, version 2.13
+06-04 22:36:17.411|INFO |ExtensionFactory:Loaded plugin: BlankPlugin, version 1.0.0
+06-04 22:36:17.494|INFO |ExtensionFactory:Loaded plugin: SuccessStory, version 3.7
+06-04 22:36:17.526|DEBUG|WindowFactory:Show window Playnite.DesktopApp.Windows.MainWindowFactory: f2d9587a-d153-43c9-b45e-d25cae875ae1
+06-04 22:36:17.727|DEBUG|GamesCollectionViewEntry:Reloading collection item view properties.
+06-04 22:36:17.757|INFO |GameDatabase:Opening db C:\Users\Lukas\AppData\Roaming\Playnite\library
+06-04 22:36:17.757|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ProgressWindowFactory: 2b44389f-f00a-428a-bea6-81a299fb7dff
+06-04 22:36:17.818|DEBUG|ExecutionTimer:--- Timer 'DatabaseLoadCollections', 58 ms to complete.
+06-04 22:36:17.927|INFO |DatabaseStats:Completely recalculating database statistics...
+06-04 22:36:17.936|DEBUG|WindowFactory:Closing window Playnite.Windows.ProgressWindowFactory: 2b44389f-f00a-428a-bea6-81a299fb7dff, True
+06-04 22:36:18.013|WARN |MainViewModelBase:Startup library update disabled via cmdline.
+06-04 22:36:18.035|INFO |PlayniteApplication:Application 10.51.0.23209 started
+06-04 22:36:23.049|DEBUG|Downloader:Downloading string content from https://www.playnite.link/update/stable/10.51/update.json using System.Text.UTF8Encoding encoding.
+06-04 22:36:25.806|ERROR|GameMenu:Failed to get menu items from plugin SuccessStory
+System.ArgumentNullException: Value cannot be null.
+Parameter name: source
+   at System.Linq.Enumerable.Any[TSource](IEnumerable`1 source, Func`2 predicate)
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSourceFromEmulator(SuccessStorySettings settings, Game game) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 662
+   at SuccessStory.Services.SuccessStoryDatabase.GetAchievementSource(SuccessStorySettings settings, Game game, Boolean ignoreSpecial) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\Services\SuccessStoryDatabase.cs:line 722
+   at SuccessStory.SuccessStory.GetGameMenuItems(GetGameMenuItemsArgs args) in C:\Projects\C#\Lacro59\playnite-successstory-plugin\source\SuccessStory.cs:line 297
+   at Playnite.DesktopApp.Controls.GameMenu.AddExtensionItems(List`1 games) in C:\projects\playnite\source\Playnite.DesktopApp\Controls\Menus\GameMenu.cs:line 586
+06-04 22:36:44.171|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.SettingsWindowFactory: bf49c450-798a-4d49-b653-40d332cd1634
+06-04 22:36:50.674|DEBUG|WindowFactory:Show dialog window Playnite.DesktopApp.Windows.AddonsWindowFactory: 1ade0bac-896f-4e95-8e87-d5483ea863c7
+06-04 22:36:55.991|DEBUG|ProcessStarter:Opening URL: https://api.playnite.link/docs/tutorials/extensions/intro.html
+06-04 22:38:01.489|DEBUG|WindowFactory:Closing window Playnite.DesktopApp.Windows.AddonsWindowFactory: 1ade0bac-896f-4e95-8e87-d5483ea863c7, True
+06-04 22:38:03.091|ERROR|PlayniteApplication:Unhandled exception occured.
+System.IO.FileNotFoundException: Could not load file or assembly 'Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed' or one of its dependencies. The system cannot find the file specified.
+File name: 'Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed'
+   at BlankPlugin.MorrenusClient.CheckHealth()
+   at BlankPlugin.GameWindow.RefreshApiStatus()
+   at BlankPlugin.GameWindow.<.ctor>b__22_1(Object _)
+   at System.Threading.QueueUserWorkItemCallback.WaitCallback_Context(Object state)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state, Boolean preserveSyncCtx)
+   at System.Threading.ExecutionContext.Run(ExecutionContext executionContext, ContextCallback callback, Object state, Boolean preserveSyncCtx)
+   at System.Threading.QueueUserWorkItemCallback.System.Threading.IThreadPoolWorkItem.ExecuteWorkItem()
+   at System.Threading.ThreadPoolWorkQueue.Dispatch()
+   at System.Threading._ThreadPoolWaitCallback.PerformWaitCallback()
+
+WRN: Assembly binding logging is turned OFF.
+To enable assembly bind failure logging, set the registry value [HKLM\Software\Microsoft\Fusion!EnableLog] (DWORD) to 1.
+Note: There is some performance penalty associated with assembly bind failure logging.
+To turn this feature off, remove the registry value [HKLM\Software\Microsoft\Fusion!EnableLog].
+
+06-04 22:38:03.091|ERROR|PlayniteApplication:HResult: 0x80070002
+06-04 22:38:03.106|DEBUG|WindowFactory:Show dialog window Playnite.Windows.ExtensionCrashHandlerWindowFactory: 0cec2ff5-a353-40ba-835d-8b62cc97fb60
