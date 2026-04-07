@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="PlayniteSDK" Version="6.2.0" />
+    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -66,6 +67,12 @@
     <None Include="deps\ZstdSharp.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="deps\ManifestChecker.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="deps\ManifestChecker.runtimeconfig.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="deps\Steamless\Steamless.CLI.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -88,6 +95,23 @@
 
   <Target Name="PackPlugin" AfterTargets="Build">
     <Exec Command="%25LOCALAPPDATA%25\Playnite\Toolbox.exe pack $(ProjectDir)$(OutDir) $(ProjectDir)bin" />
+  </Target>
+
+  <!-- Run dotnet publish to produce a true single-file exe before copying -->
+  <Target Name="PublishManifestChecker" BeforeTargets="CopyManifestChecker">
+    <Exec
+      Command="dotnet publish &quot;$(SolutionDir)..\..\ManifestChecker\ManifestChecker.csproj&quot; -c $(Configuration) -r win-x64 --nologo -v quiet"
+      ContinueOnError="true" />
+  </Target>
+
+  <!-- Copy single-file published exe into deps/ so it is packed into the .pext -->
+  <Target Name="CopyManifestChecker" BeforeTargets="PackPlugin">
+    <Copy
+      SourceFiles="$(SolutionDir)..\..\ManifestChecker\bin\$(Configuration)\net9.0\win-x64\publish\ManifestChecker.exe"
+      DestinationFolder="$(OutDir)deps\"
+      SkipUnchangedFiles="true"
+      ContinueOnError="true" />
+    <!-- runtimeconfig.json is embedded in the single-file exe; no separate copy needed -->
   </Target>
 
 </Project>
