@@ -1,4 +1,25 @@
 {
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_AUTH_TOKEN": "b10f08601d3b4b59b761b281408055b3.ndjOp6mvuDVPfoCO",
+    "API_TIMEOUT_MS": "3000000",
+    "ANTHROPIC_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "glm-5.1",
+    "ANTHROPIC_MAX_TOKENS": "131072",
+    "ENABLE_THINKING": "true",
+    "ENABLE_STREAMING": "true",
+    "ANTHROPIC_TEMPERATURE": "0.1",
+    "ANTHROPIC_TOP_P": "0.1",
+    "ANTHROPIC_STREAM": "true",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_ANALYTICS": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "true"
+  },
   "permissions": {
     "allow": [
       "Bash(rm -rf bin obj)",
@@ -15,23 +36,8 @@
       "Bash(dotnet tool:*)",
       "Bash(ilspycmd -l \"C:/Users/Lukas/AppData/Roaming/Playnite/Extensions/playnite-successstory-plugin/SuccessStory.dll\")",
       "Bash(ilspycmd \"C:/Users/Lukas/AppData/Roaming/Playnite/Extensions/playnite-successstory-plugin/SuccessStory.dll\")",
-      "Bash(tar -tf \"ACCELA-20260323032424-linux-source.tar\")",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/ui/main_window.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/core/steam_api.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/core/tasks/download_depots_task.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/core/morrenus_api.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/managers/game_manager.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/utils/yaml_config_manager.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/utils/wrapper_metadata.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/core/tasks/genints_task.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/core/tasks/application_shortcuts.py)",
-      "Bash(tar -xf \"ACCELA-20260323032424-linux-source.tar\" -O ./bin/src/core/steam_helpers.py)",
-      "Bash(tar -xf ACCELA-20260323032424-linux-source.tar ./bin/src/deps/DepotDownloader.dll ./bin/src/deps/DepotDownloader.deps.json ./bin/src/deps/DepotDownloader.runtimeconfig.json ./bin/src/deps/Steamless/Steamless.CLI.dll ./bin/src/deps/Steamless/Steamless.CLI.deps.json ./bin/src/deps/Steamless/Steamless.CLI.dll.config ./bin/src/deps/Steamless/Steamless.CLI.runtimeconfig.json ./bin/src/deps/Steamless/Steamless.API.dll ./bin/src/deps/Steamless/Plugins/SharpDisasm.dll ./bin/src/deps/Steamless/Plugins/Steamless.API.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant10.x86.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant20.x86.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant21.x86.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant30.x64.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant30.x86.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant31.x64.dll ./bin/src/deps/Steamless/Plugins/Steamless.Unpacker.Variant31.x86.dll)",
-      "Bash(powershell:*)",
-      "Bash(tar -tf \"C:/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar/ACCELA-20260323032424-linux-source.tar\")",
-      "Bash(tar -tf \"/c/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar/ACCELA-20260323032424-linux-source.tar\")",
-      "Bash(tar:*)",
-      "Bash(xargs cat:*)"
+      "Bash(tar -tf \"C:/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")",
+      "Bash(tar -tf \"/c/Users/Lukas/Documents/PlaynitePluginProject/ACCELA-20260323032424-linux-source.tar\")"
     ]
   }
 }
