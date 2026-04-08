@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication style
+
+Talk like caveman. Short. Direct. Save tokens. No big words. No long explain. Just do thing.
+
 ## What this project is
 
 A **Playnite GenericPlugin** that downloads Steam games via the Morrenus manifest API and DepotDownloader. It also detects and tracks Steam library installations for context-aware in-library actions.
