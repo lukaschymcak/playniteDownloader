@@ -90,7 +90,8 @@ namespace BlankPlugin
         // ── UI: Options ───────────────────────────────────────────────────────────
         private CheckBox _steamlessCheck;
         private CheckBox _registerSteamCheck;
-        private TextBox _downloadPathBox;
+        private string _selectedLibraryPath;
+        private TextBlock _selectedLibLabel;
 
         // ── UI: Progress / log ────────────────────────────────────────────────────
         private Button _downloadBtn;
@@ -113,7 +114,6 @@ namespace BlankPlugin
             _updateChecker = updateChecker;
 
             Content = BuildLayout();
-            _downloadPathBox.Text = _settings.DownloadPath;
 
             ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
 
@@ -136,6 +136,36 @@ namespace BlankPlugin
                 if (_installedGame == null)
                     ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
             }
+        }
+
+        /// <summary>
+        /// Constructor used when launching from a Steam search result.
+        /// Skips game resolution and goes directly to the "found" state with the given appId.
+        /// </summary>
+        public DownloadView(
+            string appId,
+            string name,
+            BlankPluginSettings settings,
+            InstalledGamesManager installedGamesManager,
+            IPlayniteAPI api,
+            UpdateChecker updateChecker)
+        {
+            _game    = null;
+            _settings = settings;
+            _api      = api;
+            _client   = new MorrenusClient(() => _settings.ApiKey);
+            _downloader = new DepotDownloaderRunner();
+            _installedGamesManager = installedGamesManager;
+            _updateChecker = updateChecker;
+
+            Content = BuildLayout();
+
+            ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
+
+            // Skip resolution — go directly to "found" state
+            _resolvedAppId = appId;
+            _gameInfoLabel.Text = name;
+            ShowFoundPanel(appId, "\u2713 " + name + " (" + appId + ")");
         }
 
         // ── Layout ───────────────────────────────────────────────────────────────
@@ -389,20 +419,42 @@ namespace BlankPlugin
             zipRow.Children.Add(loadZipBtn);
             panel.Children.Add(zipRow);
 
-            // Download path row
-            var pathRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
-            var pathLabel = new TextBlock
+            // Steam library selector row
+            var libraryRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+            var selectLibBtn = new Button
             {
-                Text = "Download to:",
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0),
-                Width = 90
+                Content = "Select Steam Library",
+                Padding = new Thickness(10, 3, 10, 3),
+                HorizontalAlignment = HorizontalAlignment.Left
             };
-            DockPanel.SetDock(pathLabel, Dock.Left);
-            _downloadPathBox = new TextBox();
-            pathRow.Children.Add(pathLabel);
-            pathRow.Children.Add(_downloadPathBox);
-            panel.Children.Add(pathRow);
+            DockPanel.SetDock(selectLibBtn, Dock.Left);
+            _selectedLibLabel = new TextBlock
+            {
+                Text = "No library selected",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(10, 0, 0, 0),
+                Foreground = Brushes.Gray
+            };
+            selectLibBtn.Click += (s, e) =>
+            {
+                var libs = SteamLibraryHelper.GetSteamLibraries();
+                if (libs.Count == 0)
+                {
+                    AppendLog("No Steam libraries detected.");
+                    return;
+                }
+                var ownerWindow = Window.GetWindow(this);
+                var picked = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libs, _api);
+                if (picked != null)
+                {
+                    _selectedLibraryPath = picked;
+                    _selectedLibLabel.Text = picked;
+                    _selectedLibLabel.Foreground = Brushes.White;
+                }
+            };
+            libraryRow.Children.Add(selectLibBtn);
+            libraryRow.Children.Add(_selectedLibLabel);
+            panel.Children.Add(libraryRow);
 
             // Steam account row
             var steamRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
@@ -650,12 +702,19 @@ namespace BlankPlugin
         private void SetConfident(string appId, string displayText)
         {
             _resolvedAppId = appId;
-            Dispatch(() =>
+            ShowFoundPanel(appId, displayText);
+        }
+
+        private void ShowFoundPanel(string appId, string displayText)
+        {
+            Dispatcher.Invoke(() =>
             {
+                _resolvedAppId            = appId;
+                _foundLabel.Text          = displayText;
                 _resolveStatusLabel.Visibility = Visibility.Collapsed;
-                _foundLabel.Text = displayText;
-                _foundPanel.Visibility = Visibility.Visible;
-                _fetchBtn.IsEnabled = true;
+                _searchPanel.Visibility   = Visibility.Collapsed;
+                _foundPanel.Visibility    = Visibility.Visible;
+                _fetchBtn.IsEnabled       = true;
             });
         }
 
@@ -828,31 +887,32 @@ namespace BlankPlugin
         {
             if (_gameData == null || _downloading) return;
 
-            var libraries = SteamLibraryHelper.GetSteamLibraries();
             string destPath;
-
-            if (libraries.Count > 0)
+            if (_selectedLibraryPath != null)
             {
+                destPath = _selectedLibraryPath;
+            }
+            else
+            {
+                var libraries = SteamLibraryHelper.GetSteamLibraries();
+                if (libraries.Count == 0)
+                {
+                    AppendLog("ERROR: No Steam libraries detected and no library selected.");
+                    return;
+                }
                 var ownerWindow = Window.GetWindow(this);
-                var selectedLib = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libraries, _api);
-                if (selectedLib == null)
+                var picked = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libraries, _api);
+                if (picked == null)
                 {
                     AppendLog("Download cancelled — no library selected.");
                     return;
                 }
-                destPath = selectedLib;
-                _downloadPathBox.Text = destPath;
-                AppendLog("Using Steam library: " + destPath);
+                destPath = picked;
+                _selectedLibraryPath = picked;
+                _selectedLibLabel.Text = picked;
+                _selectedLibLabel.Foreground = Brushes.White;
             }
-            else
-            {
-                destPath = _downloadPathBox.Text.Trim();
-                if (string.IsNullOrEmpty(destPath) || !Directory.Exists(destPath))
-                {
-                    AppendLog("ERROR: Download path is empty or does not exist. No Steam libraries detected either.");
-                    return;
-                }
-            }
+            AppendLog("Installing to Steam library: " + destPath);
 
             if (!_downloader.IsReady)
             {
