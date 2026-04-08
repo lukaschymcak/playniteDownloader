@@ -222,12 +222,22 @@ namespace BlankPlugin
                 ShowCloseButton = true
             });
 
-            window.Title = game != null ? "BlankPlugin — " + game.Name : "BlankPlugin";
             window.Width = 700;
             window.Height = 600;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-            window.Content = new GameWindow(game, Settings, InstalledGames, PlayniteApi, false, _updateChecker);
+
+            if (game != null)
+            {
+                window.Title = "BlankPlugin — " + game.Name;
+                window.Content = new DownloadView(game, Settings, InstalledGames, PlayniteApi, _updateChecker);
+            }
+            else
+            {
+                window.Title = "BlankPlugin";
+                window.Content = new LibraryView(Settings, InstalledGames, PlayniteApi, _updateChecker);
+            }
+
             window.ShowDialog();
             _lastSelectedGame = null;
         }

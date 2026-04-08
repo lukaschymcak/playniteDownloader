@@ -47,7 +47,7 @@ namespace BlankPlugin
         public string DotnetPath => _dotnetPath;
 
         public string ComputeDownloadDir(GameData data, string destPath)
-            => Path.Combine(destPath, "steamapps", "common", GetInstallFolderName(data));
+            => Path.Combine(destPath, "steamapps", "common", AcfWriter.GetInstallFolderName(data));
 
         // ── Public entry point ────────────────────────────────────────────────────
 
@@ -367,13 +367,6 @@ namespace BlankPlugin
                 " -app {0} -depot {1} -manifest {2} -manifestfile \"{3}\" -depotkeys \"{4}\" -max-downloads {5} -dir \"{6}\" -validate",
                 appId, depotId, manifestGid, manifestFile, keysPath, maxDownloads, downloadDir);
             return sb.ToString();
-        }
-
-        public static string GetInstallFolderName(GameData data)
-        {
-            if (!string.IsNullOrWhiteSpace(data.InstallDir)) return data.InstallDir;
-            var safe = Regex.Replace(data.GameName ?? "", @"[^\w\s-]", "").Trim().Replace(" ", "_");
-            return string.IsNullOrEmpty(safe) ? "App_" + data.AppId : safe;
         }
 
         private static string GetPluginDir()
