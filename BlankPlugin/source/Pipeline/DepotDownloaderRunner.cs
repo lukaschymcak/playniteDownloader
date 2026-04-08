@@ -241,7 +241,7 @@ namespace BlankPlugin
                 // This is the main cause of the progress bar appearing frozen at the end.
                 if (line.IndexOf("validating", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    validationStarted = true;
+                    lock (progressLock) { validationStarted = true; }
                     onStatus?.Invoke("Validating...");
                     onLog(line);
                     return;
@@ -263,9 +263,17 @@ namespace BlankPlugin
                         pct = (int)rawPct;
 
                     // If % arrives after validation started, DD is re-downloading failed chunks.
-                    if (validationStarted && !redownloadNotified)
+                    bool shouldNotifyRedownload = false;
+                    lock (progressLock)
                     {
-                        redownloadNotified = true;
+                        if (validationStarted && !redownloadNotified)
+                        {
+                            redownloadNotified = true;
+                            shouldNotifyRedownload = true;
+                        }
+                    }
+                    if (shouldNotifyRedownload)
+                    {
                         onStatus?.Invoke("Re-downloading failed chunks...");
                         onLog("Validation found corrupted chunks — re-downloading...");
                     }

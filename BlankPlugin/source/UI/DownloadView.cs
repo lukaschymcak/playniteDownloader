@@ -1284,7 +1284,7 @@ namespace BlankPlugin
 
                 if (_api != null && _installedGame.PlayniteGameId != Guid.Empty)
                 {
-                    var removeFromPlaynite = MessageBox.Show(
+                    var removeFromPlaynite = _api.Dialogs.ShowMessage(
                         "Remove \"" + _installedGame.GameName + "\" from Playnite library as well?",
                         "Remove from Library",
                         MessageBoxButton.YesNo,
@@ -1492,6 +1492,8 @@ namespace BlankPlugin
             _foundPanel.Visibility = Visibility.Collapsed;
             _searchPanel.Visibility = Visibility.Collapsed;
             _installedPanel.Visibility = Visibility.Collapsed;
+            _downloadBtn.Content = "Download Selected Depots";
+            _downloadBtn.IsEnabled = false;
             PopulateDepots(data);
             AppendLog("Loaded from ZIP: " + data.GameName + " — " + data.Depots.Count + " depot(s) available.");
         }

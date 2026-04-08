@@ -489,7 +489,7 @@ namespace BlankPlugin
 
                 if (_api != null && game.PlayniteGameId != Guid.Empty)
                 {
-                    var removeFromPlaynite = MessageBox.Show(
+                    var removeFromPlaynite = _api.Dialogs.ShowMessage(
                         "Remove \"" + game.GameName + "\" from Playnite library as well?",
                         "Remove from Library",
                         MessageBoxButton.YesNo,
