@@ -109,6 +109,65 @@ namespace BlankPlugin
                 Text = "Higher = more simultaneous chunk downloads. Default 20. Lower if on a slow or congested connection.",
                 FontSize = 11,
                 TextWrapping = System.Windows.TextWrapping.Wrap,
+                Foreground = System.Windows.Media.Brushes.Gray,
+                Margin = new Thickness(0, 0, 0, 24)
+            });
+
+            // ── IGDB Cover Art ───────────────────────────────────────────────────────
+            root.Children.Add(new TextBlock
+            {
+                Text = "IGDB Cover Art (optional)",
+                FontWeight = FontWeights.Bold,
+                FontSize = 13,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "When a game is installed via ZIP it is added to your Playnite library. " +
+                       "If you provide IGDB credentials, the cover art is downloaded automatically. " +
+                       "Without credentials, a Steam CDN header image is used instead. " +
+                       "Get free credentials at dev.twitch.tv → Applications.",
+                FontSize = 11,
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+                Foreground = System.Windows.Media.Brushes.Gray,
+                Margin = new Thickness(0, 0, 0, 12)
+            });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Client ID",
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            var igdbClientIdBox = new System.Windows.Controls.TextBox
+            {
+                Text = _settings.IgdbClientId,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            igdbClientIdBox.TextChanged += (s, e) => _settings.IgdbClientId = igdbClientIdBox.Text.Trim();
+            root.Children.Add(igdbClientIdBox);
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Client Secret",
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            var igdbClientSecretBox = new System.Windows.Controls.PasswordBox
+            {
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            igdbClientSecretBox.Password = _settings.IgdbClientSecret;
+            igdbClientSecretBox.PasswordChanged += (s, e) => _settings.IgdbClientSecret = igdbClientSecretBox.Password;
+            root.Children.Add(igdbClientSecretBox);
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Leave both fields blank to use Steam CDN images only.",
+                FontSize = 11,
                 Foreground = System.Windows.Media.Brushes.Gray
             });
 

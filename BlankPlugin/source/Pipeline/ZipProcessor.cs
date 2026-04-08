@@ -102,11 +102,6 @@ namespace BlankPlugin
                 @"setManifestid\(\s*(\d+)\s*,\s*"".*?""\s*,\s*(\d+)\s*\)",
                 RegexOptions.IgnoreCase);
 
-            // addtoken(<appId>, "<token>")
-            var tokenRegex = new Regex(
-                @"addtoken\s*\(\s*\d+\s*,\s*""([^""]+)""\s*\)",
-                RegexOptions.IgnoreCase);
-
             var allMatches = addAppRegex.Matches(lua);
             if (allMatches.Count == 0)
                 throw new InvalidDataException("LUA file has no addappid entries.");
@@ -157,10 +152,7 @@ namespace BlankPlugin
                     data.Depots[depotId].Size = size;
             }
 
-            // App token
-            var tokenMatch = tokenRegex.Match(lua);
-            if (tokenMatch.Success)
-                data.AppToken = tokenMatch.Groups[1].Value;
+
         }
 
         private static bool IsBlacklisted(string desc)

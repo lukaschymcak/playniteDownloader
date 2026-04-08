@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Lukas/Documents/Github/playniteDownloader/**)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet publish:*)"
+    ]
+  }
+}

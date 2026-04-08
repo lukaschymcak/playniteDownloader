@@ -47,7 +47,7 @@ namespace BlankPlugin
         public string DotnetPath => _dotnetPath;
 
         public string ComputeDownloadDir(GameData data, string destPath)
-            => Path.Combine(destPath, "steamapps", "common", GetInstallFolderName(data));
+            => Path.Combine(destPath, "steamapps", "common", AcfWriter.GetInstallFolderName(data));
 
         // ── Public entry point ────────────────────────────────────────────────────
 
@@ -214,6 +214,11 @@ namespace BlankPlugin
             // all download output. We collapse them into a single summary instead.
             int preAllocCount = 0;
 
+            // Validation phase tracking — if % lines arrive after validation started,
+            // DD is re-downloading chunks that failed the checksum check.
+            bool validationStarted = false;
+            bool redownloadNotified = false;
+
             // Shared line handler — called from both stdout and stderr threads.
             Action<string> parseLine = line =>
             {
@@ -236,6 +241,7 @@ namespace BlankPlugin
                 // This is the main cause of the progress bar appearing frozen at the end.
                 if (line.IndexOf("validating", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
+                    lock (progressLock) { validationStarted = true; }
                     onStatus?.Invoke("Validating...");
                     onLog(line);
                     return;
@@ -255,6 +261,22 @@ namespace BlankPlugin
                         pct = (int)Math.Min(100, (completedSoFar + rawPct / 100.0 * depotSize) / totalSize * 100);
                     else
                         pct = (int)rawPct;
+
+                    // If % arrives after validation started, DD is re-downloading failed chunks.
+                    bool shouldNotifyRedownload = false;
+                    lock (progressLock)
+                    {
+                        if (validationStarted && !redownloadNotified)
+                        {
+                            redownloadNotified = true;
+                            shouldNotifyRedownload = true;
+                        }
+                    }
+                    if (shouldNotifyRedownload)
+                    {
+                        onStatus?.Invoke("Re-downloading failed chunks...");
+                        onLog("Validation found corrupted chunks — re-downloading...");
+                    }
 
                     // Thread-safe dedup — only emit when the integer value changes.
                     bool emit = false;
@@ -367,13 +389,6 @@ namespace BlankPlugin
                 " -app {0} -depot {1} -manifest {2} -manifestfile \"{3}\" -depotkeys \"{4}\" -max-downloads {5} -dir \"{6}\" -validate",
                 appId, depotId, manifestGid, manifestFile, keysPath, maxDownloads, downloadDir);
             return sb.ToString();
-        }
-
-        private static string GetInstallFolderName(GameData data)
-        {
-            if (!string.IsNullOrWhiteSpace(data.InstallDir)) return data.InstallDir;
-            var safe = Regex.Replace(data.GameName ?? "", @"[^\w\s-]", "").Trim().Replace(" ", "_");
-            return string.IsNullOrEmpty(safe) ? "App_" + data.AppId : safe;
         }
 
         private static string GetPluginDir()

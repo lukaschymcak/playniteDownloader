@@ -1,6 +1,6 @@
 is_global = true
 build_property.RootNamespace = BlankPlugin
-build_property.ProjectDir = C:\Users\Lukas\Documents\PlaynitePluginProject\BlankPlugin\source\
+build_property.ProjectDir = C:\Users\Lukas\Documents\Github\playniteDownloader\BlankPlugin\source\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.CsWinRTUseWindowsUIXamlProjections = false
