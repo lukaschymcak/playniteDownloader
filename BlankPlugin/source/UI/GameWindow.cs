@@ -60,6 +60,7 @@ namespace BlankPlugin
         // ── Installed game tracking ──────────────────────────────────────────
         private readonly InstalledGamesManager _installedGamesManager;
         private InstalledGame _installedGame; // null if not installed via plugin
+        private readonly UpdateChecker _updateChecker;
 
         // ── Installed game UI ────────────────────────────────────────────────
         private UIElement _installedPanel;
@@ -109,7 +110,7 @@ namespace BlankPlugin
         private TextBlock _speedLabel;
         private TextBox _logBox;
 
-        public GameWindow(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager = null, IPlayniteAPI api = null, bool skipInstalledCheck = false)
+        public GameWindow(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager = null, IPlayniteAPI api = null, bool skipInstalledCheck = false, UpdateChecker updateChecker = null)
         {
             _game = game;
             _settings = settings;
@@ -117,6 +118,7 @@ namespace BlankPlugin
             _client = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
             _installedGamesManager = installedGamesManager;
+            _updateChecker = updateChecker;
 
             if (_game == null)
             {
@@ -1008,9 +1010,7 @@ namespace BlankPlugin
                     {
                         try
                         {
-                            var installDir = string.IsNullOrEmpty(_gameData.InstallDir)
-                                ? _gameData.GameName
-                                : _gameData.InstallDir;
+                            var installDir = DepotDownloaderRunner.GetInstallFolderName(_gameData);
                             var installPath = Path.Combine(destPath, "steamapps", "common", installDir);
 
                             long sizeOnDisk = 0;
@@ -1030,7 +1030,9 @@ namespace BlankPlugin
                                 InstalledDate = DateTime.UtcNow,
                                 SizeOnDisk = sizeOnDisk,
                                 SelectedDepots = new List<string>(_gameData.SelectedDepots),
-                                ManifestGIDs = new Dictionary<string, string>(_gameData.Manifests),
+                                ManifestGIDs = _gameData.Manifests
+                                    .Where(kv => _gameData.SelectedDepots.Contains(kv.Key))
+                                    .ToDictionary(kv => kv.Key, kv => kv.Value),
                                 PlayniteGameId = _game?.Id ?? Guid.Empty,
                                 DrmStripped = runSteamless,
                                 RegisteredWithSteam = registerSteam
@@ -1621,6 +1623,31 @@ namespace BlankPlugin
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
+            // Update status text below game name
+            var updateStatus = _updateChecker?.GetStatus(game.AppId);
+            if (updateStatus == "up_to_date")
+            {
+                info.Children.Add(new TextBlock
+                {
+                    Text = "Up to date",
+                    Foreground = new SolidColorBrush(Color.FromRgb(50, 205, 50)),
+                    FontSize = 10,
+                    FontWeight = FontWeights.Medium,
+                    Margin = new Thickness(0, 2, 0, 0)
+                });
+            }
+            else if (updateStatus == "update_available")
+            {
+                info.Children.Add(new TextBlock
+                {
+                    Text = "Update available",
+                    Foreground = new SolidColorBrush(Color.FromRgb(255, 165, 0)),
+                    FontSize = 10,
+                    FontWeight = FontWeights.Medium,
+                    Margin = new Thickness(0, 2, 0, 0)
+                });
+            }
+
             info.Children.Add(new TextBlock
             {
                 Text = SteamLibraryHelper.FormatSize(game.SizeOnDisk) + "   ·   " +
@@ -1686,6 +1713,34 @@ namespace BlankPlugin
             };
 
             card.Child = grid;
+
+            // ── Update status accent stripe ──────────────────────────────────────
+            var status = _updateChecker?.GetStatus(game.AppId);
+            Brush accentBrush;
+            if (status == "up_to_date")
+                accentBrush = new SolidColorBrush(Color.FromRgb(50, 205, 50));   // Green
+            else if (status == "update_available")
+                accentBrush = new SolidColorBrush(Color.FromRgb(255, 165, 0));   // Orange
+            else
+                accentBrush = null; // No stripe for unknown/not checked
+
+            if (accentBrush != null)
+            {
+                var dockPanel = new DockPanel();
+                var accentStripe = new Border
+                {
+                    Width = 4,
+                    Background = accentBrush
+                };
+                DockPanel.SetDock(accentStripe, Dock.Left);
+                dockPanel.Children.Add(accentStripe);
+
+                // Move the grid from card into the DockPanel
+                card.Child = null;
+                dockPanel.Children.Add(grid);
+                card.Child = dockPanel;
+            }
+
             return card;
         }
 

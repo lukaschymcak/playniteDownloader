@@ -179,50 +179,6 @@ namespace BlankPlugin
                             message,
                             NotificationType.Info));
                     }
-
-                    // Apply / remove "Update Available" Playnite tag for each checked game
-                    if (!token.IsCancellationRequested)
-                    {
-                        try
-                        {
-                            var updateTag = _playniteApi.Database.Tags.Add("Update Available");
-
-                            using (_playniteApi.Database.BufferedUpdate())
-                            {
-                                foreach (var game in checkable)
-                                {
-                                    if (game.PlayniteGameId == Guid.Empty) continue;
-
-                                    var playniteGame = _playniteApi.Database.Games.Get(game.PlayniteGameId);
-                                    if (playniteGame == null) continue;
-
-                                    if (playniteGame.TagIds == null)
-                                        playniteGame.TagIds = new System.Collections.Generic.List<Guid>();
-
-                                    var status = _statusCache.TryGetValue(game.AppId, out var s) ? s : null;
-
-                                    if (status == "update_available")
-                                    {
-                                        if (!playniteGame.TagIds.Contains(updateTag.Id))
-                                        {
-                                            playniteGame.TagIds.Add(updateTag.Id);
-                                            _playniteApi.Database.Games.Update(playniteGame);
-                                        }
-                                    }
-                                    else if (status == "up_to_date")
-                                    {
-                                        if (playniteGame.TagIds.Remove(updateTag.Id))
-                                            _playniteApi.Database.Games.Update(playniteGame);
-                                    }
-                                    // cannot_determine: leave tag unchanged
-                                }
-                            }
-                        }
-                        catch (Exception tagEx)
-                        {
-                            logger.Warn("UpdateChecker: tag update failed: " + tagEx.Message);
-                        }
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -238,6 +194,19 @@ namespace BlankPlugin
         public void Cancel()
         {
             try { _cts?.Cancel(); } catch { }
+        }
+
+        /// <summary>
+        /// Marks a game as up-to-date in the in-memory status cache.
+        /// Called by UpdateWindow after a successful update download.
+        /// </summary>
+        public void MarkUpToDate(string appId)
+        {
+            if (!string.IsNullOrEmpty(appId))
+            {
+                _statusCache[appId] = "up_to_date";
+                logger.Info("UpdateChecker: Marked " + appId + " as up_to_date after successful update.");
+            }
         }
 
     }

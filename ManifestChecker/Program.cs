@@ -26,7 +26,7 @@ foreach (var arg in rawArgs)
 var appIdsStr = rawArgs; // Keep string versions for output
 
 // 3. SteamKit2 connection
-using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 var steamClient = new SteamClient();
 var manager = new CallbackManager(steamClient);
 var steamUser = steamClient.GetHandler<SteamUser>();
@@ -76,7 +76,7 @@ steamClient.Connect();
 var startTime = DateTime.UtcNow;
 while (!loggedOn && !failed)
 {
-    if (DateTime.UtcNow - startTime > TimeSpan.FromSeconds(30))
+    if (DateTime.UtcNow - startTime > TimeSpan.FromSeconds(15))
     {
         Console.Error.WriteLine(JsonConvert.SerializeObject(new { error = "Timed out waiting for Steam login" }));
         Environment.Exit(1);
@@ -111,13 +111,13 @@ for (int i = 0; i < appIds.Count; i += batchSize)
 
     picsResult = null;
     var job = steamApps.PICSGetProductInfo(picRequests, Enumerable.Empty<SteamApps.PICSRequest>());
-    job.Timeout = TimeSpan.FromSeconds(20);
+    job.Timeout = TimeSpan.FromSeconds(10);
 
     // Wait for response
     var fetchStart = DateTime.UtcNow;
     while (picsResult == null && !failed)
     {
-        if (DateTime.UtcNow - fetchStart > TimeSpan.FromSeconds(20))
+        if (DateTime.UtcNow - fetchStart > TimeSpan.FromSeconds(10))
         {
             Console.Error.WriteLine(JsonConvert.SerializeObject(new { error = "Timed out waiting for Steam response" }));
             Environment.Exit(1);
@@ -174,7 +174,7 @@ steamUser.LogOff();
 // Wait for disconnect
 var disconnectStart = DateTime.UtcNow;
 manager.Subscribe<SteamClient.DisconnectedCallback>(callback => { });
-while (DateTime.UtcNow - disconnectStart < TimeSpan.FromSeconds(5))
+while (DateTime.UtcNow - disconnectStart < TimeSpan.FromSeconds(2))
 {
     manager.RunWaitCallbacks(TimeSpan.FromMilliseconds(100));
 }

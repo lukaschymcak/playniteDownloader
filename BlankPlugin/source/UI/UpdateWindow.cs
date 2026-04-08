@@ -26,6 +26,7 @@ namespace BlankPlugin
         private readonly InstalledGamesManager _gamesManager;
         private readonly IPlayniteAPI _api;
         private readonly GameData _preloadedData; // null = API path
+        private readonly UpdateChecker _updateChecker;
 
         private GameData _freshData;
         private readonly List<CheckBox> _depotCheckBoxes = new List<CheckBox>();
@@ -43,13 +44,15 @@ namespace BlankPlugin
             BlankPluginSettings settings,
             InstalledGamesManager gamesManager,
             IPlayniteAPI api,
-            GameData preloadedData = null)
+            GameData preloadedData = null,
+            UpdateChecker updateChecker = null)
         {
             _existingGame = existingGame;
             _settings = settings;
             _gamesManager = gamesManager;
             _api = api;
             _preloadedData = preloadedData;
+            _updateChecker = updateChecker;
 
             Content = BuildLayout();
 
@@ -209,19 +212,47 @@ namespace BlankPlugin
             foreach (var kv in data.Depots)
             {
                 var depotId = kv.Key;
+                // Only show depots that were previously downloaded
+                if (_existingGame.SelectedDepots == null
+                    || !_existingGame.SelectedDepots.Contains(depotId)) continue;
+
                 var info = kv.Value;
                 var label = string.IsNullOrEmpty(info.Description) ? "Depot " + depotId : info.Description;
                 if (info.Size > 0)
                     label += "  (" + SteamLibraryHelper.FormatSize(info.Size) + ")";
 
+                // Compare saved vs fresh GID for this depot
+                bool gidChanged = false;
+
+                if (_existingGame.ManifestGIDs != null
+                    && _existingGame.ManifestGIDs.TryGetValue(depotId, out var savedGid)
+                    && data.Manifests != null
+                    && data.Manifests.TryGetValue(depotId, out var freshGid))
+                {
+                    gidChanged = (savedGid != freshGid);
+                }
+
                 var cb = new CheckBox
                 {
                     Content = label,
                     Tag = depotId,
-                    IsChecked = _existingGame.SelectedDepots != null
-                                && _existingGame.SelectedDepots.Contains(depotId),
                     Margin = new Thickness(4, 2, 0, 2)
                 };
+
+                if (gidChanged)
+                {
+                    // GID changed — pre-check for update
+                    cb.IsChecked = true;
+                }
+                else
+                {
+                    // Still current — show as up to date
+                    cb.IsChecked = false;
+                    cb.Content = label + "  (up to date)";
+                    cb.Foreground = new SolidColorBrush(Color.FromRgb(110, 110, 110));
+                    cb.IsEnabled = false;
+                }
+
                 cb.Checked += (s, e) => RefreshUpdateButton();
                 cb.Unchecked += (s, e) => RefreshUpdateButton();
                 _depotCheckBoxes.Add(cb);
@@ -296,14 +327,19 @@ namespace BlankPlugin
                     maxDownloads: _settings.MaxDownloads,
                     steamUsername: _settings.SteamUsername);
 
-                // Update the persisted InstalledGame record
-                _existingGame.ManifestGIDs = new Dictionary<string, string>(_freshData.Manifests);
+                // Update the persisted InstalledGame record — only store GIDs for downloaded depots
+                _existingGame.ManifestGIDs = _freshData.Manifests
+                    .Where(kv => selectedDepots.Contains(kv.Key))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
                 _existingGame.SelectedDepots = new List<string>(selectedDepots);
                 _existingGame.SizeOnDisk = CalculateDirSize(installPath);
                 _gamesManager.Save(_existingGame);
 
-                // Remove "Update Available" tag from Playnite game record
-                RemoveUpdateTag();
+                // Clear the update status cache so UpdateGameDialog shows correct status
+                _updateChecker?.MarkUpToDate(_existingGame.AppId);
+
+                // Re-run the update checker to refresh all game statuses
+                _updateChecker?.RunAsync();
 
                 Dispatch(() =>
                 {
@@ -311,7 +347,19 @@ namespace BlankPlugin
                     _progressBar.Value = 100;
                     SetStatus("Update complete.");
                     AppendLog("Update complete.");
-                    _updateBtn.IsEnabled = true;
+                    _updateBtn.IsEnabled = false;
+
+                    // Auto-close the window after a brief delay so the user sees "Update complete."
+                    var timer = new System.Windows.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromSeconds(1.5)
+                    };
+                    timer.Tick += (s, e) =>
+                    {
+                        timer.Stop();
+                        Window.GetWindow(this)?.Close();
+                    };
+                    timer.Start();
                 });
             }
             catch (Exception ex)
@@ -328,26 +376,6 @@ namespace BlankPlugin
         }
 
         // ── Post-download helpers ─────────────────────────────────────────────────
-
-        private void RemoveUpdateTag()
-        {
-            try
-            {
-                if (_existingGame.PlayniteGameId == Guid.Empty) return;
-                var playniteGame = _api.Database.Games.Get(_existingGame.PlayniteGameId);
-                if (playniteGame == null) return;
-
-                var tag = _api.Database.Tags.FirstOrDefault(t => t.Name == "Update Available");
-                if (tag == null) return;
-
-                if (playniteGame.TagIds != null && playniteGame.TagIds.Remove(tag.Id))
-                    _api.Database.Games.Update(playniteGame);
-            }
-            catch (Exception ex)
-            {
-                logger.Warn("UpdateWindow.RemoveUpdateTag failed: " + ex.Message);
-            }
-        }
 
         private static long CalculateDirSize(string path)
         {

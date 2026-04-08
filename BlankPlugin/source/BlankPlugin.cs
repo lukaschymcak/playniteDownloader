@@ -227,7 +227,7 @@ namespace BlankPlugin
             window.Height = 600;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-            window.Content = new GameWindow(game, Settings, InstalledGames, PlayniteApi);
+            window.Content = new GameWindow(game, Settings, InstalledGames, PlayniteApi, false, _updateChecker);
             window.ShowDialog();
             _lastSelectedGame = null;
         }

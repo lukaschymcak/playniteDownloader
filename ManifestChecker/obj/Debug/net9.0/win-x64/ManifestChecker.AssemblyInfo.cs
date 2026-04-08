@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ManifestChecker")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f45227b19d9f62db894487640d3e3fd460ed652c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+09dd1c849b7fe4be4952880ca4d02b5a91f67a1a")]
 [assembly: System.Reflection.AssemblyProductAttribute("ManifestChecker")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ManifestChecker")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

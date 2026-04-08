@@ -65,11 +65,11 @@ namespace BlankPlugin
                     var stdoutTask = Task.Run(() => proc.StandardOutput.ReadToEnd());
                     var stderrTask = Task.Run(() => proc.StandardError.ReadToEnd());
 
-                    bool exited = proc.WaitForExit(60_000);
+                    bool exited = proc.WaitForExit(30_000);
                     if (!exited)
                     {
                         try { proc.Kill(); } catch { }
-                        return (null, "ManifestChecker.exe timed out after 60 seconds.");
+                        return (null, "ManifestChecker.exe timed out after 30 seconds.");
                     }
 
                     var stdout = stdoutTask.Result;

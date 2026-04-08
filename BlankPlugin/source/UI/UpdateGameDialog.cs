@@ -170,7 +170,7 @@ namespace BlankPlugin
             window.Height = 500;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = _api.Dialogs.GetCurrentAppWindow();
-            window.Content = new UpdateWindow(_game, _settings, _gamesManager, _api);
+            window.Content = new UpdateWindow(_game, _settings, _gamesManager, _api, null, _updateChecker);
             window.ShowDialog();
         }
 
@@ -212,7 +212,7 @@ namespace BlankPlugin
             window.Height = 500;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = _api.Dialogs.GetCurrentAppWindow();
-            window.Content = new UpdateWindow(_game, _settings, _gamesManager, _api, freshData);
+            window.Content = new UpdateWindow(_game, _settings, _gamesManager, _api, freshData, _updateChecker);
             window.ShowDialog();
         }
     }

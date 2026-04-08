@@ -369,7 +369,7 @@ namespace BlankPlugin
             return sb.ToString();
         }
 
-        private static string GetInstallFolderName(GameData data)
+        public static string GetInstallFolderName(GameData data)
         {
             if (!string.IsNullOrWhiteSpace(data.InstallDir)) return data.InstallDir;
             var safe = Regex.Replace(data.GameName ?? "", @"[^\w\s-]", "").Trim().Replace(" ", "_");
