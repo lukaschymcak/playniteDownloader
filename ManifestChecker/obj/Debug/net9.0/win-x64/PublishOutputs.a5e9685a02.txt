@@ -1,2 +1,0 @@
-C:\Users\Lukas\Documents\Github\playniteDownloader\ManifestChecker\bin\Debug\net9.0\win-x64\publish\ManifestChecker.pdb
-C:\Users\Lukas\Documents\Github\playniteDownloader\ManifestChecker\bin\Debug\net9.0\win-x64\publish\ManifestChecker.exe

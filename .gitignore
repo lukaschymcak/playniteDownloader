@@ -1,0 +1,30 @@
+# Build intermediates
+BlankPlugin/source/obj/
+ManifestChecker/obj/
+
+# ManifestChecker build output (gets copied into BlankPlugin/source/bin/deps/ by the build)
+ManifestChecker/bin/
+
+# Compiled plugin binaries
+# deps/ is intentionally tracked — it contains shipped runtime dependencies (DepotDownloader, SteamKit2, etc.)
+BlankPlugin/source/bin/Debug/net462/BlankPlugin.dll
+BlankPlugin/source/bin/Debug/net462/BlankPlugin.pdb
+BlankPlugin/source/bin/Debug/net462/System.ValueTuple.dll
+BlankPlugin/source/bin/Release/net462/BlankPlugin.dll
+BlankPlugin/source/bin/Release/net462/BlankPlugin.pdb
+BlankPlugin/source/bin/Release/net462/System.ValueTuple.dll
+
+# Packed plugin
+*.pext
+
+# Visual Studio
+.vs/
+BlankPlugin/source/.vs/
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.localB.json
+.claude/settings.localC.json
+.claude/scheduled_tasks.lock
+BlankPlugin/source/bin/.claude/
+BlankPlugin/source/.claude/
