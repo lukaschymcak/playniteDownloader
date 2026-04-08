@@ -487,6 +487,18 @@ namespace BlankPlugin
                 _installedGamesManager.Remove(game.AppId);
                 _libraryList.Children.Remove(entryCard);
 
+                if (_api != null && game.PlayniteGameId != Guid.Empty)
+                {
+                    var removeFromPlaynite = MessageBox.Show(
+                        "Remove \"" + game.GameName + "\" from Playnite library as well?",
+                        "Remove from Library",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (removeFromPlaynite == MessageBoxResult.Yes)
+                        _api.Database.Games.Remove(game.PlayniteGameId);
+                }
+
                 var remaining = _installedGamesManager.GetAll();
                 var totalSize = remaining.Sum(g => g.SizeOnDisk);
                 _librarySummaryLabel.Text = remaining.Count + " game(s)  |  " + SteamLibraryHelper.FormatSize(totalSize);

@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using Playnite.SDK;
 using Playnite.SDK.Models;
 using System;
@@ -375,6 +376,18 @@ namespace BlankPlugin
         private UIElement BuildOptionsPanel()
         {
             var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+            // Load from ZIP row — alternative to fetching from Morrenus
+            var zipRow = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+            var loadZipBtn = new Button
+            {
+                Content = "Load manifest from ZIP file",
+                Padding = new Thickness(12, 4, 12, 4),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            loadZipBtn.Click += (s, e) => OnLoadFromZipClicked(loadZipBtn);
+            zipRow.Children.Add(loadZipBtn);
+            panel.Children.Add(zipRow);
 
             // Download path row
             var pathRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
@@ -1269,6 +1282,18 @@ namespace BlankPlugin
                 _installedGamesManager.Remove(_installedGame.AppId);
                 AppendLog("Uninstalled: " + _installedGame.GameName);
 
+                if (_api != null && _installedGame.PlayniteGameId != Guid.Empty)
+                {
+                    var removeFromPlaynite = MessageBox.Show(
+                        "Remove \"" + _installedGame.GameName + "\" from Playnite library as well?",
+                        "Remove from Library",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (removeFromPlaynite == MessageBoxResult.Yes)
+                        _api.Database.Games.Remove(_installedGame.PlayniteGameId);
+                }
+
                 _installedGame = null;
                 _installedPanel.Visibility = Visibility.Collapsed;
                 _downloadBtn.Content = "Download Selected Depots";
@@ -1418,6 +1443,57 @@ namespace BlankPlugin
             }
 
             _api.Database.Games.Update(game);
+        }
+
+        // ── Load from ZIP ─────────────────────────────────────────────────────────
+
+        private void OnLoadFromZipClicked(Button btn)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Select Manifest ZIP",
+                Filter = "ZIP files (*.zip)|*.zip",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            var zipPath = dialog.FileName;
+            btn.IsEnabled = false;
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var data = new ZipProcessor().Process(zipPath);
+                    Dispatch(() =>
+                    {
+                        LoadFromZip(data);
+                        btn.IsEnabled = true;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Dispatch(() =>
+                    {
+                        AppendLog("ERROR loading ZIP: " + ex.Message);
+                        btn.IsEnabled = true;
+                    });
+                }
+            });
+        }
+
+        private void LoadFromZip(GameData data)
+        {
+            _gameData = data;
+            _resolvedAppId = data.AppId;
+            _gameInfoLabel.Text = data.GameName + "  (AppID: " + data.AppId + ")";
+            _resolveStatusLabel.Visibility = Visibility.Collapsed;
+            _foundPanel.Visibility = Visibility.Collapsed;
+            _searchPanel.Visibility = Visibility.Collapsed;
+            _installedPanel.Visibility = Visibility.Collapsed;
+            PopulateDepots(data);
+            AppendLog("Loaded from ZIP: " + data.GameName + " — " + data.Depots.Count + " depot(s) available.");
         }
 
         // ── Save file preservation ────────────────────────────────────────────────

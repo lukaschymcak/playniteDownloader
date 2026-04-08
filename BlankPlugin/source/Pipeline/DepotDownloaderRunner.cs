@@ -214,6 +214,11 @@ namespace BlankPlugin
             // all download output. We collapse them into a single summary instead.
             int preAllocCount = 0;
 
+            // Validation phase tracking — if % lines arrive after validation started,
+            // DD is re-downloading chunks that failed the checksum check.
+            bool validationStarted = false;
+            bool redownloadNotified = false;
+
             // Shared line handler — called from both stdout and stderr threads.
             Action<string> parseLine = line =>
             {
@@ -236,6 +241,7 @@ namespace BlankPlugin
                 // This is the main cause of the progress bar appearing frozen at the end.
                 if (line.IndexOf("validating", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
+                    validationStarted = true;
                     onStatus?.Invoke("Validating...");
                     onLog(line);
                     return;
@@ -255,6 +261,14 @@ namespace BlankPlugin
                         pct = (int)Math.Min(100, (completedSoFar + rawPct / 100.0 * depotSize) / totalSize * 100);
                     else
                         pct = (int)rawPct;
+
+                    // If % arrives after validation started, DD is re-downloading failed chunks.
+                    if (validationStarted && !redownloadNotified)
+                    {
+                        redownloadNotified = true;
+                        onStatus?.Invoke("Re-downloading failed chunks...");
+                        onLog("Validation found corrupted chunks — re-downloading...");
+                    }
 
                     // Thread-safe dedup — only emit when the integer value changes.
                     bool emit = false;
