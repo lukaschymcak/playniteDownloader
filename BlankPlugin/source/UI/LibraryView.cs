@@ -380,6 +380,38 @@ namespace BlankPlugin
             };
             uninstallBtn.Click += (s, e) => UninstallGame(game, card);
 
+            if (updateStatus == "update_available")
+            {
+                var updateBtn = new Button
+                {
+                    Content = "Update",
+                    Width = 64,
+                    Height = 26,
+                    FontSize = 11,
+                    Margin = new Thickness(0, 0, 6, 0),
+                    Background = new SolidColorBrush(Color.FromRgb(0xCC, 0x66, 0x00)),
+                    Foreground = Brushes.White
+                };
+                updateBtn.Click += (s, e) =>
+                {
+                    var window = _api.Dialogs.CreateWindow(new WindowCreationOptions
+                    {
+                        ShowMinimizeButton = false,
+                        ShowMaximizeButton = false,
+                        ShowCloseButton = true
+                    });
+                    window.Title = "Update Game — " + game.GameName;
+                    window.Width = 480;
+                    window.Height = 300;
+                    window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    window.Owner = _api.Dialogs.GetCurrentAppWindow();
+                    window.Content = new UpdateGameDialog(game, _settings, _installedGamesManager, _api, _updateChecker);
+                    window.ShowDialog();
+                    Dispatch(() => RefreshLibraryList());
+                };
+                btnStack.Children.Add(updateBtn);
+            }
+
             btnStack.Children.Add(openBtn);
             btnStack.Children.Add(uninstallBtn);
 
