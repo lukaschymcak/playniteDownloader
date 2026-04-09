@@ -113,6 +113,22 @@ namespace BlankPlugin
                 Margin = new Thickness(0, 0, 0, 24)
             });
 
+            // ── Steam Web API Key ────────────────────────────────────────────────────
+            root.Children.Add(new TextBlock
+            {
+                Text = "Steam Web API Key",
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            var steamWebApiKeyBox = new System.Windows.Controls.TextBox
+            {
+                Text = _settings.SteamWebApiKey,
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+            steamWebApiKeyBox.TextChanged += (s, e) => _settings.SteamWebApiKey = steamWebApiKeyBox.Text;
+            root.Children.Add(steamWebApiKeyBox);
+
             // ── IGDB Cover Art ───────────────────────────────────────────────────────
             root.Children.Add(new TextBlock
             {
@@ -170,6 +186,103 @@ namespace BlankPlugin
                 FontSize = 11,
                 Foreground = System.Windows.Media.Brushes.Gray
             });
+
+            // ── Goldberg Emulator ────────────────────────────────────────────────────
+            root.Children.Add(new TextBlock
+            {
+                Text = "Goldberg Emulator",
+                FontWeight = FontWeights.Bold,
+                FontSize = 13,
+                Margin = new Thickness(0, 24, 0, 4)
+            });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Path to the goldberg-files folder (contains my_login.txt, release/, generate_emu_config/).",
+                FontSize = 11,
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+                Foreground = System.Windows.Media.Brushes.Gray,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            var goldbergPathRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+
+            var goldbergBrowseBtn = new System.Windows.Controls.Button
+            {
+                Content = "Browse...",
+                Padding = new Thickness(8, 4, 8, 4),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            DockPanel.SetDock(goldbergBrowseBtn, Dock.Right);
+
+            var goldbergPathBox = new System.Windows.Controls.TextBox { Text = _settings.GoldbergFilesPath };
+            goldbergPathBox.TextChanged += (s, e) => _settings.GoldbergFilesPath = goldbergPathBox.Text;
+
+            goldbergBrowseBtn.Click += (s, e) =>
+            {
+                var dialog = new FolderBrowserDialog
+                {
+                    Description = "Select goldberg-files folder",
+                    ShowNewFolderButton = false,
+                    SelectedPath = _settings.GoldbergFilesPath
+                };
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    goldbergPathBox.Text = dialog.SelectedPath;
+                    _settings.GoldbergFilesPath = dialog.SelectedPath;
+                }
+            };
+
+            goldbergPathRow.Children.Add(goldbergBrowseBtn);
+            goldbergPathRow.Children.Add(goldbergPathBox);
+            root.Children.Add(goldbergPathRow);
+
+            // ── Goldberg Account (optional) ──────────────────────────────────────────
+            root.Children.Add(new TextBlock
+            {
+                Text = "Goldberg Account (optional)",
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 16, 0, 4)
+            });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Sets account_name and account_steamid in configs.user.ini before applying. Leave blank to keep existing values.",
+                FontSize = 11,
+                TextWrapping = System.Windows.TextWrapping.Wrap,
+                Foreground = System.Windows.Media.Brushes.Gray,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            var accountNameRow = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+            var accountNameLabel = new TextBlock
+            {
+                Text = "Account name:",
+                VerticalAlignment = VerticalAlignment.Center,
+                Width = 110,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            DockPanel.SetDock(accountNameLabel, Dock.Left);
+            var accountNameBox = new System.Windows.Controls.TextBox { Text = _settings.GoldbergAccountName };
+            accountNameBox.TextChanged += (s, e) => _settings.GoldbergAccountName = accountNameBox.Text;
+            accountNameRow.Children.Add(accountNameLabel);
+            accountNameRow.Children.Add(accountNameBox);
+            root.Children.Add(accountNameRow);
+
+            var steamIdRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+            var steamIdLabel = new TextBlock
+            {
+                Text = "Steam64 ID:",
+                VerticalAlignment = VerticalAlignment.Center,
+                Width = 110,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            DockPanel.SetDock(steamIdLabel, Dock.Left);
+            var steamIdBox = new System.Windows.Controls.TextBox { Text = _settings.GoldbergSteamId };
+            steamIdBox.TextChanged += (s, e) => _settings.GoldbergSteamId = steamIdBox.Text;
+            steamIdRow.Children.Add(steamIdLabel);
+            steamIdRow.Children.Add(steamIdBox);
+            root.Children.Add(steamIdRow);
 
             Content = root;
         }

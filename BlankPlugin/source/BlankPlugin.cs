@@ -190,6 +190,41 @@ namespace BlankPlugin
                     yield return new GameMenuItem
                     {
                         MenuSection = "BlankPlugin",
+                        Description = "Apply Goldberg Emulator",
+                        Action = menuArgs =>
+                        {
+                            if (!Directory.Exists(installed.InstallPath)) return;
+                            if (string.IsNullOrWhiteSpace(Settings.GoldbergFilesPath))
+                            {
+                                MessageBox.Show("Goldberg files path not configured. Open Plugin Settings first.",
+                                    "Goldberg", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                return;
+                            }
+                            var arch = GoldbergRunner.DetectArch(installed.InstallPath);
+                            if (arch == null)
+                            {
+                                arch = GoldbergArchDialog.ShowPicker(PlayniteApi.Dialogs.GetCurrentAppWindow());
+                                if (arch == null) return;
+                            }
+                            try
+                            {
+                                var runner = new GoldbergRunner(Settings.GoldbergFilesPath);
+                                runner.Run(installed.InstallPath, installed.AppId, arch, Settings,
+                                    line => logger.Info("[Goldberg] " + line));
+                                MessageBox.Show("Goldberg emulator applied successfully.", "Goldberg",
+                                    MessageBoxButton.OK, MessageBoxImage.Information);
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show("Goldberg error: " + ex.Message, "Error",
+                                    MessageBoxButton.OK, MessageBoxImage.Error);
+                            }
+                        }
+                    };
+
+                    yield return new GameMenuItem
+                    {
+                        MenuSection = "BlankPlugin",
                         Description = "Update Game",
                         Action = menuArgs =>
                         {
@@ -226,20 +261,27 @@ namespace BlankPlugin
             window.Height = 600;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-
-            if (game != null)
-            {
-                window.Title = "BlankPlugin — " + game.Name;
-                window.Content = new DownloadView(game, Settings, InstalledGames, PlayniteApi, _updateChecker);
-            }
-            else
-            {
-                window.Title = "BlankPlugin";
-                window.Content = new LibraryView(Settings, InstalledGames, PlayniteApi, _updateChecker);
-            }
-
+            window.Title = "BlankPlugin";
+            window.Content = new PluginMainView(Settings, InstalledGames, PlayniteApi, _updateChecker, this);
             window.ShowDialog();
             _lastSelectedGame = null;
+        }
+
+        public void OpenDownloadForAppId(string appId, string name)
+        {
+            var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
+            {
+                ShowMinimizeButton = false,
+                ShowMaximizeButton = true,
+                ShowCloseButton = true
+            });
+            window.Width = 700;
+            window.Height = 600;
+            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
+            window.Title = "BlankPlugin \u2014 " + name;
+            window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker);
+            window.ShowDialog();
         }
     }
 }

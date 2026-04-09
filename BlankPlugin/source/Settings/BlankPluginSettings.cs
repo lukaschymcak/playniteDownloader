@@ -35,6 +35,13 @@ namespace BlankPlugin
             set => SetValue(ref _steamUsername, value ?? string.Empty);
         }
 
+        private string _steamWebApiKey = string.Empty;
+        public string SteamWebApiKey
+        {
+            get => _steamWebApiKey;
+            set => SetValue(ref _steamWebApiKey, value ?? string.Empty);
+        }
+
         private string _igdbClientId = string.Empty;
         public string IgdbClientId
         {
@@ -49,6 +56,27 @@ namespace BlankPlugin
             set => SetValue(ref _igdbClientSecret, value ?? string.Empty);
         }
 
+        private string _goldbergFilesPath = string.Empty;
+        public string GoldbergFilesPath
+        {
+            get => _goldbergFilesPath;
+            set => SetValue(ref _goldbergFilesPath, value ?? string.Empty);
+        }
+
+        private string _goldbergAccountName = string.Empty;
+        public string GoldbergAccountName
+        {
+            get => _goldbergAccountName;
+            set => SetValue(ref _goldbergAccountName, value ?? string.Empty);
+        }
+
+        private string _goldbergSteamId = string.Empty;
+        public string GoldbergSteamId
+        {
+            get => _goldbergSteamId;
+            set => SetValue(ref _goldbergSteamId, value ?? string.Empty);
+        }
+
         // Parameterless constructor required by LoadPluginSettings
         public BlankPluginSettings() { }
 
@@ -61,9 +89,13 @@ namespace BlankPlugin
                 ApiKey        = saved.ApiKey;
                 DownloadPath  = saved.DownloadPath;
                 MaxDownloads  = saved.MaxDownloads > 0 ? saved.MaxDownloads : 20;
-                SteamUsername = saved.SteamUsername ?? string.Empty;
+                SteamUsername  = saved.SteamUsername ?? string.Empty;
+                SteamWebApiKey = saved.SteamWebApiKey ?? string.Empty;
                 IgdbClientId     = saved.IgdbClientId     ?? string.Empty;
                 IgdbClientSecret = saved.IgdbClientSecret ?? string.Empty;
+                GoldbergFilesPath   = saved.GoldbergFilesPath   ?? string.Empty;
+                GoldbergAccountName = saved.GoldbergAccountName ?? string.Empty;
+                GoldbergSteamId     = saved.GoldbergSteamId     ?? string.Empty;
             }
         }
 

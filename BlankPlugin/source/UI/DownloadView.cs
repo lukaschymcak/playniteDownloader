@@ -92,6 +92,7 @@ namespace BlankPlugin
         private CheckBox _registerSteamCheck;
         private string _selectedLibraryPath;
         private TextBlock _selectedLibLabel;
+        private Button _goldbergBtn;
 
         // ── UI: Progress / log ────────────────────────────────────────────────────
         private Button _downloadBtn;
@@ -603,8 +604,20 @@ namespace BlankPlugin
             _postRegisterBtn.Click += OnPostRegisterClicked;
             DockPanel.SetDock(_postRegisterBtn, Dock.Left);
 
+            _goldbergBtn = new Button
+            {
+                Content = "Apply Goldberg",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(6, 0, 0, 0),
+                Visibility = Visibility.Collapsed,
+                ToolTip = "Apply Goldberg Steam emulator to the downloaded game"
+            };
+            _goldbergBtn.Click += OnGoldbergClicked;
+            DockPanel.SetDock(_goldbergBtn, Dock.Left);
+
             postRow.Children.Add(_postSteamlessBtn);
             postRow.Children.Add(_postRegisterBtn);
+            postRow.Children.Add(_goldbergBtn);
             container.Children.Add(postRow);
 
             return container;
@@ -943,6 +956,7 @@ namespace BlankPlugin
             _lastDestPath = destPath;
             _postSteamlessBtn.Visibility = Visibility.Collapsed;
             _postRegisterBtn.Visibility = Visibility.Collapsed;
+            _goldbergBtn.Visibility = Visibility.Collapsed;
 
             SetBusy(true, "Allocating disk space — this may take a while for large games...");
             _progressBar.IsIndeterminate = true;
@@ -1151,6 +1165,7 @@ namespace BlankPlugin
                         _etaLabel.Visibility = Visibility.Collapsed;
                         _postSteamlessBtn.Visibility = Visibility.Visible;
                         _postRegisterBtn.Visibility = Visibility.Visible;
+                        _goldbergBtn.Visibility = Visibility.Visible;
                     });
                 }
                 catch (Exception ex)
@@ -1210,6 +1225,7 @@ namespace BlankPlugin
                     _etaLabel.Visibility = Visibility.Collapsed;
                     _postSteamlessBtn.Visibility = Visibility.Collapsed;
                     _postRegisterBtn.Visibility = Visibility.Collapsed;
+                    _goldbergBtn.Visibility = Visibility.Collapsed;
                 });
             }
             catch (Exception ex)
@@ -1263,6 +1279,46 @@ namespace BlankPlugin
                 finally
                 {
                     Dispatch(() => _postRegisterBtn.IsEnabled = true);
+                }
+            });
+        }
+
+        private void OnGoldbergClicked(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_currentDownloadDir) || string.IsNullOrEmpty(_resolvedAppId)) return;
+            if (string.IsNullOrEmpty(_settings.GoldbergFilesPath))
+            {
+                AppendLog("ERROR: Goldberg files path not configured. Open Settings.");
+                return;
+            }
+
+            var arch = GoldbergRunner.DetectArch(_currentDownloadDir);
+            if (arch == null)
+            {
+                Dispatch(() => { arch = GoldbergArchDialog.ShowPicker(Window.GetWindow(this)); });
+                if (arch == null) { AppendLog("Goldberg setup cancelled."); return; }
+            }
+
+            _goldbergBtn.IsEnabled = false;
+            var appId      = _resolvedAppId;
+            var gameDir    = _currentDownloadDir;
+            var chosenArch = arch;
+            var settings   = _settings;
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var runner = new GoldbergRunner(settings.GoldbergFilesPath);
+                    runner.Run(gameDir, appId, chosenArch, settings, line => AppendLog(line));
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("ERROR (Goldberg): " + ex.Message);
+                }
+                finally
+                {
+                    Dispatch(() => _goldbergBtn.IsEnabled = true);
                 }
             });
         }
