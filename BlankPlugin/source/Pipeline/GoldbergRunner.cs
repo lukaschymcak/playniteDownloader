@@ -1,5 +1,6 @@
 using Playnite.SDK;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -25,14 +26,29 @@ namespace BlankPlugin
 
         /// <summary>
         /// Returns "x64", "x32", or null (both/neither — caller must ask user).
+        /// Searches recursively for steam_api*.dll anywhere under gameDir.
         /// </summary>
         public static string DetectArch(string gameDir)
         {
-            bool has64 = File.Exists(Path.Combine(gameDir, "steam_api64.dll"));
-            bool has32 = File.Exists(Path.Combine(gameDir, "steam_api.dll"));
+            bool has64 = Directory.GetFiles(gameDir, "steam_api64.dll", SearchOption.AllDirectories).Length > 0;
+            bool has32 = Directory.GetFiles(gameDir, "steam_api.dll",   SearchOption.AllDirectories).Length > 0;
             if (has64 && !has32) return "x64";
             if (has32 && !has64) return "x32";
             return null;
+        }
+
+        /// <summary>
+        /// Returns all directories (under gameDir) that contain any of the steam DLL names.
+        /// Used to know where to place Goldberg DLLs after backup.
+        /// </summary>
+        private static List<string> FindDllDirectories(string gameDir)
+        {
+            var dllNames = new[] { "steam_api.dll", "steam_api64.dll", "steamclient.dll", "steamclient64.dll" };
+            var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var name in dllNames)
+                foreach (var path in Directory.GetFiles(gameDir, name, SearchOption.AllDirectories))
+                    dirs.Add(Path.GetDirectoryName(path));
+            return new List<string>(dirs);
         }
 
         public void Run(string gameDir, string appId, string arch, BlankPluginSettings settings, Action<string> onLog)
@@ -91,13 +107,19 @@ namespace BlankPlugin
             onLog("--- Step 4: Running generate_emu_config -acw " + appId + " ---");
             RunGenerateEmuConfig(appId, onLog);
 
-            // Step 5 — Backup existing DLLs
+            // Step 5 — Backup existing DLLs (find recursively, back up in place)
             onLog("--- Step 5: Backing up original DLLs ---");
-            BackupDlls(gameDir, onLog);
+            var dllDirs = FindDllDirectories(gameDir);
+            if (dllDirs.Count == 0)
+            {
+                onLog("No steam DLLs found in game dir — will copy to game root.");
+                dllDirs.Add(gameDir);
+            }
+            BackupDlls(dllDirs, onLog);
 
             // Step 6 — Copy DLLs + steam_settings from _OUTPUT
             onLog("--- Step 6: Copying Goldberg files to game dir ---");
-            CopyOutput(appId, gameDir, onLog);
+            CopyOutput(appId, gameDir, dllDirs, onLog);
 
             onLog("=== Goldberg setup complete ===");
         }
@@ -183,22 +205,25 @@ namespace BlankPlugin
             }
         }
 
-        private static void BackupDlls(string gameDir, Action<string> onLog)
+        private static void BackupDlls(List<string> dllDirs, Action<string> onLog)
         {
             var dlls = new[] { "steam_api.dll", "steam_api64.dll", "steamclient.dll", "steamclient64.dll" };
-            foreach (var dll in dlls)
+            foreach (var dir in dllDirs)
             {
-                var src = Path.Combine(gameDir, dll);
-                var bak = src + ".BAK";
-                if (File.Exists(src) && !File.Exists(bak))
+                foreach (var dll in dlls)
                 {
-                    File.Move(src, bak);
-                    onLog("Backed up: " + dll);
+                    var src = Path.Combine(dir, dll);
+                    var bak = src + ".BAK";
+                    if (File.Exists(src) && !File.Exists(bak))
+                    {
+                        File.Move(src, bak);
+                        onLog("Backed up: " + Path.Combine(dir, dll));
+                    }
                 }
             }
         }
 
-        private void CopyOutput(string appId, string gameDir, Action<string> onLog)
+        private void CopyOutput(string appId, string gameDir, List<string> dllDirs, Action<string> onLog)
         {
             var outputDir = Path.Combine(_genEmuConfigDir, "_OUTPUT", appId);
             if (!Directory.Exists(outputDir))
@@ -207,15 +232,16 @@ namespace BlankPlugin
                 return;
             }
 
-            // Copy DLLs
+            // Copy DLLs to each directory where originals were found
             var dllNames = new[] { "steam_api.dll", "steam_api64.dll", "steamclient.dll", "steamclient64.dll" };
             foreach (var dll in dllNames)
             {
                 var src = Path.Combine(outputDir, dll);
-                if (File.Exists(src))
+                if (!File.Exists(src)) continue;
+                foreach (var dir in dllDirs)
                 {
-                    File.Copy(src, Path.Combine(gameDir, dll), overwrite: true);
-                    onLog("Copied: " + dll);
+                    File.Copy(src, Path.Combine(dir, dll), overwrite: true);
+                    onLog("Copied: " + dll + " → " + dir);
                 }
             }
 
