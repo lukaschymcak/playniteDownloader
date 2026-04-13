@@ -37,6 +37,10 @@ namespace BlankPlugin
         public List<string> DlcIds     { get; set; }  // DLC appid list
     }
 
+    /// <remarks>
+    /// Synchronous HTTP via <c>.Result</c>. Use only from background threads (e.g. <see cref="SearchView"/> search worker).
+    /// Do not call from the Playnite UI dispatcher.
+    /// </remarks>
     public class SteamApiClient
     {
         private static readonly ILogger logger = LogManager.GetLogger();

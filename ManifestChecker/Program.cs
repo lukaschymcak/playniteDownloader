@@ -29,8 +29,14 @@ var appIdsStr = rawArgs; // Keep string versions for output
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 var steamClient = new SteamClient();
 var manager = new CallbackManager(steamClient);
-var steamUser = steamClient.GetHandler<SteamUser>();
-var steamApps = steamClient.GetHandler<SteamApps>();
+var steamUserHandler = steamClient.GetHandler<SteamUser>();
+var steamAppsHandler = steamClient.GetHandler<SteamApps>();
+if (steamUserHandler is null || steamAppsHandler is null)
+{
+    Console.Error.WriteLine(JsonConvert.SerializeObject(new { error = "SteamKit handlers not available" }));
+    Environment.Exit(1);
+    return;
+}
 
 var loggedOn = false;
 var failed = false;
@@ -40,7 +46,7 @@ var results = new List<object>();
 // Register callbacks
 manager.Subscribe<SteamClient.ConnectedCallback>(callback =>
 {
-    steamUser.LogOnAnonymous();
+    steamUserHandler.LogOnAnonymous();
 });
 
 manager.Subscribe<SteamClient.DisconnectedCallback>(callback =>
@@ -110,7 +116,7 @@ for (int i = 0; i < appIds.Count; i += batchSize)
     var picRequests = batch.Select(id => new SteamApps.PICSRequest(id)).ToList();
 
     picsResult = null;
-    var job = steamApps.PICSGetProductInfo(picRequests, Enumerable.Empty<SteamApps.PICSRequest>());
+    var job = steamAppsHandler.PICSGetProductInfo(picRequests, Enumerable.Empty<SteamApps.PICSRequest>());
     job.Timeout = TimeSpan.FromSeconds(10);
 
     // Wait for response
@@ -169,7 +175,7 @@ for (int i = 0; i < appIds.Count; i += batchSize)
 }
 
 // 5. Log off and disconnect
-steamUser.LogOff();
+steamUserHandler.LogOff();
 
 // Wait for disconnect
 var disconnectStart = DateTime.UtcNow;

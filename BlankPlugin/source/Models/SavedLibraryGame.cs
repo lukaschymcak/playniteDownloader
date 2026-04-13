@@ -11,5 +11,8 @@ namespace BlankPlugin
         public string AppId { get; set; }
         public string GameName { get; set; }
         public DateTime AddedDate { get; set; }
+
+        /// <summary>Optional; set when adding from Search (Steam <c>header_image</c> or store fallback). Library prefers this over guessed CDN URLs.</summary>
+        public string HeaderImageUrl { get; set; }
     }
 }

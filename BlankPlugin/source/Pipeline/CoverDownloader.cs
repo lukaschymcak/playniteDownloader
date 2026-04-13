@@ -11,6 +11,9 @@ namespace BlankPlugin
     /// Used as a fallback when IGDB credentials are not configured.
     /// Returns a local temp file path, or null if the download failed.
     /// </summary>
+    /// <remarks>
+    /// Synchronous HTTP. Call only from a background thread, not the Playnite UI dispatcher.
+    /// </remarks>
     public static class CoverDownloader
     {
         private static readonly ILogger logger = LogManager.GetLogger();
@@ -27,17 +30,21 @@ namespace BlankPlugin
             if (string.IsNullOrWhiteSpace(appId)) return null;
             try
             {
-                var url  = "https://cdn.akamai.steamstatic.com/steam/apps/" + appId + "/header.jpg";
-                var dest = Path.Combine(Path.GetTempPath(), "blankplugin_steam_cover_" + appId + ".jpg");
+                var dest = Path.Combine(Path.GetTempPath(), "blankplugin_steam_cover_" + appId.Trim() + ".jpg");
                 if (File.Exists(dest)) return dest;
 
-                using (var response = _http.GetAsync(url).Result)
+                foreach (var uri in SteamStoreImageUrls.GetHeaderStyleCoverUris(appId))
                 {
-                    if (!response.IsSuccessStatusCode) return null;
-                    File.WriteAllBytes(dest, response.Content.ReadAsByteArrayAsync().Result);
+                    using (var response = _http.GetAsync(uri).Result)
+                    {
+                        if (!response.IsSuccessStatusCode) continue;
+                        File.WriteAllBytes(dest, response.Content.ReadAsByteArrayAsync().Result);
+                        logger.Info("Cover from Steam CDN: AppID " + appId + " (" + uri + ")");
+                        return dest;
+                    }
                 }
-                logger.Info("Cover from Steam CDN: AppID " + appId);
-                return dest;
+
+                return null;
             }
             catch (Exception ex)
             {

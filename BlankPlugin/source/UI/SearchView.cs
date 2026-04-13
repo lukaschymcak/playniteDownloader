@@ -713,7 +713,10 @@ namespace BlankPlugin
             addBtn.Click += (s, e) =>
             {
                 if (_libraryGames == null) return;
-                _libraryGames.AddOrUpdate(game.AppId, game.Name);
+                var headerUrlForBookmark = string.IsNullOrEmpty(game.HeaderImageUrl)
+                    ? "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/" + game.AppId + "/header.jpg"
+                    : game.HeaderImageUrl;
+                _libraryGames.AddOrUpdate(game.AppId, game.Name, headerUrlForBookmark);
                 addBtn.Content   = "In library";
                 addBtn.IsEnabled = false;
                 addBtn.ToolTip   = "Already in plugin Library tab";

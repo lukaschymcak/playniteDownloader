@@ -134,6 +134,10 @@ namespace BlankPlugin
         /// Steam authentication (including Steam Guard if required). After this succeeds,
         /// the session token is saved by DD and only -username is needed on future runs.
         /// </summary>
+        /// <remarks>
+        /// No .bat file: password is never written to disk. It still appears on the
+        /// dotnet process command line briefly (inherent to DepotDownloader CLI auth).
+        /// </remarks>
         public void Authenticate(string username, string password, Action<string> onLog)
         {
             if (!IsReady)
@@ -142,46 +146,85 @@ namespace BlankPlugin
                 return;
             }
 
-            // Write a .bat so we avoid cmd.exe quoting issues with two quoted paths.
-            // The trailing `pause` keeps the window open so the user can read any
-            // Steam Guard prompt and type their code before the window closes.
-            var batPath = Path.Combine(Path.GetTempPath(), "blankplugin_auth.bat");
             // Auth-only trick: DD must have -app/-depot/-manifest to proceed past arg
             // parsing, but it saves the session token BEFORE looking up any manifest.
             // We pin it to a single depot (228981, part of the public Steamworks
             // redistributables app) and pass manifest GID 0 which does not exist, so DD
             // exits immediately after auth without downloading anything.
-            // A throw-away temp dir keeps any stray output off the Steam library.
-            var authTempDir = Path.Combine(Path.GetTempPath(), "blankplugin_auth_tmp");
-            File.WriteAllText(batPath, string.Format(
-                "@echo off\r\n" +
-                "echo Authenticating with Steam as {0}...\r\n" +
-                "echo If Steam Guard is enabled, enter the code below when prompted.\r\n" +
-                "echo.\r\n" +
-                "\"{1}\" \"{2}\" -username {0} -password {3} -remember-password -app 228980 -depot 228981 -manifest 0 -dir \"{4}\"\r\n" +
-                "echo.\r\n" +
-                "echo Done. You can close this window.\r\n" +
-                "pause\r\n",
-                username, _dotnetPath, _depotDownloaderDll, password, authTempDir));
-
-            onLog("Opening Steam authentication window...");
-            onLog("Enter your Steam Guard code in the console if prompted, then close it.");
-
-            var psi = new ProcessStartInfo("cmd.exe", "/C \"" + batPath + "\"")
+            var authTempDir = Path.Combine(Path.GetTempPath(), "blankplugin_auth_tmp_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(authTempDir);
+            try
             {
-                UseShellExecute = true,
-                CreateNoWindow  = false
-            };
+                var args = new StringBuilder();
+                args.Append(QuoteProcArg(_depotDownloaderDll));
+                args.Append(" -username ").Append(QuoteProcArg(username));
+                args.Append(" -password ").Append(QuoteProcArg(password));
+                args.Append(" -remember-password -app 228980 -depot 228981 -manifest 0 -dir ")
+                    .Append(QuoteProcArg(authTempDir));
 
-            using (var proc = new Process { StartInfo = psi })
+                onLog("Opening Steam authentication window...");
+                onLog("Enter your Steam Guard code in the console if prompted, then close it.");
+
+                var psi = new ProcessStartInfo(_dotnetPath, args.ToString())
+                {
+                    UseShellExecute = true,
+                    CreateNoWindow = false
+                };
+
+                using (var proc = Process.Start(psi))
+                {
+                    if (proc != null)
+                        proc.WaitForExit(300_000);
+                }
+            }
+            finally
             {
-                proc.Start();
-                proc.WaitForExit(300_000); // up to 5 minutes
+                try { if (Directory.Exists(authTempDir)) Directory.Delete(authTempDir, true); } catch { }
             }
 
-            TryDelete(batPath, onLog);
-            try { if (Directory.Exists(authTempDir)) Directory.Delete(authTempDir, true); } catch { }
             onLog("Authentication window closed. If successful, future downloads will use your Steam account.");
+        }
+
+        /// <summary>Quote one argv token for Windows <see cref="ProcessStartInfo.Arguments"/>.</summary>
+        private static string QuoteProcArg(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "\"\"";
+
+            if (value.IndexOfAny(new[] { ' ', '\t', '\n', '\r', '\v', '"' }) < 0)
+                return value;
+
+            var sb = new StringBuilder(value.Length + 2);
+            sb.Append('"');
+            for (int i = 0; i < value.Length; i++)
+            {
+                int backslashRun = 0;
+                while (i < value.Length && value[i] == '\\')
+                {
+                    backslashRun++;
+                    i++;
+                }
+
+                if (i == value.Length)
+                {
+                    sb.Append('\\', backslashRun * 2);
+                    break;
+                }
+
+                if (value[i] == '"')
+                {
+                    sb.Append('\\', backslashRun * 2 + 1);
+                    sb.Append('"');
+                }
+                else
+                {
+                    if (backslashRun > 0)
+                        sb.Append('\\', backslashRun);
+                    sb.Append(value[i]);
+                }
+            }
+            sb.Append('"');
+            return sb.ToString();
         }
 
         // ── Per-depot process ─────────────────────────────────────────────────────

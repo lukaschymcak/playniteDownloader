@@ -61,28 +61,36 @@ namespace BlankPlugin
         }
 
         /// <summary>Adds or updates by AppId. Install state is not stored here.</summary>
-        public void AddOrUpdate(string appId, string gameName)
+        /// <param name="headerImageUrl">Steam store header URL from Search (optional).</param>
+        public void AddOrUpdate(string appId, string gameName, string headerImageUrl = null)
         {
             if (string.IsNullOrWhiteSpace(appId))
                 return;
 
-            var name = string.IsNullOrWhiteSpace(gameName) ? appId : gameName.Trim();
+            var id   = appId.Trim();
+            var name = string.IsNullOrWhiteSpace(gameName) ? id : gameName.Trim();
+            string header = null;
+            if (!string.IsNullOrWhiteSpace(headerImageUrl))
+                header = headerImageUrl.Trim();
 
             lock (_lock)
             {
-                var existing = _entries.FirstOrDefault(e => e.AppId == appId);
+                var existing = _entries.FirstOrDefault(e => string.Equals(e.AppId, id, StringComparison.Ordinal));
                 if (existing != null)
                 {
                     if (!string.IsNullOrWhiteSpace(name) && existing.GameName != name)
                         existing.GameName = name;
+                    if (!string.IsNullOrEmpty(header) && existing.HeaderImageUrl != header)
+                        existing.HeaderImageUrl = header;
                 }
                 else
                 {
                     _entries.Add(new SavedLibraryGame
                     {
-                        AppId      = appId.Trim(),
-                        GameName   = name,
-                        AddedDate  = DateTime.UtcNow
+                        AppId           = id,
+                        GameName        = name,
+                        AddedDate       = DateTime.UtcNow,
+                        HeaderImageUrl  = header
                     });
                 }
 

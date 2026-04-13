@@ -77,6 +77,23 @@ namespace BlankPlugin
             set => SetValue(ref _goldbergSteamId, value ?? string.Empty);
         }
 
+        /// <summary>In-memory copy taken when the Playnite settings dialog opens (Cancel restores this).</summary>
+        private BlankPluginSettingsSnapshot _editSnapshot;
+
+        private sealed class BlankPluginSettingsSnapshot
+        {
+            public string ApiKey;
+            public string DownloadPath;
+            public int MaxDownloads;
+            public string SteamUsername;
+            public string SteamWebApiKey;
+            public string IgdbClientId;
+            public string IgdbClientSecret;
+            public string GoldbergFilesPath;
+            public string GoldbergAccountName;
+            public string GoldbergSteamId;
+        }
+
         // Parameterless constructor required by LoadPluginSettings
         public BlankPluginSettings() { }
 
@@ -99,12 +116,46 @@ namespace BlankPlugin
             }
         }
 
-        public void BeginEdit() { }
-        public void CancelEdit() { }
+        public void BeginEdit()
+        {
+            _editSnapshot = new BlankPluginSettingsSnapshot
+            {
+                ApiKey              = ApiKey,
+                DownloadPath        = DownloadPath,
+                MaxDownloads        = MaxDownloads,
+                SteamUsername       = SteamUsername,
+                SteamWebApiKey      = SteamWebApiKey,
+                IgdbClientId        = IgdbClientId,
+                IgdbClientSecret    = IgdbClientSecret,
+                GoldbergFilesPath   = GoldbergFilesPath,
+                GoldbergAccountName = GoldbergAccountName,
+                GoldbergSteamId     = GoldbergSteamId
+            };
+        }
+
+        public void CancelEdit()
+        {
+            if (_editSnapshot == null)
+                return;
+
+            ApiKey              = _editSnapshot.ApiKey;
+            DownloadPath        = _editSnapshot.DownloadPath;
+            MaxDownloads        = _editSnapshot.MaxDownloads;
+            SteamUsername       = _editSnapshot.SteamUsername;
+            SteamWebApiKey      = _editSnapshot.SteamWebApiKey;
+            IgdbClientId        = _editSnapshot.IgdbClientId;
+            IgdbClientSecret    = _editSnapshot.IgdbClientSecret;
+            GoldbergFilesPath   = _editSnapshot.GoldbergFilesPath;
+            GoldbergAccountName = _editSnapshot.GoldbergAccountName;
+            GoldbergSteamId     = _editSnapshot.GoldbergSteamId;
+            _editSnapshot       = null;
+        }
 
         public void EndEdit()
         {
-            _plugin.SavePluginSettings(this);
+            _editSnapshot = null;
+            if (_plugin != null)
+                _plugin.SavePluginSettings(this);
         }
 
         public bool VerifySettings(out List<string> errors)

@@ -569,7 +569,7 @@ namespace BlankPlugin
                 ClipToBounds = true
             };
 
-            var cover = LoadSteamHeaderImage(bookmark.AppId);
+            var cover = LoadBookmarkHeaderImage(bookmark);
             if (cover != null)
             {
                 thumbContainer.Child = new Image
@@ -641,7 +641,8 @@ namespace BlankPlugin
                 Content = "Download",
                 Width = 96,
                 Height = LibraryCardButtonHeight,
-                FontSize = LibraryCardButtonFontSize
+                FontSize = LibraryCardButtonFontSize,
+                Margin = new Thickness(0, 0, 8, 0)
             };
             downloadBtn.Click += (s, e) =>
             {
@@ -649,7 +650,17 @@ namespace BlankPlugin
                     _plugin.OpenDownloadForAppId(bookmark.AppId, displayName);
             };
 
+            var removeBtn = new Button
+            {
+                Content = "Remove",
+                Width = 72,
+                Height = LibraryCardButtonHeight,
+                FontSize = LibraryCardButtonFontSize
+            };
+            removeBtn.Click += (s, e) => RemoveBookmark(bookmark, displayName);
+
             btnStack.Children.Add(downloadBtn);
+            btnStack.Children.Add(removeBtn);
             Grid.SetColumn(btnStack, 2);
             grid.Children.Add(btnStack);
 
@@ -663,28 +674,96 @@ namespace BlankPlugin
             return card;
         }
 
-        private static ImageSource LoadSteamHeaderImage(string appId)
+        private void RemoveBookmark(SavedLibraryGame bookmark, string displayName)
         {
-            if (string.IsNullOrWhiteSpace(appId)) return null;
+            if (_libraryGames == null || bookmark == null || string.IsNullOrWhiteSpace(bookmark.AppId))
+                return;
+
+            var msg = "Remove \"" + displayName + "\" from the LuDownloader saved library?\n\n" +
+                      "(This does not uninstall games or remove them from Playnite.)";
+            var result = _api != null
+                ? _api.Dialogs.ShowMessage(msg, "Remove from saved library", MessageBoxButton.YesNo,
+                    MessageBoxImage.Question)
+                : MessageBox.Show(msg, "Remove from saved library", MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes) return;
+
+            _libraryGames.Remove(bookmark.AppId);
+            RefreshLibraryList();
+        }
+
+        /// <summary>Prefer persisted Search header URL, then CDN fallbacks for <paramref name="bookmark"/>.</summary>
+        private static ImageSource LoadBookmarkHeaderImage(SavedLibraryGame bookmark)
+        {
+            if (bookmark == null) return null;
+
+            if (!string.IsNullOrWhiteSpace(bookmark.HeaderImageUrl))
+            {
+                var fromStore = TryDecodeHeaderFromUrl(bookmark.HeaderImageUrl.Trim());
+                if (fromStore != null)
+                    return fromStore;
+            }
+
+            return LoadSteamHeaderImage(bookmark.AppId);
+        }
+
+        private static ImageSource TryDecodeHeaderFromUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+            var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
+            var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
+
             try
             {
-                var uri = new Uri(
-                    "https://cdn.akamai.steamstatic.com/steam/apps/" + appId.Trim() + "/header.jpg",
-                    UriKind.Absolute);
+                var uri = new Uri(url.Trim(), UriKind.Absolute);
+                if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+                    return null;
+
                 var bmp = new BitmapImage();
                 bmp.BeginInit();
                 bmp.UriSource = uri;
-                var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
                 bmp.DecodePixelWidth  = decodeW;
-                bmp.DecodePixelHeight = (int)(decodeW * 215.0 / 460.0 + 0.5);
+                bmp.DecodePixelHeight = decodeH;
                 bmp.CacheOption = BitmapCacheOption.OnLoad;
                 bmp.EndInit();
+                if (bmp.CanFreeze) bmp.Freeze();
                 return bmp;
             }
-            catch
+            catch (Exception ex)
             {
+                logger.Debug("LibraryView: bookmark header URL failed: " + url + " — " + ex.Message);
                 return null;
             }
+        }
+
+        private static ImageSource LoadSteamHeaderImage(string appId)
+        {
+            if (string.IsNullOrWhiteSpace(appId)) return null;
+            var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
+            var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
+
+            foreach (var uri in SteamStoreImageUrls.GetHeaderStyleCoverUris(appId))
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = uri;
+                    bmp.DecodePixelWidth  = decodeW;
+                    bmp.DecodePixelHeight = decodeH;
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    if (bmp.CanFreeze) bmp.Freeze();
+                    return bmp;
+                }
+                catch (Exception ex)
+                {
+                    logger.Debug("LibraryView: Steam cover try failed for app " + appId + " " + uri + ": " + ex.Message);
+                }
+            }
+
+            return null;
         }
 
         private ImageSource GetGameCoverSource(InstalledGame game)
@@ -702,7 +781,10 @@ namespace BlankPlugin
                             return new BitmapImage(new Uri(path, UriKind.Absolute));
                     }
                 }
-                catch { /* fall through */ }
+                catch (Exception ex)
+                {
+                    logger.Debug("LibraryView: Playnite cover path failed: " + ex.Message);
+                }
             }
 
             // 2. Steam CDN header — WPF loads this asynchronously after the card renders
@@ -713,12 +795,12 @@ namespace BlankPlugin
 
         private void UninstallGame(InstalledGame game)
         {
-            var result = MessageBox.Show(
-                string.Format("Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
-                    game.GameName, game.InstallPath),
-                "Uninstall Game",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+                       var confirmMsg = string.Format(
+                "Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
+                game.GameName, game.InstallPath);
+            var result = _api != null
+                ? _api.Dialogs.ShowMessage(confirmMsg, "Uninstall Game", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+                : MessageBox.Show(confirmMsg, "Uninstall Game", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
             if (result != MessageBoxResult.Yes) return;
 
@@ -755,8 +837,12 @@ namespace BlankPlugin
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error during uninstall: " + ex.Message, "Uninstall Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                if (_api != null)
+                    _api.Dialogs.ShowMessage("Error during uninstall: " + ex.Message, "Uninstall Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                else
+                    MessageBox.Show("Error during uninstall: " + ex.Message, "Uninstall Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

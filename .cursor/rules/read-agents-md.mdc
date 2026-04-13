@@ -1,9 +1,9 @@
 ---
 alwaysApply: true
 ---
-# LuiAchieve bootstrap
+# LuDownloader bootstrap
 
-This repo is **LuiAchieve**, a **Playnite extension** (C#, .NET Framework 4.6.2, WPF).
+This repo is **LuDownloader**, a **Playnite extension** (C#, .NET Framework 4.6.2, WPF).
 
 Before non-trivial edits, read **AGENTS.md** at the repository root: architecture, threading/WPF rules, C# conventions, build/test, and the **code review checklist** (functionality through documentation).
 

@@ -1042,89 +1042,135 @@ namespace BlankPlugin
                             // Register with Playnite when installed from library mode (no game context)
                             if (_game == null && _api != null)
                             {
-                                try
+                                var hasAppId = !string.IsNullOrWhiteSpace(_gameData.AppId);
+                                if (!hasAppId && string.IsNullOrWhiteSpace(_gameData.GameName))
                                 {
-                                    var newGame = new Game(_gameData.GameName)
+                                    AppendLog("WARNING: Skipping Playnite library sync — missing Steam AppId and title.");
+                                }
+                                else
+                                {
+                                    try
                                     {
-                                        GameId           = _gameData.AppId,
-                                        PluginId         = SteamPluginGuid,
-                                        InstallDirectory = installedEntry.InstallPath,
-                                        IsInstalled      = true
-                                    };
+                                        Game playniteGame = null;
+                                        var createdNewPlayniteEntry = false;
 
-                                    Dispatch(() => _api.Database.Games.Add(newGame));
-                                    AppendLog("Added to Playnite library.");
-
-                                    var igdb = new IgdbClient(_settings.IgdbClientId, _settings.IgdbClientSecret);
-
-                                    if (igdb.HasCredentials)
-                                    {
-                                        bool wantsMetadata = false;
                                         Dispatch(() =>
                                         {
-                                            wantsMetadata = MessageBox.Show(
-                                                "\"" + _gameData.GameName + "\" was added to your Playnite library.\n\n" +
-                                                "Search IGDB for metadata (description, genres, cover art)?",
-                                                "Download Metadata",
-                                                MessageBoxButton.YesNo,
-                                                MessageBoxImage.Question) == MessageBoxResult.Yes;
+                                            var existing = FindExistingPlayniteGameToLink(
+                                                hasAppId ? _gameData.AppId : "",
+                                                _gameData.GameName);
+
+                                            if (existing != null)
+                                            {
+                                                playniteGame = existing;
+                                                playniteGame.InstallDirectory = installedEntry.InstallPath;
+                                                playniteGame.IsInstalled = true;
+                                                _api.Database.Games.Update(playniteGame);
+                                            }
+                                            else if (hasAppId)
+                                            {
+                                                playniteGame = new Game(_gameData.GameName)
+                                                {
+                                                    GameId           = _gameData.AppId,
+                                                    PluginId         = SteamPluginGuid,
+                                                    InstallDirectory = installedEntry.InstallPath,
+                                                    IsInstalled      = true
+                                                };
+                                                _api.Database.Games.Add(playniteGame);
+                                                createdNewPlayniteEntry = true;
+                                            }
                                         });
 
-                                        if (wantsMetadata)
+                                        if (playniteGame == null)
                                         {
-                                            IgdbGameResult igdbSelection = null;
-                                            Dispatch(() =>
-                                            {
-                                                igdbSelection = IgdbMetadataPickerDialog.ShowPicker(
-                                                    Window.GetWindow(this), _gameData.GameName, igdb, _api);
-                                            });
+                                            AppendLog(!hasAppId
+                                                ? "WARNING: Skipping Playnite library sync — missing Steam AppId; no unique matching library game by title."
+                                                : "WARNING: Could not sync with Playnite library (unexpected).");
+                                        }
+                                        else
+                                        {
+                                            if (createdNewPlayniteEntry)
+                                                AppendLog("Added to Playnite library.");
+                                            else if (hasAppId)
+                                                AppendLog("Linked install to existing Playnite library entry (Steam AppId " + _gameData.AppId + ").");
+                                            else
+                                                AppendLog("Linked install to existing Playnite library entry (matched title).");
 
-                                            if (igdbSelection != null)
+                                            var igdb = new IgdbClient(_settings.IgdbClientId, _settings.IgdbClientSecret);
+
+                                            if (igdb.HasCredentials)
                                             {
-                                                AppendLog("Fetching metadata for: " + igdbSelection.Name + "...");
-                                                var metadata = igdb.GetMetadata(igdbSelection.Id);
-                                                if (metadata != null)
+                                                bool wantsMetadata = false;
+                                                Dispatch(() =>
                                                 {
-                                                    Dispatch(() => ApplyIgdbMetadata(newGame, metadata, igdb));
-                                                    AppendLog("Metadata applied.");
+                                                    var q = createdNewPlayniteEntry
+                                                        ? "\"" + _gameData.GameName + "\" was added to your Playnite library.\n\n" +
+                                                          "Search IGDB for metadata (description, genres, cover art)?"
+                                                        : "\"" + _gameData.GameName + "\" is already in your Playnite library; the install folder was updated.\n\n" +
+                                                          "Search IGDB for metadata (description, genres, cover art)?";
+                                                    wantsMetadata = _api.Dialogs.ShowMessage(
+                                                            q, "Download Metadata",
+                                                            MessageBoxButton.YesNo, MessageBoxImage.Question)
+                                                        == MessageBoxResult.Yes;
+                                                });
+
+                                                if (wantsMetadata)
+                                                {
+                                                    IgdbGameResult igdbSelection = null;
+                                                    Dispatch(() =>
+                                                    {
+                                                        igdbSelection = IgdbMetadataPickerDialog.ShowPicker(
+                                                            Window.GetWindow(this), _gameData.GameName, igdb, _api);
+                                                    });
+
+                                                    if (igdbSelection != null)
+                                                    {
+                                                        AppendLog("Fetching metadata for: " + igdbSelection.Name + "...");
+                                                        var metadata = igdb.GetMetadata(igdbSelection.Id);
+                                                        if (metadata != null)
+                                                        {
+                                                            Dispatch(() => ApplyIgdbMetadata(playniteGame, metadata, igdb));
+                                                            AppendLog("Metadata applied.");
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        AppendLog("Metadata search cancelled.");
+                                                    }
                                                 }
                                             }
                                             else
                                             {
-                                                AppendLog("Metadata search cancelled.");
+                                                // No IGDB credentials — silently grab Steam CDN cover
+                                                var coverPath = CoverDownloader.Download(_gameData.GameName, _gameData.AppId, null);
+                                                if (coverPath != null)
+                                                {
+                                                    Dispatch(() =>
+                                                    {
+                                                        try
+                                                        {
+                                                            var fileId = _api.Database.AddFile(coverPath, playniteGame.Id);
+                                                            playniteGame.CoverImage = fileId;
+                                                            _api.Database.Games.Update(playniteGame);
+                                                        }
+                                                        catch (Exception exCover)
+                                                        {
+                                                            logger.Warn("Could not store Steam CDN cover: " + exCover.Message);
+                                                        }
+                                                    });
+                                                    try { File.Delete(coverPath); } catch { }
+                                                    AppendLog("Cover art stored from Steam CDN.");
+                                                }
                                             }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // No IGDB credentials — silently grab Steam CDN cover
-                                        var coverPath = CoverDownloader.Download(_gameData.GameName, _gameData.AppId, null);
-                                        if (coverPath != null)
-                                        {
-                                            Dispatch(() =>
-                                            {
-                                                try
-                                                {
-                                                    var fileId = _api.Database.AddFile(coverPath, newGame.Id);
-                                                    newGame.CoverImage = fileId;
-                                                    _api.Database.Games.Update(newGame);
-                                                }
-                                                catch (Exception exCover)
-                                                {
-                                                    logger.Warn("Could not store Steam CDN cover: " + exCover.Message);
-                                                }
-                                            });
-                                            try { File.Delete(coverPath); } catch { }
-                                            AppendLog("Cover art stored from Steam CDN.");
-                                        }
-                                    }
 
-                                    installedEntry.PlayniteGameId = newGame.Id;
-                                    _installedGamesManager.Save(installedEntry);
-                                }
-                                catch (Exception exLib)
-                                {
-                                    AppendLog("WARNING: Could not add to Playnite library: " + exLib.Message);
+                                            installedEntry.PlayniteGameId = playniteGame.Id;
+                                            _installedGamesManager.Save(installedEntry);
+                                        }
+                                    }
+                                    catch (Exception exLib)
+                                    {
+                                        AppendLog("WARNING: Could not sync with Playnite library: " + exLib.Message);
+                                    }
                                 }
                             }
                         }
@@ -1295,7 +1341,7 @@ namespace BlankPlugin
             var arch = GoldbergRunner.DetectArch(_currentDownloadDir);
             if (arch == null)
             {
-                Dispatch(() => { arch = GoldbergArchDialog.ShowPicker(Window.GetWindow(this)); });
+                Dispatch(() => { arch = GoldbergArchDialog.ShowPicker(Window.GetWindow(this), _api); });
                 if (arch == null) { AppendLog("Goldberg setup cancelled."); return; }
             }
 
@@ -1345,6 +1391,81 @@ namespace BlankPlugin
                     _resolvedAppId = _installedGame.AppId;
                 });
             }
+        }
+
+        private static bool TitlesMatch(string a, string b)
+        {
+            if (string.IsNullOrWhiteSpace(a) && string.IsNullOrWhiteSpace(b))
+                return true;
+            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+                return false;
+            return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Finds an existing Playnite <see cref="Game"/> to attach this install to. Pass 1: official Steam plugin
+        /// with matching <see cref="Game.GameId"/> (Steam AppId); when the manifest has a title, the library name must
+        /// match too (otherwise wrong Steam rows are not hijacked). If the manifest title is empty, AppId-only Steam
+        /// match is used. Pass 2: exactly one library game (any plugin) with a matching title — for manual/non-Steam entries.
+        /// </summary>
+        private Game FindExistingPlayniteGameToLink(string steamAppId, string manifestDisplayName)
+        {
+            if (_api == null)
+                return null;
+
+            var nameNonEmpty = !string.IsNullOrWhiteSpace(manifestDisplayName);
+            var appIdNorm = string.IsNullOrWhiteSpace(steamAppId) ? null : steamAppId.Trim();
+            if (appIdNorm != null && appIdNorm.Length == 0)
+                appIdNorm = null;
+
+            if (appIdNorm != null)
+            {
+                Game firstSteam = null;
+                var steamCount = 0;
+                foreach (var g in _api.Database.Games)
+                {
+                    if (g.PluginId != SteamPluginGuid)
+                        continue;
+                    if (string.IsNullOrEmpty(g.GameId))
+                        continue;
+                    if (!string.Equals(g.GameId.Trim(), appIdNorm, StringComparison.Ordinal))
+                        continue;
+                    if (nameNonEmpty && !TitlesMatch(g.Name, manifestDisplayName))
+                        continue;
+
+                    if (firstSteam == null)
+                        firstSteam = g;
+                    steamCount++;
+                }
+
+                if (steamCount > 1)
+                    logger.Warn("Multiple Playnite games share Steam AppId " + appIdNorm + "; using first match.");
+
+                if (firstSteam != null)
+                    return firstSteam;
+            }
+
+            if (!nameNonEmpty)
+                return null;
+
+            Game uniqueByName = null;
+            var nameMatchCount = 0;
+            foreach (var g in _api.Database.Games)
+            {
+                if (!TitlesMatch(g.Name, manifestDisplayName))
+                    continue;
+                if (nameMatchCount == 0)
+                    uniqueByName = g;
+                nameMatchCount++;
+            }
+
+            if (nameMatchCount > 1)
+            {
+                logger.Warn("Multiple Playnite games titled \"" + manifestDisplayName + "\"; skipping name-only link.");
+                return null;
+            }
+
+            return uniqueByName;
         }
 
         private void OnOpenFolderClicked(object sender, RoutedEventArgs e)
@@ -1721,7 +1842,10 @@ namespace BlankPlugin
                         total += ni.GetIPv4Statistics().BytesReceived;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                logger.Debug("GetTotalBytesReceived: " + ex.Message);
+            }
             return total;
         }
 

@@ -134,7 +134,7 @@ namespace BlankPlugin
         /// Shows the picker as a modal dialog. Returns the selected library path,
         /// or null if the user cancelled.
         /// </summary>
-        public static string ShowPicker(System.Windows.Window owner, List<string> libraries, Playnite.SDK.IPlayniteAPI api = null)
+        public static string ShowPicker(System.Windows.Window owner, List<string> libraries, Playnite.SDK.IPlayniteAPI api)
         {
             if (libraries == null || libraries.Count == 0)
                 return null;
@@ -143,26 +143,13 @@ namespace BlankPlugin
             if (libraries.Count == 1)
                 return libraries[0];
 
-            System.Windows.Window window;
-            if (api != null)
+            var window = api.Dialogs.CreateWindow(new Playnite.SDK.WindowCreationOptions
             {
-                window = api.Dialogs.CreateWindow(new Playnite.SDK.WindowCreationOptions
-                {
-                    ShowMinimizeButton = false,
-                    ShowMaximizeButton = false,
-                    ShowCloseButton = true
-                });
-                window.Owner = owner;
-            }
-            else
-            {
-                window = new Window
-                {
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Owner = owner,
-                    ResizeMode = ResizeMode.NoResize
-                };
-            }
+                ShowMinimizeButton = false,
+                ShowMaximizeButton = false,
+                ShowCloseButton = true
+            });
+            window.Owner = owner;
 
             window.Title = "Select Steam Library";
             window.Width = 500;

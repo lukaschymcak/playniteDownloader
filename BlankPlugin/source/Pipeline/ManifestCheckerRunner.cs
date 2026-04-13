@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BlankPlugin
@@ -20,6 +21,10 @@ namespace BlankPlugin
     /// Steam anonymously via SteamKit2 for current manifest GIDs per depot.
     /// Mirrors the process-launching pattern of DepotDownloaderRunner.cs.
     /// </summary>
+    /// <remarks>
+    /// <see cref="Run"/> blocks on process I/O and task <c>.Result</c>. Call from a background thread
+    /// (e.g. <see cref="UpdateChecker"/>), not the Playnite UI dispatcher.
+    /// </remarks>
     public class ManifestCheckerRunner
     {
         private static readonly ILogger logger = LogManager.GetLogger();
@@ -37,14 +42,33 @@ namespace BlankPlugin
         /// Queries Steam for current manifest GIDs for the given AppIDs.
         /// Returns (results, null) on success or (null, errorMessage) on failure.
         /// </summary>
-        public (List<ManifestCheckResult> results, string error) Run(IEnumerable<string> appIds)
+        public (List<ManifestCheckResult> results, string error) Run(
+            IEnumerable<string> appIds,
+            CancellationToken cancellationToken = default)
         {
             if (!IsReady)
                 return (null, "ManifestChecker.exe not found in plugin deps folder.");
 
-            var args = string.Join(" ", appIds);
-            if (string.IsNullOrWhiteSpace(args))
+            if (cancellationToken.IsCancellationRequested)
+                return (null, "ManifestChecker cancelled.");
+
+            var normalizedIds = new List<string>();
+            foreach (var raw in appIds)
+            {
+                if (string.IsNullOrWhiteSpace(raw))
+                    return (null, "Invalid AppID for manifest check (empty entry).");
+
+                var id = raw.Trim();
+                if (id.Length == 0 || !uint.TryParse(id, out _))
+                    return (null, "Invalid AppID for manifest check: " + raw);
+
+                normalizedIds.Add(id);
+            }
+
+            if (normalizedIds.Count == 0)
                 return (null, "No AppIDs provided.");
+
+            var args = string.Join(" ", normalizedIds);
 
             // ManifestChecker.exe is a framework-dependent .NET 9 executable.
             // Run it directly — it does NOT need dotnet prefix.
@@ -65,11 +89,23 @@ namespace BlankPlugin
                     var stdoutTask = Task.Run(() => proc.StandardOutput.ReadToEnd());
                     var stderrTask = Task.Run(() => proc.StandardError.ReadToEnd());
 
-                    bool exited = proc.WaitForExit(30_000);
-                    if (!exited)
+                    const int timeoutMs = 30_000;
+                    var sw = Stopwatch.StartNew();
+                    while (!proc.HasExited)
                     {
-                        try { proc.Kill(); } catch { }
-                        return (null, "ManifestChecker.exe timed out after 30 seconds.");
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            try { proc.Kill(); } catch { }
+                            return (null, "ManifestChecker cancelled.");
+                        }
+
+                        if (sw.ElapsedMilliseconds >= timeoutMs)
+                        {
+                            try { proc.Kill(); } catch { }
+                            return (null, "ManifestChecker.exe timed out after 30 seconds.");
+                        }
+
+                        proc.WaitForExit(250);
                     }
 
                     var stdout = stdoutTask.Result;
@@ -83,7 +119,10 @@ namespace BlankPlugin
                             if (errObj != null && errObj.TryGetValue("error", out var errMsg))
                                 return (null, errMsg);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            logger.Debug("ManifestChecker stderr JSON parse failed: " + ex.Message);
+                        }
                         return (null, "ManifestChecker.exe failed (exit code " + proc.ExitCode + "): " + stderr);
                     }
 

@@ -38,7 +38,7 @@ namespace BlankPlugin
 
         public override void OnApplicationStarted(OnApplicationStartedEventArgs args)
         {
-            logger.Info("BlankPlugin started.");
+            logger.Info("LuDownloader started.");
             InstalledGames = new InstalledGamesManager(GetPluginUserDataPath());
             LibraryGames   = new LibraryGamesManager(GetPluginUserDataPath());
 
@@ -52,13 +52,13 @@ namespace BlankPlugin
 
         public override void OnApplicationStopped(OnApplicationStoppedEventArgs args)
         {
-            logger.Info("BlankPlugin stopped.");
+            logger.Info("LuDownloader stopped.");
             _updateChecker?.Cancel();
         }
 
         public override void OnLibraryUpdated(OnLibraryUpdatedEventArgs args)
         {
-            logger.Info("BlankPlugin: library updated, triggering update check.");
+            logger.Info("LuDownloader: library updated, triggering update check.");
             _ = _updateChecker?.RunAsync();
         }
 
@@ -66,8 +66,8 @@ namespace BlankPlugin
         {
             yield return new SidebarItem
             {
-                Title = "BlankPlugin",
-                Icon = new TextBlock { Text = "BP" },
+                Title = "LuDownloader",
+                Icon = new TextBlock { Text = "LD" },
                 Type = SiderbarItemType.Button,
                 Activated = () => OpenPluginWindow(_lastSelectedGame)
             };
@@ -78,8 +78,8 @@ namespace BlankPlugin
         {
             yield return new GameMenuItem
             {
-                MenuSection = "BlankPlugin",
-                Description = "Open in BlankPlugin",
+                MenuSection = "LuDownloader",
+                Description = "Open in LuDownloader",
                 Action = menuArgs =>
                 {
                     _lastSelectedGame = menuArgs.Games.FirstOrDefault();
@@ -108,7 +108,7 @@ namespace BlankPlugin
                 {
                     yield return new GameMenuItem
                     {
-                        MenuSection = "BlankPlugin",
+                        MenuSection = "LuDownloader",
                         Description = "Open Install Folder",
                         Action = menuArgs =>
                         {
@@ -119,11 +119,11 @@ namespace BlankPlugin
 
                     yield return new GameMenuItem
                     {
-                        MenuSection = "BlankPlugin",
+                        MenuSection = "LuDownloader",
                         Description = "Uninstall",
                         Action = menuArgs =>
                         {
-                            var result = MessageBox.Show(
+                            var result = PlayniteApi.Dialogs.ShowMessage(
                                 string.Format("Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
                                     installed.GameName, installed.InstallPath),
                                 "Uninstall Game",
@@ -149,7 +149,7 @@ namespace BlankPlugin
                                 }
                                 catch (Exception ex)
                                 {
-                                    MessageBox.Show("Error during uninstall: " + ex.Message, "Uninstall Error",
+                                    PlayniteApi.Dialogs.ShowMessage("Error during uninstall: " + ex.Message, "Uninstall Error",
                                         MessageBoxButton.OK, MessageBoxImage.Error);
                                 }
                             }
@@ -158,7 +158,7 @@ namespace BlankPlugin
 
                     yield return new GameMenuItem
                     {
-                        MenuSection = "BlankPlugin",
+                        MenuSection = "LuDownloader",
                         Description = "Run Steamless (Strip DRM)",
                         Action = menuArgs =>
                         {
@@ -172,18 +172,18 @@ namespace BlankPlugin
                                     runner.Run(installed.InstallPath, line => { });
                                     installed.DrmStripped = true;
                                     InstalledGames.Save(installed);
-                                    MessageBox.Show("Steamless completed.", "DRM Removal",
+                                    PlayniteApi.Dialogs.ShowMessage("Steamless completed.", "DRM Removal",
                                         MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("No Steam DRM detected on executables.", "Steamless",
+                                    PlayniteApi.Dialogs.ShowMessage("No Steam DRM detected on executables.", "Steamless",
                                         MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                MessageBox.Show("Steamless error: " + ex.Message, "Error",
+                                PlayniteApi.Dialogs.ShowMessage("Steamless error: " + ex.Message, "Error",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
                             }
                         }
@@ -191,21 +191,21 @@ namespace BlankPlugin
 
                     yield return new GameMenuItem
                     {
-                        MenuSection = "BlankPlugin",
+                        MenuSection = "LuDownloader",
                         Description = "Apply Goldberg Emulator",
                         Action = menuArgs =>
                         {
                             if (!Directory.Exists(installed.InstallPath)) return;
                             if (string.IsNullOrWhiteSpace(Settings.GoldbergFilesPath))
                             {
-                                MessageBox.Show("Goldberg files path not configured. Open Plugin Settings first.",
+                                PlayniteApi.Dialogs.ShowMessage("Goldberg files path not configured. Open Plugin Settings first.",
                                     "Goldberg", MessageBoxButton.OK, MessageBoxImage.Warning);
                                 return;
                             }
                             var arch = GoldbergRunner.DetectArch(installed.InstallPath);
                             if (arch == null)
                             {
-                                arch = GoldbergArchDialog.ShowPicker(PlayniteApi.Dialogs.GetCurrentAppWindow());
+                                arch = GoldbergArchDialog.ShowPicker(PlayniteApi.Dialogs.GetCurrentAppWindow(), PlayniteApi);
                                 if (arch == null) return;
                             }
                             try
@@ -216,12 +216,12 @@ namespace BlankPlugin
                                     gseSavesCopied: installed.GseSavesCopied);
                                 installed.GseSavesCopied = true;
                                 InstalledGames.Save(installed);
-                                MessageBox.Show("Goldberg emulator applied successfully.", "Goldberg",
+                                PlayniteApi.Dialogs.ShowMessage("Goldberg emulator applied successfully.", "Goldberg",
                                     MessageBoxButton.OK, MessageBoxImage.Information);
                             }
                             catch (Exception ex)
                             {
-                                MessageBox.Show("Goldberg error: " + ex.Message, "Error",
+                                PlayniteApi.Dialogs.ShowMessage("Goldberg error: " + ex.Message, "Error",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
                             }
                         }
@@ -229,7 +229,7 @@ namespace BlankPlugin
 
                     yield return new GameMenuItem
                     {
-                        MenuSection = "BlankPlugin",
+                        MenuSection = "LuDownloader",
                         Description = "Update Game",
                         Action = menuArgs =>
                         {
@@ -253,6 +253,10 @@ namespace BlankPlugin
             }
         }
 
+        /// <summary>
+        /// Opens the main Library/Search shell when <paramref name="game"/> is null (e.g. sidebar);
+        /// opens <see cref="DownloadView"/> for the selected game when non-null (game context menu).
+        /// </summary>
         private void OpenPluginWindow(Game game)
         {
             var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
@@ -262,12 +266,24 @@ namespace BlankPlugin
                 ShowCloseButton = true
             });
 
-            window.Width = 800;
-            window.Height = 600;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-            window.Title = "BlankPlugin";
-            window.Content = new PluginMainView(Settings, InstalledGames, LibraryGames, PlayniteApi, _updateChecker, this);
+
+            if (game != null)
+            {
+                window.Width = 700;
+                window.Height = 600;
+                window.Title = "LuDownloader \u2014 " + game.Name;
+                window.Content = new DownloadView(game, Settings, InstalledGames, PlayniteApi, _updateChecker);
+            }
+            else
+            {
+                window.Width = 800;
+                window.Height = 600;
+                window.Title = "LuDownloader";
+                window.Content = new PluginMainView(Settings, InstalledGames, LibraryGames, PlayniteApi, _updateChecker, this);
+            }
+
             window.ShowDialog();
             _lastSelectedGame = null;
         }
@@ -284,7 +300,7 @@ namespace BlankPlugin
             window.Height = 600;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-            window.Title = "BlankPlugin \u2014 " + name;
+            window.Title = "LuDownloader \u2014 " + name;
             window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker);
             window.ShowDialog();
         }

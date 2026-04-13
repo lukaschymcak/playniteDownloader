@@ -15,14 +15,14 @@ When working in files matched by this rule (under **`.cursor/plans/`**), adopt t
 - **Separation of concerns:** explicitly assign work to the right layer (see repo mapping below).
 - **Iterative delivery:** plans must order work so the executing agent writes **small slices**, runs **tests after each task**, and uses **guard clauses** (avoid nesting deeper than **2** levels in new code).
 
-**LuiAchieve layer mapping (adapt generic terms)**
+**LuDownloader layer mapping (adapt generic terms)**
 
 | Generic | This repo |
 |--------|-----------|
-| Controller / API surface | Plugin lifecycle & wiring in `LuiAchieve.cs`; thin UI entry points only |
-| Service / domain | `LuiAchieve/Services/`, `LuiAchieve/Parsers/` |
+| Controller / API surface | Plugin lifecycle & wiring in `LuDownloader.cs`; thin UI entry points only |
+| Service / domain | `LuDownloader/Services/`, `LuDownloader/Parsers/` |
 | Persistence / external I/O | File system, Steam API, caches — via existing services; no ad-hoc DB unless ticket says so |
-| UI | `LuiAchieve` WPF views / notifications — presentation only |
+| UI | `LuDownloader` WPF views / notifications — presentation only |
 
 Before execution, the implementing agent must reconcile the plan with **`AGENTS.md`** (threading, logging, merge rules, `dotnet test` path).
 
@@ -42,7 +42,7 @@ Replace `[INSERT YOUR TICKET...]` with the user’s ticket text. Every section *
 
 ### 2. System Design & Architecture
 
-- **File/Directory Structure:** [Exact paths under `LuiAchieve/` (and tests under `LuiAchieve.Tests/`) ]
+- **File/Directory Structure:** [Exact paths under `LuDownloader/` (and tests under `LuDownloader.Tests/`) ]
 - **Separation of Concerns:** [Which logic lives in Services/Parsers vs plugin shell vs WPF; forbid business logic in notification-only code]
 - **Data Structures:** [e.g. `Dictionary`/`HashSet` for O(1) lookups; avoid O(n²) merges]
 - **Dependencies:** [`NO NEW DEPENDENCIES` or list with justification]
@@ -58,7 +58,7 @@ For each task use this pattern:
   - **Subtask k.1:** [Micro-action]
   - **Subtask k.2:** [Micro-action]
   - **Enforcement:** [e.g. consts/enums for magic values; early returns; `ConfigureAwait(false)` in library-style async]
-  - **TEST CHECKPOINT k (blocking):** [Exact test names/scenarios: positive **and** negative; for LuiAchieve use `dotnet test LuiAchieve/LuiAchieve.Tests/LuiAchieve.Tests.csproj -c Release` or narrower filter when possible]
+  - **TEST CHECKPOINT k (blocking):** [Exact test names/scenarios: positive **and** negative; for LuDownloader use `dotnet test LuDownloader/LuDownloader.Tests/LuDownloader.Tests.csproj -c Release` or narrower filter when possible]
 
 Final task must include integration-level verification (plugin flow or end-to-end behavior as feasible in tests).
 
@@ -79,7 +79,7 @@ Final task must include integration-level verification (plugin flow or end-to-en
 
 - **Coverage Mandate:** Assert **behavior** (diffs, merge results, parsing), not “did not throw.”
 - **Negative Testing:** Bad inputs → defined failure (logged, no host crash).
-- **Mocking:** [Playnite doubles, file system fakes, HTTP — as used in `LuiAchieve.Tests`]
+- **Mocking:** [Playnite doubles, file system fakes, HTTP — as used in `LuDownloader.Tests`]
 
 ### 7. Documentation Requirements
 

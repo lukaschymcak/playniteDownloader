@@ -87,7 +87,7 @@ namespace BlankPlugin
 
                     // Run ManifestChecker.exe with all AppIDs
                     var appIds = checkable.Select(g => g.AppId).ToList();
-                    var (results, error) = _runner.Run(appIds);
+                    var (results, error) = _runner.Run(appIds, token);
 
                     if (token.IsCancellationRequested) return;
 
@@ -97,7 +97,7 @@ namespace BlankPlugin
 
                         _playniteApi.Notifications.Add(new NotificationMessage(
                             "blankplugin_check_failed_" + DateTime.Now.Ticks,
-                            "BlankPlugin: Update check failed — " + error,
+                            "LuDownloader: Update check failed — " + error,
                             NotificationType.Error));
 
                         // Mark all as cannot_determine

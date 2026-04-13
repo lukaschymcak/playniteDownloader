@@ -25,6 +25,10 @@ namespace BlankPlugin
         public string Error { get; set; }
     }
 
+    /// <remarks>
+    /// All public methods perform synchronous HTTP (.Result). Call only from a background
+    /// thread (e.g. ThreadPool, <c>DownloadView</c> worker) — never from the Playnite UI dispatcher.
+    /// </remarks>
     public class MorrenusClient
     {
         private static readonly ILogger logger = LogManager.GetLogger();
@@ -203,7 +207,10 @@ namespace BlankPlugin
                         var detail = j.Value<string>("detail");
                         if (!string.IsNullOrEmpty(detail)) return "API Error (" + code + "): " + detail;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        logger.Debug("MorrenusClient: could not parse error body for HTTP " + code + ": " + ex.Message);
+                    }
                     return "API Error (" + code + ")";
             }
         }

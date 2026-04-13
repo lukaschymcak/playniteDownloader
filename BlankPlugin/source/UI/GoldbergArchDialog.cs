@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Playnite.SDK;
 
 namespace BlankPlugin
 {
@@ -78,19 +79,22 @@ namespace BlankPlugin
         }
 
         /// <summary>Returns "x64", "x32", or null if cancelled.</summary>
-        public static string ShowPicker(Window owner)
+        public static string ShowPicker(Window owner, IPlayniteAPI api)
         {
             var dialog = new GoldbergArchDialog();
-            var window = new Window
+            var window = api.Dialogs.CreateWindow(new WindowCreationOptions
             {
-                Title                 = "Select Architecture",
-                Width                 = 340,
-                SizeToContent         = SizeToContent.Height,
-                ResizeMode            = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner                 = owner,
-                Content               = dialog
-            };
+                ShowMinimizeButton = false,
+                ShowMaximizeButton = false,
+                ShowCloseButton    = true
+            });
+            window.Title                 = "Select Architecture";
+            window.Width                 = 340;
+            window.SizeToContent         = SizeToContent.Height;
+            window.ResizeMode            = ResizeMode.NoResize;
+            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            window.Owner                 = owner;
+            window.Content               = dialog;
             window.ShowDialog();
             return dialog._result;
         }

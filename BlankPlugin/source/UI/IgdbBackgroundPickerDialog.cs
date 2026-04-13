@@ -208,26 +208,13 @@ namespace BlankPlugin
             // Single image — use it without asking
             if (imageIds.Count == 1) return imageIds[0];
 
-            Window window;
-            if (api != null)
+            var window = api.Dialogs.CreateWindow(new WindowCreationOptions
             {
-                window = api.Dialogs.CreateWindow(new WindowCreationOptions
-                {
-                    ShowMinimizeButton = false,
-                    ShowMaximizeButton = false,
-                    ShowCloseButton = true
-                });
-                window.Owner = owner;
-            }
-            else
-            {
-                window = new Window
-                {
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Owner = owner,
-                    ResizeMode = ResizeMode.CanResize
-                };
-            }
+                ShowMinimizeButton = false,
+                ShowMaximizeButton = false,
+                ShowCloseButton = true
+            });
+            window.Owner = owner;
 
             window.Title = "Select Background Image";
             window.Width = 680;

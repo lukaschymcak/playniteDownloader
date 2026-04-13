@@ -188,7 +188,14 @@ namespace BlankPlugin
 
         private void RunGenerateEmuConfig(string appId, Action<string> onLog)
         {
-            var psi = new ProcessStartInfo(_genEmuConfigExe, "-acw " + appId)
+            if (string.IsNullOrWhiteSpace(appId) || !uint.TryParse(appId.Trim(), out _))
+            {
+                onLog("ERROR: Invalid Steam AppId for generate_emu_config.");
+                return;
+            }
+
+            var safeId = appId.Trim();
+            var psi = new ProcessStartInfo(_genEmuConfigExe, "-acw \"" + safeId + "\"")
             {
                 UseShellExecute        = false,
                 RedirectStandardOutput = true,

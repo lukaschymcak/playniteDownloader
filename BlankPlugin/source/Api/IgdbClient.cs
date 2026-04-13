@@ -35,6 +35,9 @@ namespace BlankPlugin
     /// IGDB API client using Twitch OAuth2 client credentials.
     /// Token is cached per-instance to avoid redundant auth calls.
     /// </summary>
+    /// <remarks>
+    /// Synchronous HTTP. Call only from background threads (e.g. <c>DownloadView</c> install worker), not the Playnite dispatcher.
+    /// </remarks>
     public class IgdbClient
     {
         private static readonly ILogger logger = LogManager.GetLogger();

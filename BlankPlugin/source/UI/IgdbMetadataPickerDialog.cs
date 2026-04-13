@@ -283,26 +283,13 @@ namespace BlankPlugin
 
         public static IgdbGameResult ShowPicker(Window owner, string gameName, IgdbClient igdb, IPlayniteAPI api)
         {
-            Window window;
-            if (api != null)
+            var window = api.Dialogs.CreateWindow(new WindowCreationOptions
             {
-                window = api.Dialogs.CreateWindow(new WindowCreationOptions
-                {
-                    ShowMinimizeButton = false,
-                    ShowMaximizeButton = false,
-                    ShowCloseButton = true
-                });
-                window.Owner = owner;
-            }
-            else
-            {
-                window = new Window
-                {
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Owner = owner,
-                    ResizeMode = ResizeMode.NoResize
-                };
-            }
+                ShowMinimizeButton = false,
+                ShowMaximizeButton = false,
+                ShowCloseButton = true
+            });
+            window.Owner = owner;
 
             window.Title = "IGDB Metadata — " + gameName;
             window.Width = 520;
