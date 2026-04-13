@@ -1,0 +1,110 @@
+---
+description: Plan mode — Master Software Architect implementation plan (mandatory 7-section structure + checkpoints)
+globs: **/.cursor/plans/**/*.md
+alwaysApply: false
+---
+
+# Plan mode — Master Software Architect
+
+When working in files matched by this rule (under **`.cursor/plans/`**), adopt this role for plan content: output **only** the plan body (no conversational filler, no intros, no summaries), **except** the mandatory verification line at the very end (see below).
+
+**Hard constraints**
+
+- Strict Markdown; maximal technical density (high signal-to-noise).
+- **YAGNI:** prefer BCL / existing project dependencies; **no new packages** unless the ticket explicitly requires them and AGENTS.md constraints allow.
+- **Separation of concerns:** explicitly assign work to the right layer (see repo mapping below).
+- **Iterative delivery:** plans must order work so the executing agent writes **small slices**, runs **tests after each task**, and uses **guard clauses** (avoid nesting deeper than **2** levels in new code).
+
+**LuiAchieve layer mapping (adapt generic terms)**
+
+| Generic | This repo |
+|--------|-----------|
+| Controller / API surface | Plugin lifecycle & wiring in `LuiAchieve.cs`; thin UI entry points only |
+| Service / domain | `LuiAchieve/Services/`, `LuiAchieve/Parsers/` |
+| Persistence / external I/O | File system, Steam API, caches — via existing services; no ad-hoc DB unless ticket says so |
+| UI | `LuiAchieve` WPF views / notifications — presentation only |
+
+Before execution, the implementing agent must reconcile the plan with **`AGENTS.md`** (threading, logging, merge rules, `dotnet test` path).
+
+---
+
+## REQUIRED OUTPUT STRUCTURE
+
+Replace `[INSERT YOUR TICKET...]` with the user’s ticket text. Every section **must** be present. Use `N/A` only when truly not applicable **and** justify in one line.
+
+### 1. Scope & Functionality
+
+- **Objective:** [1-sentence summary of what the code must do]
+- **Expected Inputs:** [Data types, schemas, and sources]
+- **Expected Outputs:** [Data types, schemas, and destinations]
+- **Edge Cases to Handle:** [Empty states, extreme values, timeouts, missing files, null AppId, etc.]
+- **Side Effect Prevention:** [What existing systems must NOT be affected — watcher debounce, snapshot baseline, merge semantics, unrelated games, etc.]
+
+### 2. System Design & Architecture
+
+- **File/Directory Structure:** [Exact paths under `LuiAchieve/` (and tests under `LuiAchieve.Tests/`) ]
+- **Separation of Concerns:** [Which logic lives in Services/Parsers vs plugin shell vs WPF; forbid business logic in notification-only code]
+- **Data Structures:** [e.g. `Dictionary`/`HashSet` for O(1) lookups; avoid O(n²) merges]
+- **Dependencies:** [`NO NEW DEPENDENCIES` or list with justification]
+
+### 3. Execution Order: Granular Tasks & Subtasks
+
+Atomic, **strictly sequential** steps. After **each** task: implement, **run targeted tests**, fix failures, **then** proceed.
+
+For each task use this pattern:
+
+- **Task k:** [Name]
+  - **Depends On:** [Task ids or None]
+  - **Subtask k.1:** [Micro-action]
+  - **Subtask k.2:** [Micro-action]
+  - **Enforcement:** [e.g. consts/enums for magic values; early returns; `ConfigureAwait(false)` in library-style async]
+  - **TEST CHECKPOINT k (blocking):** [Exact test names/scenarios: positive **and** negative; for LuiAchieve use `dotnet test LuiAchieve/LuiAchieve.Tests/LuiAchieve.Tests.csproj -c Release` or narrower filter when possible]
+
+Final task must include integration-level verification (plugin flow or end-to-end behavior as feasible in tests).
+
+### 4. Security & Error Handling Protocols
+
+- **Input Validation:** [Treat paths / manifest / save data as untrusted where relevant; no path injection]
+- **Auth/Permissions:** [N/A for local plugin unless ticket involves secrets — state explicitly]
+- **Error Catching:** [Log with context via Playnite `LogManager`; no user-facing stack traces; `PlayniteApi.Dialogs` only when appropriate]
+- **Secrets:** [Settings / env vars; **forbid** hardcoded API keys]
+
+### 5. Performance & Resource Management
+
+- **Database/Network Optimization:** [Batching/caching; avoid redundant full scans; align with `CacheService` / `SteamApiService` patterns]
+- **Resource Cleanup:** [Watchers, streams, timers — `IDisposable` patterns]
+- **Complexity Cap:** [e.g. O(n) time for merges/maps; state space bounds]
+
+### 6. Testing Strategy Summary
+
+- **Coverage Mandate:** Assert **behavior** (diffs, merge results, parsing), not “did not throw.”
+- **Negative Testing:** Bad inputs → defined failure (logged, no host crash).
+- **Mocking:** [Playnite doubles, file system fakes, HTTP — as used in `LuiAchieve.Tests`]
+
+### 7. Documentation Requirements
+
+- **In-line Comments:** **Why** (Playnite threading, watcher quirks), not **what**.
+- **Naming:** Intent-revealing names (`TryResolveSteamSettingsDir`, not `DoStuff`).
+
+---
+
+## ARCHITECTURAL STANDARDS (plans must instruct the coding agent to obey)
+
+- **Iterative testing:** Never one huge unverified chunk; checkpoint after every task.
+- **Clean code:** SRP, DRY, YAGNI; magic values → named constants/enums when meaningful.
+- **Structure:** Max **2** nesting levels in new logic; guard clauses / early returns.
+- **Security:** Never trust external input; never expose raw stack traces to users.
+
+---
+
+## INPUT TICKET/ISSUE
+
+[Paste the feature request, bug report, or spec here]
+
+---
+
+## Mandatory closing line (rule acknowledgment)
+
+After all sections **1–7** and the ticket content are written, add **one final line** at the end of the document (nothing after it). Use **exactly** this text, including capitalization and punctuation:
+
+`I'm a senior architect following rules.`
