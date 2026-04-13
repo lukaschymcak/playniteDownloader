@@ -8,6 +8,11 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
+  <!-- SolutionDir is empty when building this .csproj directly (dotnet build); MSBuildThisFileDirectory is always set. -->
+  <PropertyGroup>
+    <ManifestCheckerRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\ManifestChecker'))</ManifestCheckerRoot>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="PlayniteSDK" Version="6.2.0" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
@@ -94,22 +99,24 @@
   <!-- Run dotnet publish to produce a true single-file exe before copying -->
   <Target Name="PublishManifestChecker" BeforeTargets="CopyManifestChecker">
     <Exec
-      Command="dotnet publish &quot;$(SolutionDir)..\..\ManifestChecker\ManifestChecker.csproj&quot; -c $(Configuration) -r win-x64 --nologo -v quiet"
-      ContinueOnError="true" />
+      Command="dotnet publish &quot;$(ManifestCheckerRoot)\ManifestChecker.csproj&quot; -c $(Configuration) -r win-x64 --nologo -v quiet" />
   </Target>
 
   <!-- Copy single-file published exe into deps/ so it is packed into the .pext -->
   <Target Name="CopyManifestChecker" BeforeTargets="PackPlugin">
+    <PropertyGroup>
+      <_ManifestCheckerRidDir>$(ManifestCheckerRoot)\bin\$(Configuration)\net9.0\win-x64</_ManifestCheckerRidDir>
+    </PropertyGroup>
     <Copy
-      SourceFiles="$(SolutionDir)..\..\ManifestChecker\bin\$(Configuration)\net9.0\win-x64\publish\ManifestChecker.exe"
+      SourceFiles="$(_ManifestCheckerRidDir)\publish\ManifestChecker.exe"
+      DestinationFolder="$(OutDir)deps\"
+      SkipUnchangedFiles="true" />
+    <!-- Single-file publish omits runtimeconfig from publish\; it stays next to the RID build output. -->
+    <Copy
+      SourceFiles="$(_ManifestCheckerRidDir)\ManifestChecker.runtimeconfig.json"
       DestinationFolder="$(OutDir)deps\"
       SkipUnchangedFiles="true"
-      ContinueOnError="true" />
-    <Copy
-      SourceFiles="$(SolutionDir)..\..\ManifestChecker\bin\$(Configuration)\net9.0\win-x64\publish\ManifestChecker.runtimeconfig.json"
-      DestinationFolder="$(OutDir)deps\"
-      SkipUnchangedFiles="true"
-      ContinueOnError="true" />
+      Condition="Exists('$(_ManifestCheckerRidDir)\ManifestChecker.runtimeconfig.json')" />
   </Target>
 
 </Project>

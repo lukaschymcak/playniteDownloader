@@ -31,5 +31,8 @@ namespace BlankPlugin
 
         /// <summary>Whether the game was registered with Steam via ACF manifest.</summary>
         public bool RegisteredWithSteam { get; set; }
+
+        /// <summary>Whether Goldberg GSE Saves files have been copied for this game.</summary>
+        public bool GseSavesCopied { get; set; }
     }
 }

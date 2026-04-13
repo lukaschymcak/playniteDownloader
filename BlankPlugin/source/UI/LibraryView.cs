@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using Playnite.SDK;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -13,16 +14,54 @@ using System.Windows.Media.Imaging;
 namespace BlankPlugin
 {
     /// <summary>
-    /// Sidebar library view — lists all games installed through BlankPlugin.
-    /// Opened when the user clicks the plugin sidebar button without selecting a game.
+    /// Plugin Library tab — union of installed games (disk + installed_games.json) and saved bookmarks (library_games.json).
+    /// One row per AppId; install state is derived from <see cref="InstalledGamesManager.ScanLibrary"/>, not the bookmark file.
     /// </summary>
     public class LibraryView : UserControl
     {
         private static readonly ILogger logger = LogManager.GetLogger();
 
+        /// <summary>Steam header 460×215; fixed box matches Search tab header width (184) for readable art.</summary>
+        private const int LibraryThumbWidthDip = 184;
+
+        private const int LibraryThumbHeightDip = (int)(LibraryThumbWidthDip * 215.0 / 460.0 + 0.5);
+
+        /// <summary>Decode at ~3× DIP size for HiDPI Steam headers.</summary>
+        private const int LibrarySteamDecodeScale = 3;
+
+        private const int LibraryCardTitleFontSize = 15;
+
+        private const int LibraryCardStatusFontSize = 11;
+
+        private const int LibraryCardMetaFontSize = 11;
+
+        private const int LibraryCardPathFontSize = 11;
+
+        private const int LibraryCardPlaceholderFontSize = 38;
+
+        private const int LibraryCardButtonHeight = 32;
+
+        private const int LibraryCardButtonFontSize = 12;
+
+        private static readonly Thickness LibraryCardInfoMargin = new Thickness(14, 12, 10, 12);
+
+        private static readonly Thickness LibraryCardBottomMargin = new Thickness(0, 0, 0, 8);
+
+        private sealed class LibraryRow
+        {
+            public InstalledGame Installed { get; set; }
+            public SavedLibraryGame Bookmark { get; set; }
+            public string SortName =>
+                Installed != null
+                    ? (Installed.GameName ?? Installed.AppId ?? "")
+                    : (Bookmark?.GameName ?? Bookmark?.AppId ?? "");
+        }
+
         private readonly BlankPluginSettings _settings;
         private readonly IPlayniteAPI _api;
         private readonly InstalledGamesManager _installedGamesManager;
+        private readonly LibraryGamesManager _libraryGames;
+        private readonly BlankPlugin _plugin;
         private readonly UpdateChecker _updateChecker;
         private readonly MorrenusClient _client;
 
@@ -36,11 +75,13 @@ namespace BlankPlugin
         private TextBlock _librarySummaryLabel;
         private TextBox _libraryFilterBox;
 
-        public LibraryView(BlankPluginSettings settings, InstalledGamesManager installedGamesManager, IPlayniteAPI api, UpdateChecker updateChecker)
+        public LibraryView(BlankPluginSettings settings, InstalledGamesManager installedGamesManager, LibraryGamesManager libraryGames, IPlayniteAPI api, UpdateChecker updateChecker, BlankPlugin plugin)
         {
             _settings = settings;
             _api = api;
             _installedGamesManager = installedGamesManager;
+            _libraryGames = libraryGames;
+            _plugin = plugin;
             _updateChecker = updateChecker;
             _client = new MorrenusClient(() => _settings.ApiKey);
 
@@ -79,7 +120,7 @@ namespace BlankPlugin
 
             header.Children.Add(new TextBlock
             {
-                Text = "Installed Games",
+                Text = "Library:",
                 FontSize = 16,
                 FontWeight = FontWeights.Bold,
                 VerticalAlignment = VerticalAlignment.Center
@@ -206,24 +247,48 @@ namespace BlankPlugin
             if (_installedGamesManager == null) return;
 
             var filter = _libraryFilterBox.Text.Trim();
-            var all = _installedGamesManager.ScanLibrary();
-            var filtered = all
-                .Where(g => string.IsNullOrEmpty(filter) ||
-                            g.GameName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
-                .OrderBy(g => g.GameName)
+            var installedList = _installedGamesManager.ScanLibrary();
+            var installedByAppId = new Dictionary<string, InstalledGame>(StringComparer.Ordinal);
+            foreach (var g in installedList)
+            {
+                if (string.IsNullOrEmpty(g.AppId)) continue;
+                if (!installedByAppId.ContainsKey(g.AppId))
+                    installedByAppId[g.AppId] = g;
+            }
+
+            var merged = new List<LibraryRow>();
+            foreach (var g in installedByAppId.Values)
+                merged.Add(new LibraryRow { Installed = g, Bookmark = null });
+
+            if (_libraryGames != null)
+            {
+                foreach (var b in _libraryGames.GetAll())
+                {
+                    if (string.IsNullOrWhiteSpace(b.AppId)) continue;
+                    if (installedByAppId.ContainsKey(b.AppId)) continue;
+                    merged.Add(new LibraryRow { Installed = null, Bookmark = b });
+                }
+            }
+
+            var totalSize = installedList.Sum(g => g.SizeOnDisk);
+            var installedCount = installedByAppId.Count;
+            var savedOnlyCount = merged.Count - installedCount;
+            _librarySummaryLabel.Text = installedCount + " installed \u00b7 " + savedOnlyCount + " saved  |  " +
+                SteamLibraryHelper.FormatSize(totalSize);
+
+            var filtered = merged
+                .Where(row => MatchesLibraryFilter(row, filter))
+                .OrderBy(row => row.SortName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             _libraryList.Children.Clear();
-
-            var totalSize = all.Sum(g => g.SizeOnDisk);
-            _librarySummaryLabel.Text = all.Count + " game(s)  |  " + SteamLibraryHelper.FormatSize(totalSize);
 
             if (filtered.Count == 0)
             {
                 _libraryList.Children.Add(new TextBlock
                 {
                     Text = string.IsNullOrEmpty(filter)
-                        ? "No games installed through BlankPlugin."
+                        ? "No games in Library. Install a game or use Search \u2192 + Add to Library."
                         : "No games match the filter.",
                     Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
                     FontStyle = FontStyles.Italic,
@@ -233,8 +298,33 @@ namespace BlankPlugin
                 return;
             }
 
-            foreach (var game in filtered)
-                _libraryList.Children.Add(CreateLibraryGameEntry(game));
+            foreach (var row in filtered)
+            {
+                if (row.Installed != null)
+                    _libraryList.Children.Add(CreateLibraryGameEntry(row.Installed));
+                else if (row.Bookmark != null)
+                    _libraryList.Children.Add(CreateBookmarkLibraryEntry(row.Bookmark));
+            }
+        }
+
+        private static bool MatchesLibraryFilter(LibraryRow row, string filter)
+        {
+            if (string.IsNullOrEmpty(filter)) return true;
+            if (row.Installed != null)
+            {
+                var name = row.Installed.GameName ?? "";
+                if (name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                var id = row.Installed.AppId ?? "";
+                if (id.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            else if (row.Bookmark != null)
+            {
+                var name = row.Bookmark.GameName ?? "";
+                if (name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                var id = row.Bookmark.AppId ?? "";
+                if (id.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            return false;
         }
 
         private Border CreateLibraryGameEntry(InstalledGame game)
@@ -244,21 +334,22 @@ namespace BlankPlugin
                 BorderBrush = new SolidColorBrush(Color.FromRgb(55, 55, 60)),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(0, 0, 0, 6),
+                Margin = LibraryCardBottomMargin,
                 Background = new SolidColorBrush(Color.FromRgb(37, 37, 42)),
                 Cursor = System.Windows.Input.Cursors.Hand,
                 ClipToBounds = true
             };
 
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });                     // thumbnail
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(LibraryThumbWidthDip) }); // thumbnail
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });   // info
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });                        // buttons
 
             // ── Thumbnail ────────────────────────────────────────────────────────
             var thumbContainer = new Border
             {
-                Width = 90,
+                Width  = LibraryThumbWidthDip,
+                Height = LibraryThumbHeightDip,
                 Background = new SolidColorBrush(Color.FromRgb(25, 25, 28)),
                 ClipToBounds = true
             };
@@ -268,9 +359,10 @@ namespace BlankPlugin
             {
                 thumbContainer.Child = new Image
                 {
-                    Source = coverSource,
-                    Stretch = Stretch.UniformToFill,
-                    StretchDirection = StretchDirection.Both
+                    Source              = coverSource,
+                    Stretch             = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment   = VerticalAlignment.Center
                 };
             }
             else
@@ -278,7 +370,7 @@ namespace BlankPlugin
                 thumbContainer.Child = new TextBlock
                 {
                     Text = game.GameName.Length > 0 ? game.GameName[0].ToString().ToUpper() : "?",
-                    FontSize = 28,
+                    FontSize = LibraryCardPlaceholderFontSize,
                     FontWeight = FontWeights.Bold,
                     Foreground = new SolidColorBrush(Color.FromRgb(80, 80, 90)),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -292,7 +384,7 @@ namespace BlankPlugin
             // ── Game info ────────────────────────────────────────────────────────
             var info = new StackPanel
             {
-                Margin = new Thickness(12, 10, 8, 10),
+                Margin = LibraryCardInfoMargin,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
@@ -300,7 +392,7 @@ namespace BlankPlugin
             {
                 Text = game.GameName,
                 FontWeight = FontWeights.SemiBold,
-                FontSize = 13,
+                FontSize = LibraryCardTitleFontSize,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
@@ -311,7 +403,7 @@ namespace BlankPlugin
                 {
                     Text = "Up to date",
                     Foreground = new SolidColorBrush(Color.FromRgb(50, 205, 50)),
-                    FontSize = 10,
+                    FontSize = LibraryCardStatusFontSize,
                     FontWeight = FontWeights.Medium,
                     Margin = new Thickness(0, 2, 0, 0)
                 });
@@ -322,7 +414,7 @@ namespace BlankPlugin
                 {
                     Text = "Update available",
                     Foreground = new SolidColorBrush(Color.FromRgb(255, 165, 0)),
-                    FontSize = 10,
+                    FontSize = LibraryCardStatusFontSize,
                     FontWeight = FontWeights.Medium,
                     Margin = new Thickness(0, 2, 0, 0)
                 });
@@ -333,7 +425,7 @@ namespace BlankPlugin
                 Text = SteamLibraryHelper.FormatSize(game.SizeOnDisk) + "   ·   " +
                        game.InstalledDate.ToString("yyyy-MM-dd"),
                 Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 160)),
-                FontSize = 11,
+                FontSize = LibraryCardMetaFontSize,
                 Margin = new Thickness(0, 3, 0, 0)
             });
 
@@ -341,7 +433,7 @@ namespace BlankPlugin
             {
                 Text = game.InstallPath,
                 Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 110)),
-                FontSize = 10,
+                FontSize = LibraryCardPathFontSize,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Margin = new Thickness(0, 2, 0, 0)
             });
@@ -354,16 +446,16 @@ namespace BlankPlugin
             {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0)
+                Margin = new Thickness(0, 0, 14, 0)
             };
 
             var openBtn = new Button
             {
                 Content = "Open",
-                Width = 52,
-                Height = 26,
-                FontSize = 11,
-                Margin = new Thickness(0, 0, 6, 0)
+                Width = 58,
+                Height = LibraryCardButtonHeight,
+                FontSize = LibraryCardButtonFontSize,
+                Margin = new Thickness(0, 0, 8, 0)
             };
             openBtn.Click += (s, e) =>
             {
@@ -374,21 +466,21 @@ namespace BlankPlugin
             var uninstallBtn = new Button
             {
                 Content = "Uninstall",
-                Width = 72,
-                Height = 26,
-                FontSize = 11
+                Width = 82,
+                Height = LibraryCardButtonHeight,
+                FontSize = LibraryCardButtonFontSize
             };
-            uninstallBtn.Click += (s, e) => UninstallGame(game, card);
+            uninstallBtn.Click += (s, e) => UninstallGame(game);
 
             if (updateStatus == "update_available")
             {
                 var updateBtn = new Button
                 {
                     Content = "Update",
-                    Width = 64,
-                    Height = 26,
-                    FontSize = 11,
-                    Margin = new Thickness(0, 0, 6, 0),
+                    Width = 72,
+                    Height = LibraryCardButtonHeight,
+                    FontSize = LibraryCardButtonFontSize,
+                    Margin = new Thickness(0, 0, 8, 0),
                     Background = new SolidColorBrush(Color.FromRgb(0xCC, 0x66, 0x00)),
                     Foreground = Brushes.White
                 };
@@ -448,6 +540,153 @@ namespace BlankPlugin
             return card;
         }
 
+        /// <summary>Saved-only row: Download opens the same flow as Search.</summary>
+        private Border CreateBookmarkLibraryEntry(SavedLibraryGame bookmark)
+        {
+            var displayName = string.IsNullOrWhiteSpace(bookmark.GameName) ? bookmark.AppId : bookmark.GameName;
+
+            var card = new Border
+            {
+                BorderBrush = new SolidColorBrush(Color.FromRgb(55, 55, 60)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Margin = LibraryCardBottomMargin,
+                Background = new SolidColorBrush(Color.FromRgb(37, 37, 42)),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                ClipToBounds = true
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(LibraryThumbWidthDip) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var thumbContainer = new Border
+            {
+                Width  = LibraryThumbWidthDip,
+                Height = LibraryThumbHeightDip,
+                Background = new SolidColorBrush(Color.FromRgb(25, 25, 28)),
+                ClipToBounds = true
+            };
+
+            var cover = LoadSteamHeaderImage(bookmark.AppId);
+            if (cover != null)
+            {
+                thumbContainer.Child = new Image
+                {
+                    Source              = cover,
+                    Stretch             = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment   = VerticalAlignment.Center
+                };
+            }
+            else
+            {
+                thumbContainer.Child = new TextBlock
+                {
+                    Text = displayName.Length > 0 ? displayName[0].ToString().ToUpper() : "?",
+                    FontSize = LibraryCardPlaceholderFontSize,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(80, 80, 90)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+            }
+
+            Grid.SetColumn(thumbContainer, 0);
+            grid.Children.Add(thumbContainer);
+
+            var info = new StackPanel
+            {
+                Margin = LibraryCardInfoMargin,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            info.Children.Add(new TextBlock
+            {
+                Text = displayName,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = LibraryCardTitleFontSize,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            info.Children.Add(new TextBlock
+            {
+                Text = "Saved \u00b7 not installed",
+                Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 170)),
+                FontSize = LibraryCardStatusFontSize,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+
+            info.Children.Add(new TextBlock
+            {
+                Text = "App " + bookmark.AppId,
+                Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 110)),
+                FontSize = LibraryCardMetaFontSize,
+                Margin = new Thickness(0, 3, 0, 0)
+            });
+
+            Grid.SetColumn(info, 1);
+            grid.Children.Add(info);
+
+            var btnStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 14, 0)
+            };
+
+            var downloadBtn = new Button
+            {
+                Content = "Download",
+                Width = 96,
+                Height = LibraryCardButtonHeight,
+                FontSize = LibraryCardButtonFontSize
+            };
+            downloadBtn.Click += (s, e) =>
+            {
+                if (_plugin != null)
+                    _plugin.OpenDownloadForAppId(bookmark.AppId, displayName);
+            };
+
+            btnStack.Children.Add(downloadBtn);
+            Grid.SetColumn(btnStack, 2);
+            grid.Children.Add(btnStack);
+
+            var accentStripe = new Border { Width = 4, Background = new SolidColorBrush(Color.FromRgb(100, 100, 120)) };
+            var dockPanel = new DockPanel();
+            DockPanel.SetDock(accentStripe, Dock.Left);
+            dockPanel.Children.Add(accentStripe);
+            dockPanel.Children.Add(grid);
+            card.Child = dockPanel;
+
+            return card;
+        }
+
+        private static ImageSource LoadSteamHeaderImage(string appId)
+        {
+            if (string.IsNullOrWhiteSpace(appId)) return null;
+            try
+            {
+                var uri = new Uri(
+                    "https://cdn.akamai.steamstatic.com/steam/apps/" + appId.Trim() + "/header.jpg",
+                    UriKind.Absolute);
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.UriSource = uri;
+                var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
+                bmp.DecodePixelWidth  = decodeW;
+                bmp.DecodePixelHeight = (int)(decodeW * 215.0 / 460.0 + 0.5);
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                return bmp;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private ImageSource GetGameCoverSource(InstalledGame game)
         {
             // 1. Playnite database cover
@@ -467,30 +706,12 @@ namespace BlankPlugin
             }
 
             // 2. Steam CDN header — WPF loads this asynchronously after the card renders
-            if (!string.IsNullOrWhiteSpace(game.AppId))
-            {
-                try
-                {
-                    var uri = new Uri(
-                        "https://cdn.akamai.steamstatic.com/steam/apps/" + game.AppId + "/header.jpg",
-                        UriKind.Absolute);
-                    var bmp = new BitmapImage();
-                    bmp.BeginInit();
-                    bmp.UriSource = uri;
-                    bmp.DecodePixelWidth = 90;
-                    bmp.CacheOption = BitmapCacheOption.OnLoad;
-                    bmp.EndInit();
-                    return bmp;
-                }
-                catch { /* fall through */ }
-            }
-
-            return null;
+            return LoadSteamHeaderImage(game.AppId);
         }
 
         // ── Uninstall ────────────────────────────────────────────────────────────
 
-        private void UninstallGame(InstalledGame game, Border entryCard)
+        private void UninstallGame(InstalledGame game)
         {
             var result = MessageBox.Show(
                 string.Format("Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
@@ -517,7 +738,6 @@ namespace BlankPlugin
                 }
 
                 _installedGamesManager.Remove(game.AppId);
-                _libraryList.Children.Remove(entryCard);
 
                 if (_api != null && game.PlayniteGameId != Guid.Empty)
                 {
@@ -531,12 +751,7 @@ namespace BlankPlugin
                         _api.Database.Games.Remove(game.PlayniteGameId);
                 }
 
-                var remaining = _installedGamesManager.GetAll();
-                var totalSize = remaining.Sum(g => g.SizeOnDisk);
-                _librarySummaryLabel.Text = remaining.Count + " game(s)  |  " + SteamLibraryHelper.FormatSize(totalSize);
-
-                if (remaining.Count == 0)
-                    RefreshLibraryList();
+                RefreshLibraryList();
             }
             catch (Exception ex)
             {

@@ -20,6 +20,7 @@ namespace BlankPlugin
 
         internal BlankPluginSettings Settings { get; private set; }
         internal InstalledGamesManager InstalledGames { get; private set; }
+        internal LibraryGamesManager LibraryGames { get; private set; }
 
         private UpdateChecker _updateChecker;
         private Game _lastSelectedGame;
@@ -39,6 +40,7 @@ namespace BlankPlugin
         {
             logger.Info("BlankPlugin started.");
             InstalledGames = new InstalledGamesManager(GetPluginUserDataPath());
+            LibraryGames   = new LibraryGamesManager(GetPluginUserDataPath());
 
             // Initialize update checker
             var runner = new ManifestCheckerRunner();
@@ -210,7 +212,10 @@ namespace BlankPlugin
                             {
                                 var runner = new GoldbergRunner(Settings.GoldbergFilesPath);
                                 runner.Run(installed.InstallPath, installed.AppId, arch, Settings,
-                                    line => logger.Info("[Goldberg] " + line));
+                                    line => logger.Info("[Goldberg] " + line),
+                                    gseSavesCopied: installed.GseSavesCopied);
+                                installed.GseSavesCopied = true;
+                                InstalledGames.Save(installed);
                                 MessageBox.Show("Goldberg emulator applied successfully.", "Goldberg",
                                     MessageBoxButton.OK, MessageBoxImage.Information);
                             }
@@ -257,12 +262,12 @@ namespace BlankPlugin
                 ShowCloseButton = true
             });
 
-            window.Width = 700;
+            window.Width = 800;
             window.Height = 600;
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
             window.Title = "BlankPlugin";
-            window.Content = new PluginMainView(Settings, InstalledGames, PlayniteApi, _updateChecker, this);
+            window.Content = new PluginMainView(Settings, InstalledGames, LibraryGames, PlayniteApi, _updateChecker, this);
             window.ShowDialog();
             _lastSelectedGame = null;
         }

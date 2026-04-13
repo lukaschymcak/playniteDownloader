@@ -51,7 +51,7 @@ namespace BlankPlugin
             return new List<string>(dirs);
         }
 
-        public void Run(string gameDir, string appId, string arch, BlankPluginSettings settings, Action<string> onLog)
+        public void Run(string gameDir, string appId, string arch, BlankPluginSettings settings, Action<string> onLog, bool gseSavesCopied = false)
         {
             if (!IsReady)
             {
@@ -85,9 +85,16 @@ namespace BlankPlugin
                 onLog("--- Step 1: Skipping configs.user.ini (no account set) ---");
             }
 
-            // Step 2 — Copy GSE Saves folder files
-            onLog("--- Step 2: Copying GSE Saves folder ---");
-            CopyGseSavesFolder(onLog);
+            // Step 2 — Copy GSE Saves folder files (first run only)
+            if (!gseSavesCopied)
+            {
+                onLog("--- Step 2: Copying GSE Saves folder (first run) ---");
+                CopyGseSavesFolder(onLog);
+            }
+            else
+            {
+                onLog("--- Step 2: Skipping GSE Saves (already copied) ---");
+            }
 
             // Step 3 — Copy my_login.txt
             onLog("--- Step 3: Copying my_login.txt ---");
@@ -245,13 +252,16 @@ namespace BlankPlugin
                 }
             }
 
-            // Copy steam_settings/ recursively
-            var settingsSrc  = Path.Combine(outputDir, "steam_settings");
-            var settingsDest = Path.Combine(gameDir, "steam_settings");
+            // Copy steam_settings/ to each DLL directory
+            var settingsSrc = Path.Combine(outputDir, "steam_settings");
             if (Directory.Exists(settingsSrc))
             {
-                CopyDirectory(settingsSrc, settingsDest, onLog);
-                onLog("Copied: steam_settings/");
+                foreach (var dir in dllDirs)
+                {
+                    var settingsDest = Path.Combine(dir, "steam_settings");
+                    CopyDirectory(settingsSrc, settingsDest, onLog);
+                    onLog("Copied: steam_settings/ \u2192 " + dir);
+                }
             }
             else
             {
