@@ -45,6 +45,9 @@ namespace BlankPlugin
         private long _lastBytesReceived = -1;
         private readonly Queue<long> _speedSamples = new Queue<long>();
         private const int SpeedSampleWindow = 5;
+        private readonly Queue<(DateTime Time, int Progress)> _progressSamples
+            = new Queue<(DateTime, int)>();
+        private const int ProgressSampleWindow = 10;
 
         // ── ETA / elapsed tracking ───────────────────────────────────────────────
         private DateTime _downloadStartTime;
@@ -1338,25 +1341,32 @@ namespace BlankPlugin
                 return;
             }
 
-            var arch = GoldbergRunner.DetectArch(_currentDownloadDir);
-            if (arch == null)
+            var detectedArch = GoldbergRunner.DetectArch(_currentDownloadDir);
+            var appOutputDir = Path.Combine(
+                _settings.GoldbergFilesPath, "generate_emu_config", "_OUTPUT", _resolvedAppId.Trim());
+            var options = GoldbergOptionsDialog.ShowPicker(Window.GetWindow(this), _api, detectedArch, appOutputDir);
+            if (options == null)
             {
-                Dispatch(() => { arch = GoldbergArchDialog.ShowPicker(Window.GetWindow(this), _api); });
-                if (arch == null) { AppendLog("Goldberg setup cancelled."); return; }
+                AppendLog("Goldberg setup cancelled.");
+                return;
             }
 
             _goldbergBtn.IsEnabled = false;
-            var appId      = _resolvedAppId;
-            var gameDir    = _currentDownloadDir;
-            var chosenArch = arch;
-            var settings   = _settings;
+            var appId    = _resolvedAppId;
+            var gameDir  = _currentDownloadDir;
+            var opts     = options;
+            var settings = _settings;
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
                 {
                     var runner = new GoldbergRunner(settings.GoldbergFilesPath);
-                    runner.Run(gameDir, appId, chosenArch, settings, line => AppendLog(line));
+                    var outputPath = runner.Run(gameDir, appId, opts, settings, line => AppendLog(line));
+                    if (string.IsNullOrEmpty(outputPath))
+                        AppendLog("ERROR (Goldberg): setup did not complete (see messages above).");
+                    else if (!opts.CopyFiles)
+                        AppendLog("Goldberg output path: " + outputPath);
                 }
                 catch (Exception ex)
                 {
@@ -1800,6 +1810,7 @@ namespace BlankPlugin
             _speedTimer = null;
             _lastBytesReceived = -1;
             _speedSamples.Clear();
+            _progressSamples.Clear();
             _speedLabel.Text = "";
             _speedLabel.Visibility = Visibility.Collapsed;
             _etaLabel.Text = "";
@@ -1819,13 +1830,28 @@ namespace BlankPlugin
                 foreach (var s in _speedSamples) sum += s;
                 _speedLabel.Text = FormatSpeed(sum / _speedSamples.Count);
 
-                if (_progressBar.Value > 1 && !_progressBar.IsIndeterminate)
+                int currentPct = (int)_progressBar.Value;
+                _progressSamples.Enqueue((DateTime.UtcNow, currentPct));
+                while (_progressSamples.Count > ProgressSampleWindow)
+                    _progressSamples.Dequeue();
+
+                // Rolling window rate: avoids anchoring on slow startup phases (pre-alloc, validation).
+                if (currentPct > 1 && !_progressBar.IsIndeterminate && _progressSamples.Count >= 2)
                 {
-                    var elapsed = DateTime.UtcNow - _downloadStartTime;
-                    var progress = _progressBar.Value;
-                    var remaining = TimeSpan.FromTicks((long)(elapsed.Ticks * (100 - progress) / progress));
-                    _etaLabel.Text = FormatTimeRemaining(remaining);
+                    var oldest = _progressSamples.Peek();
+                    double windowSeconds = (DateTime.UtcNow - oldest.Time).TotalSeconds;
+                    double progressGain = currentPct - oldest.Progress;
+                    if (windowSeconds > 0 && progressGain > 0)
+                    {
+                        double ratePerSec = progressGain / windowSeconds;
+                        double etaSec = (100 - currentPct) / ratePerSec;
+                        _etaLabel.Text = FormatTimeRemaining(TimeSpan.FromSeconds(etaSec));
+                    }
+                    else
+                        _etaLabel.Text = "ETA: --";
                 }
+                else
+                    _etaLabel.Text = "ETA: --";
             }
             _lastBytesReceived = current;
         }

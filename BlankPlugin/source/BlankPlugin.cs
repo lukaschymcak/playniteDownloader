@@ -202,22 +202,38 @@ namespace BlankPlugin
                                     "Goldberg", MessageBoxButton.OK, MessageBoxImage.Warning);
                                 return;
                             }
-                            var arch = GoldbergRunner.DetectArch(installed.InstallPath);
-                            if (arch == null)
-                            {
-                                arch = GoldbergArchDialog.ShowPicker(PlayniteApi.Dialogs.GetCurrentAppWindow(), PlayniteApi);
-                                if (arch == null) return;
-                            }
+                            var detectedArch = GoldbergRunner.DetectArch(installed.InstallPath);
+                            var appOutputDir = System.IO.Path.Combine(
+                                Settings.GoldbergFilesPath, "generate_emu_config", "_OUTPUT", installed.AppId.Trim());
+                            var options = GoldbergOptionsDialog.ShowPicker(
+                                PlayniteApi.Dialogs.GetCurrentAppWindow(), PlayniteApi, detectedArch, appOutputDir);
+                            if (options == null) return;
                             try
                             {
                                 var runner = new GoldbergRunner(Settings.GoldbergFilesPath);
-                                runner.Run(installed.InstallPath, installed.AppId, arch, Settings,
+                                var outputPath = runner.Run(installed.InstallPath, installed.AppId, options, Settings,
                                     line => logger.Info("[Goldberg] " + line),
                                     gseSavesCopied: installed.GseSavesCopied);
+                                if (string.IsNullOrEmpty(outputPath))
+                                {
+                                    PlayniteApi.Dialogs.ShowMessage(
+                                        "Goldberg setup did not complete. Check the Playnite log for details.",
+                                        "Goldberg", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                    return;
+                                }
                                 installed.GseSavesCopied = true;
                                 InstalledGames.Save(installed);
-                                PlayniteApi.Dialogs.ShowMessage("Goldberg emulator applied successfully.", "Goldberg",
-                                    MessageBoxButton.OK, MessageBoxImage.Information);
+                                if (!options.CopyFiles)
+                                {
+                                    PlayniteApi.Dialogs.ShowMessage(
+                                        "Goldberg files were generated here:\n\n" + outputPath,
+                                        "Goldberg", MessageBoxButton.OK, MessageBoxImage.Information);
+                                }
+                                else
+                                {
+                                    PlayniteApi.Dialogs.ShowMessage("Goldberg emulator applied successfully.", "Goldberg",
+                                        MessageBoxButton.OK, MessageBoxImage.Information);
+                                }
                             }
                             catch (Exception ex)
                             {
