@@ -11,7 +11,6 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 
 namespace BlankPlugin
 {
@@ -38,8 +37,6 @@ namespace BlankPlugin
         private const int LibraryCardMetaFontSize = 11;
 
         private const int LibraryCardPathFontSize = 11;
-
-        private const int LibraryCardPlaceholderFontSize = 38;
 
         private const int LibraryCardButtonHeight = 32;
 
@@ -363,12 +360,8 @@ namespace BlankPlugin
                 VerticalAlignment   = VerticalAlignment.Center
             };
             thumbContainer.Child = imgElementInstalled;
-            // Try Playnite DB cover (fast, local) first; else async CDN/Steam API load
-            var playniteSource = GetPlayniteCover(game);
-            if (playniteSource != null)
-                imgElementInstalled.Source = playniteSource;
-            else
-                LoadCoverAsync(game.HeaderImageUrl, game.AppId, imgElementInstalled, installedGamesManager: _installedGamesManager);
+            LoadLibraryCardHeaderAsync(game.AppId, game.HeaderImageUrl, imgElementInstalled,
+                LibraryHeaderPersistTarget.Installed);
 
             Grid.SetColumn(thumbContainer, 0);
             grid.Children.Add(thumbContainer);
@@ -568,7 +561,8 @@ namespace BlankPlugin
                 VerticalAlignment   = VerticalAlignment.Center
             };
             thumbContainer.Child = imgElementBookmark;
-            LoadCoverAsync(bookmark.HeaderImageUrl, bookmark.AppId, imgElementBookmark, libraryGamesManager: _libraryGames);
+            LoadLibraryCardHeaderAsync(bookmark.AppId, bookmark.HeaderImageUrl, imgElementBookmark,
+                LibraryHeaderPersistTarget.Bookmark);
 
             Grid.SetColumn(thumbContainer, 0);
             grid.Children.Add(thumbContainer);
@@ -670,105 +664,169 @@ namespace BlankPlugin
             RefreshLibraryList();
         }
 
-        /// <summary>
-        /// Async image loader: downloads cover bytes on a background thread and sets
-        /// <paramref name="imgElement"/>.Source on the UI thread once ready.
-        /// If <paramref name="url"/> is null/empty, calls the Steam API to fetch the
-        /// canonical header_image URL (contains content hash → no 404), then caches it.
-        /// </summary>
-        private void LoadCoverAsync(string url, string appId, Image imgElement,
-            InstalledGamesManager installedGamesManager = null,
-            LibraryGamesManager libraryGamesManager = null)
+        private enum LibraryHeaderPersistTarget
         {
+            Installed,
+            Bookmark
+        }
+
+        /// <summary>
+        /// Landscape header: use cached <paramref name="storedHeaderUrl"/> if it downloads, else Steam store
+        /// <c>header_image</c> (persisted to JSON), else CDN guesses. Does not use Playnite covers.
+        /// </summary>
+        private void LoadLibraryCardHeaderAsync(string appId, string storedHeaderUrl, Image imgElement,
+            LibraryHeaderPersistTarget persistTarget)
+        {
+            if (string.IsNullOrWhiteSpace(appId) || imgElement == null)
+                return;
+
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
                 {
-                    string imageUrl = url;
+                    ImageSource bmp = null;
+                    var resolvedUrl = string.IsNullOrWhiteSpace(storedHeaderUrl) ? null : storedHeaderUrl.Trim();
 
-                    // No stored URL → hit Steam API for the real hashed CDN URL
-                    if (string.IsNullOrWhiteSpace(imageUrl))
+                    if (!string.IsNullOrWhiteSpace(resolvedUrl))
+                        bmp = TryDownloadHeaderBitmap(resolvedUrl, appId);
+
+                    if (bmp == null)
                     {
-                        var steamClient = new SteamApiClient(() => _plugin?.Settings?.SteamWebApiKey ?? "");
-                        var details = steamClient.GetGameDetails(appId);
-                        if (details != null && !string.IsNullOrWhiteSpace(details.HeaderImageUrl))
+                        try
                         {
-                            imageUrl = details.HeaderImageUrl;
-                            // Cache so next load skips the API call
-                            try
+                            var steamClient = new SteamApiClient(() => _plugin?.Settings?.SteamWebApiKey ?? "");
+                            var details = steamClient.GetGameDetails(appId);
+                            if (details != null && !string.IsNullOrWhiteSpace(details.HeaderImageUrl))
                             {
-                                if (installedGamesManager != null)
+                                resolvedUrl = details.HeaderImageUrl.Trim();
+                                try
                                 {
-                                    var entry = installedGamesManager.FindByAppId(appId);
-                                    if (entry != null)
-                                    {
-                                        entry.HeaderImageUrl = imageUrl;
-                                        installedGamesManager.Save(entry);
-                                    }
+                                    PersistLibraryHeaderUrl(appId, resolvedUrl, persistTarget);
                                 }
-                                if (libraryGamesManager != null)
+                                catch (Exception ex)
                                 {
-                                    var bm = libraryGamesManager.GetAll()
-                                        .FirstOrDefault(b => b.AppId == appId);
-                                    libraryGamesManager.AddOrUpdate(appId, bm?.GameName, imageUrl);
+                                    logger.Debug("LoadLibraryCardHeaderAsync: cache write failed: " + ex.Message);
                                 }
+
+                                bmp = TryDownloadHeaderBitmap(resolvedUrl, appId);
                             }
-                            catch (Exception ex)
-                            {
-                                logger.Debug("LoadCoverAsync: cache write failed: " + ex.Message);
-                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Debug("LoadLibraryCardHeaderAsync: GetGameDetails failed appId=" + appId + ": " +
+                                         ex.Message);
                         }
                     }
 
-                    if (string.IsNullOrWhiteSpace(imageUrl)) return;
+                    if (bmp == null)
+                        bmp = LoadSteamHeaderImageFromCdn(appId);
 
-                    // Download bytes → BitmapImage (safe to Freeze because source is MemoryStream)
-                    var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
-                    var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
-
-                    using (var wc = new WebClient())
-                    {
-                        var bytes = wc.DownloadData(imageUrl);
-                        using (var ms = new MemoryStream(bytes))
-                        {
-                            var bmp = new BitmapImage();
-                            bmp.BeginInit();
-                            bmp.StreamSource     = ms;
-                            bmp.DecodePixelWidth  = decodeW;
-                            bmp.DecodePixelHeight = decodeH;
-                            bmp.CacheOption       = BitmapCacheOption.OnLoad;
-                            bmp.EndInit();
-                            if (bmp.CanFreeze) bmp.Freeze();
-
-                            Dispatcher.Invoke(() => imgElement.Source = bmp);
-                        }
-                    }
+                    if (bmp != null)
+                        Dispatcher.Invoke(() => imgElement.Source = bmp);
                 }
                 catch (Exception ex)
                 {
-                    logger.Debug("LoadCoverAsync failed for appId=" + appId + ": " + ex.Message);
+                    logger.Debug("LoadLibraryCardHeaderAsync failed for appId=" + appId + ": " + ex.Message);
                 }
             });
         }
 
-        /// <summary>Returns the Playnite database cover for an installed game, or null.</summary>
-        private ImageSource GetPlayniteCover(InstalledGame game)
+        private void PersistLibraryHeaderUrl(string appId, string imageUrl, LibraryHeaderPersistTarget target)
         {
-            if (_api == null || game.PlayniteGameId == Guid.Empty) return null;
+            if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(imageUrl))
+                return;
+
+            switch (target)
+            {
+                case LibraryHeaderPersistTarget.Installed:
+                    if (_installedGamesManager != null)
+                    {
+                        var entry = _installedGamesManager.FindByAppId(appId);
+                        if (entry != null)
+                        {
+                            entry.HeaderImageUrl = imageUrl;
+                            _installedGamesManager.Save(entry);
+                        }
+                    }
+                    break;
+                case LibraryHeaderPersistTarget.Bookmark:
+                    if (_libraryGames != null)
+                    {
+                        var bm = _libraryGames.GetAll().FirstOrDefault(b => b.AppId == appId);
+                        _libraryGames.AddOrUpdate(appId, bm?.GameName, imageUrl);
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Stream must stay open through <see cref="BitmapImage.EndInit"/> with <see cref="BitmapCacheOption.OnLoad"/>.
+        /// </summary>
+        private static ImageSource DecodeLibraryHeaderFromStream(Stream stream)
+        {
+            if (stream == null)
+                return null;
+
+            var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
+            var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
+
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.StreamSource     = stream;
+            bmp.DecodePixelWidth  = decodeW;
+            bmp.DecodePixelHeight = decodeH;
+            bmp.CacheOption       = BitmapCacheOption.OnLoad;
+            bmp.EndInit();
+            if (bmp.CanFreeze) bmp.Freeze();
+            return bmp;
+        }
+
+        private static ImageSource TryDownloadHeaderBitmap(string imageUrl, string appIdForLog)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+                return null;
+
             try
             {
-                var playniteGame = _api.Database.Games.Get(game.PlayniteGameId);
-                if (playniteGame != null && !string.IsNullOrEmpty(playniteGame.CoverImage))
+                using (var wc = new WebClient())
                 {
-                    var path = _api.Database.GetFullFilePath(playniteGame.CoverImage);
-                    if (File.Exists(path))
-                        return new BitmapImage(new Uri(path, UriKind.Absolute));
+                    var bytes = wc.DownloadData(imageUrl);
+                    using (var ms = new MemoryStream(bytes))
+                        return DecodeLibraryHeaderFromStream(ms);
                 }
             }
             catch (Exception ex)
             {
-                logger.Debug("LibraryView: Playnite cover path failed: " + ex.Message);
+                logger.Debug("TryDownloadHeaderBitmap: failed appId=" + appIdForLog + " url=" + imageUrl + ": " +
+                             ex.Message);
+                return null;
             }
+        }
+
+        /// <summary>Last resort: public Steam CDN filenames (e.g. header.jpg).</summary>
+        private static ImageSource LoadSteamHeaderImageFromCdn(string appId)
+        {
+            if (string.IsNullOrWhiteSpace(appId))
+                return null;
+
+            foreach (var uri in SteamStoreImageUrls.GetHeaderStyleCoverUris(appId))
+            {
+                try
+                {
+                    using (var wc = new WebClient())
+                    {
+                        var bytes = wc.DownloadData(uri);
+                        using (var ms = new MemoryStream(bytes))
+                            return DecodeLibraryHeaderFromStream(ms);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Debug("LoadSteamHeaderImageFromCdn: failed " + uri + " for appId=" + appId + ": " +
+                                 ex.Message);
+                }
+            }
+
             return null;
         }
 
