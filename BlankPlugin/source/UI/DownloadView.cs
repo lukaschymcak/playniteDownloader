@@ -62,6 +62,7 @@ namespace BlankPlugin
         private readonly InstalledGamesManager _installedGamesManager;
         private InstalledGame _installedGame;
         private readonly UpdateChecker _updateChecker;
+        private string _headerImageUrl;
 
         // ── Installed game UI ─────────────────────────────────────────────────────
         private UIElement _installedPanel;
@@ -152,7 +153,8 @@ namespace BlankPlugin
             BlankPluginSettings settings,
             InstalledGamesManager installedGamesManager,
             IPlayniteAPI api,
-            UpdateChecker updateChecker)
+            UpdateChecker updateChecker,
+            string headerImageUrl = null)
         {
             _game    = null;
             _settings = settings;
@@ -161,6 +163,7 @@ namespace BlankPlugin
             _downloader = new DepotDownloaderRunner();
             _installedGamesManager = installedGamesManager;
             _updateChecker = updateChecker;
+            _headerImageUrl = headerImageUrl;
 
             Content = BuildLayout();
 
@@ -1037,7 +1040,8 @@ namespace BlankPlugin
                                     .ToDictionary(kv => kv.Key, kv => kv.Value),
                                 PlayniteGameId   = _game?.Id ?? Guid.Empty,
                                 DrmStripped      = runSteamless,
-                                RegisteredWithSteam = registerSteam
+                                RegisteredWithSteam = registerSteam,
+                                HeaderImageUrl   = _headerImageUrl
                             };
                             _installedGamesManager.Save(installedEntry);
                             AppendLog("Game saved to installed library.");

@@ -34,5 +34,8 @@ namespace BlankPlugin
 
         /// <summary>Whether Goldberg GSE Saves files have been copied for this game.</summary>
         public bool GseSavesCopied { get; set; }
+
+        /// <summary>Steam API header_image URL. Null for old entries — LibraryView fetches and caches it on first load.</summary>
+        public string HeaderImageUrl { get; set; }
     }
 }

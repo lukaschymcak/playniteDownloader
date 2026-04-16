@@ -4,12 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace BlankPlugin
 {
@@ -354,29 +356,19 @@ namespace BlankPlugin
                 ClipToBounds = true
             };
 
-            var coverSource = GetGameCoverSource(game);
-            if (coverSource != null)
+            var imgElementInstalled = new Image
             {
-                thumbContainer.Child = new Image
-                {
-                    Source              = coverSource,
-                    Stretch             = Stretch.Uniform,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment   = VerticalAlignment.Center
-                };
-            }
+                Stretch             = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment   = VerticalAlignment.Center
+            };
+            thumbContainer.Child = imgElementInstalled;
+            // Try Playnite DB cover (fast, local) first; else async CDN/Steam API load
+            var playniteSource = GetPlayniteCover(game);
+            if (playniteSource != null)
+                imgElementInstalled.Source = playniteSource;
             else
-            {
-                thumbContainer.Child = new TextBlock
-                {
-                    Text = game.GameName.Length > 0 ? game.GameName[0].ToString().ToUpper() : "?",
-                    FontSize = LibraryCardPlaceholderFontSize,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = new SolidColorBrush(Color.FromRgb(80, 80, 90)),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-            }
+                LoadCoverAsync(game.HeaderImageUrl, game.AppId, imgElementInstalled, installedGamesManager: _installedGamesManager);
 
             Grid.SetColumn(thumbContainer, 0);
             grid.Children.Add(thumbContainer);
@@ -569,29 +561,14 @@ namespace BlankPlugin
                 ClipToBounds = true
             };
 
-            var cover = LoadBookmarkHeaderImage(bookmark);
-            if (cover != null)
+            var imgElementBookmark = new Image
             {
-                thumbContainer.Child = new Image
-                {
-                    Source              = cover,
-                    Stretch             = Stretch.Uniform,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment   = VerticalAlignment.Center
-                };
-            }
-            else
-            {
-                thumbContainer.Child = new TextBlock
-                {
-                    Text = displayName.Length > 0 ? displayName[0].ToString().ToUpper() : "?",
-                    FontSize = LibraryCardPlaceholderFontSize,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = new SolidColorBrush(Color.FromRgb(80, 80, 90)),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-            }
+                Stretch             = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment   = VerticalAlignment.Center
+            };
+            thumbContainer.Child = imgElementBookmark;
+            LoadCoverAsync(bookmark.HeaderImageUrl, bookmark.AppId, imgElementBookmark, libraryGamesManager: _libraryGames);
 
             Grid.SetColumn(thumbContainer, 0);
             grid.Children.Add(thumbContainer);
@@ -647,7 +624,7 @@ namespace BlankPlugin
             downloadBtn.Click += (s, e) =>
             {
                 if (_plugin != null)
-                    _plugin.OpenDownloadForAppId(bookmark.AppId, displayName);
+                    _plugin.OpenDownloadForAppId(bookmark.AppId, displayName, bookmark.HeaderImageUrl);
             };
 
             var removeBtn = new Button
@@ -693,102 +670,106 @@ namespace BlankPlugin
             RefreshLibraryList();
         }
 
-        /// <summary>Prefer persisted Search header URL, then CDN fallbacks for <paramref name="bookmark"/>.</summary>
-        private static ImageSource LoadBookmarkHeaderImage(SavedLibraryGame bookmark)
+        /// <summary>
+        /// Async image loader: downloads cover bytes on a background thread and sets
+        /// <paramref name="imgElement"/>.Source on the UI thread once ready.
+        /// If <paramref name="url"/> is null/empty, calls the Steam API to fetch the
+        /// canonical header_image URL (contains content hash → no 404), then caches it.
+        /// </summary>
+        private void LoadCoverAsync(string url, string appId, Image imgElement,
+            InstalledGamesManager installedGamesManager = null,
+            LibraryGamesManager libraryGamesManager = null)
         {
-            if (bookmark == null) return null;
-
-            if (!string.IsNullOrWhiteSpace(bookmark.HeaderImageUrl))
-            {
-                var fromStore = TryDecodeHeaderFromUrl(bookmark.HeaderImageUrl.Trim());
-                if (fromStore != null)
-                    return fromStore;
-            }
-
-            return LoadSteamHeaderImage(bookmark.AppId);
-        }
-
-        private static ImageSource TryDecodeHeaderFromUrl(string url)
-        {
-            if (string.IsNullOrWhiteSpace(url)) return null;
-            var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
-            var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
-
-            try
-            {
-                var uri = new Uri(url.Trim(), UriKind.Absolute);
-                if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
-                    return null;
-
-                var bmp = new BitmapImage();
-                bmp.BeginInit();
-                bmp.UriSource = uri;
-                bmp.DecodePixelWidth  = decodeW;
-                bmp.DecodePixelHeight = decodeH;
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.EndInit();
-                if (bmp.CanFreeze) bmp.Freeze();
-                return bmp;
-            }
-            catch (Exception ex)
-            {
-                logger.Debug("LibraryView: bookmark header URL failed: " + url + " — " + ex.Message);
-                return null;
-            }
-        }
-
-        private static ImageSource LoadSteamHeaderImage(string appId)
-        {
-            if (string.IsNullOrWhiteSpace(appId)) return null;
-            var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
-            var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
-
-            foreach (var uri in SteamStoreImageUrls.GetHeaderStyleCoverUris(appId))
+            ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
                 {
-                    var bmp = new BitmapImage();
-                    bmp.BeginInit();
-                    bmp.UriSource = uri;
-                    bmp.DecodePixelWidth  = decodeW;
-                    bmp.DecodePixelHeight = decodeH;
-                    bmp.CacheOption = BitmapCacheOption.OnLoad;
-                    bmp.EndInit();
-                    if (bmp.CanFreeze) bmp.Freeze();
-                    return bmp;
-                }
-                catch (Exception ex)
-                {
-                    logger.Debug("LibraryView: Steam cover try failed for app " + appId + " " + uri + ": " + ex.Message);
-                }
-            }
+                    string imageUrl = url;
 
-            return null;
-        }
-
-        private ImageSource GetGameCoverSource(InstalledGame game)
-        {
-            // 1. Playnite database cover
-            if (_api != null && game.PlayniteGameId != Guid.Empty)
-            {
-                try
-                {
-                    var playniteGame = _api.Database.Games.Get(game.PlayniteGameId);
-                    if (playniteGame != null && !string.IsNullOrEmpty(playniteGame.CoverImage))
+                    // No stored URL → hit Steam API for the real hashed CDN URL
+                    if (string.IsNullOrWhiteSpace(imageUrl))
                     {
-                        var path = _api.Database.GetFullFilePath(playniteGame.CoverImage);
-                        if (File.Exists(path))
-                            return new BitmapImage(new Uri(path, UriKind.Absolute));
+                        var steamClient = new SteamApiClient(() => _plugin?.Settings?.SteamWebApiKey ?? "");
+                        var details = steamClient.GetGameDetails(appId);
+                        if (details != null && !string.IsNullOrWhiteSpace(details.HeaderImageUrl))
+                        {
+                            imageUrl = details.HeaderImageUrl;
+                            // Cache so next load skips the API call
+                            try
+                            {
+                                if (installedGamesManager != null)
+                                {
+                                    var entry = installedGamesManager.FindByAppId(appId);
+                                    if (entry != null)
+                                    {
+                                        entry.HeaderImageUrl = imageUrl;
+                                        installedGamesManager.Save(entry);
+                                    }
+                                }
+                                if (libraryGamesManager != null)
+                                {
+                                    var bm = libraryGamesManager.GetAll()
+                                        .FirstOrDefault(b => b.AppId == appId);
+                                    libraryGamesManager.AddOrUpdate(appId, bm?.GameName, imageUrl);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.Debug("LoadCoverAsync: cache write failed: " + ex.Message);
+                            }
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(imageUrl)) return;
+
+                    // Download bytes → BitmapImage (safe to Freeze because source is MemoryStream)
+                    var decodeW = LibraryThumbWidthDip * LibrarySteamDecodeScale;
+                    var decodeH = (int)(decodeW * 215.0 / 460.0 + 0.5);
+
+                    using (var wc = new WebClient())
+                    {
+                        var bytes = wc.DownloadData(imageUrl);
+                        using (var ms = new MemoryStream(bytes))
+                        {
+                            var bmp = new BitmapImage();
+                            bmp.BeginInit();
+                            bmp.StreamSource     = ms;
+                            bmp.DecodePixelWidth  = decodeW;
+                            bmp.DecodePixelHeight = decodeH;
+                            bmp.CacheOption       = BitmapCacheOption.OnLoad;
+                            bmp.EndInit();
+                            if (bmp.CanFreeze) bmp.Freeze();
+
+                            Dispatcher.Invoke(() => imgElement.Source = bmp);
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    logger.Debug("LibraryView: Playnite cover path failed: " + ex.Message);
+                    logger.Debug("LoadCoverAsync failed for appId=" + appId + ": " + ex.Message);
+                }
+            });
+        }
+
+        /// <summary>Returns the Playnite database cover for an installed game, or null.</summary>
+        private ImageSource GetPlayniteCover(InstalledGame game)
+        {
+            if (_api == null || game.PlayniteGameId == Guid.Empty) return null;
+            try
+            {
+                var playniteGame = _api.Database.Games.Get(game.PlayniteGameId);
+                if (playniteGame != null && !string.IsNullOrEmpty(playniteGame.CoverImage))
+                {
+                    var path = _api.Database.GetFullFilePath(playniteGame.CoverImage);
+                    if (File.Exists(path))
+                        return new BitmapImage(new Uri(path, UriKind.Absolute));
                 }
             }
-
-            // 2. Steam CDN header — WPF loads this asynchronously after the card renders
-            return LoadSteamHeaderImage(game.AppId);
+            catch (Exception ex)
+            {
+                logger.Debug("LibraryView: Playnite cover path failed: " + ex.Message);
+            }
+            return null;
         }
 
         // ── Uninstall ────────────────────────────────────────────────────────────

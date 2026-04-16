@@ -304,7 +304,7 @@ namespace BlankPlugin
             _lastSelectedGame = null;
         }
 
-        public void OpenDownloadForAppId(string appId, string name)
+        public void OpenDownloadForAppId(string appId, string name, string headerImageUrl = null)
         {
             var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
             {
@@ -317,7 +317,7 @@ namespace BlankPlugin
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
             window.Title = "LuDownloader \u2014 " + name;
-            window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker);
+            window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker, headerImageUrl);
             window.ShowDialog();
         }
     }

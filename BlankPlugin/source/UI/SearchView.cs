@@ -724,7 +724,7 @@ namespace BlankPlugin
             buttons.Children.Add(addBtn);
 
             var downloadBtn = new Button { Content = "Download", Margin = new Thickness(0, 0, 0, 3), Width = 72 };
-            downloadBtn.Click += (s, e) => _plugin.OpenDownloadForAppId(game.AppId, game.Name);
+            downloadBtn.Click += (s, e) => _plugin.OpenDownloadForAppId(game.AppId, game.Name, imgUrl);
             buttons.Children.Add(downloadBtn);
 
             var steamDbBtn = new Button { Content = "SteamDB", Margin = new Thickness(0, 0, 0, 3), Width = 72 };
