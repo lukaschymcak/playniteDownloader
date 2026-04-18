@@ -290,7 +290,8 @@ namespace BlankPlugin
                 window.Width = 700;
                 window.Height = 600;
                 window.Title = "LuDownloader \u2014 " + game.Name;
-                window.Content = new DownloadView(game, Settings, InstalledGames, PlayniteApi, _updateChecker);
+                var manifestCache = ManifestCache.GetCacheDirectory(GetPluginUserDataPath());
+                window.Content = new DownloadView(game, Settings, InstalledGames, PlayniteApi, _updateChecker, manifestCache);
             }
             else
             {
@@ -317,7 +318,8 @@ namespace BlankPlugin
             window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
             window.Title = "LuDownloader \u2014 " + name;
-            window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker, headerImageUrl);
+            var manifestCache = ManifestCache.GetCacheDirectory(GetPluginUserDataPath());
+            window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker, manifestCache, headerImageUrl);
             window.ShowDialog();
         }
     }

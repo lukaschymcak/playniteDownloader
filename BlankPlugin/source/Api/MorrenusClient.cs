@@ -148,45 +148,74 @@ namespace BlankPlugin
         /// <summary>
         /// Downloads the manifest ZIP for the given AppID.
         /// Returns the local file path on success.
+        /// When <paramref name="destinationZipPath"/> is null, writes under the temp directory (legacy path).
         /// </summary>
-        public string DownloadManifest(string appId, IProgress<int> progress = null)
+        public string DownloadManifest(string appId, IProgress<int> progress = null, string destinationZipPath = null)
         {
             SetAuthHeader();
             var url = BaseUrl + "/manifest/" + appId;
-            var destDir = Path.Combine(Path.GetTempPath(), "blankplugin_manifests");
-            Directory.CreateDirectory(destDir);
-            var destFile = Path.Combine(destDir, "accela_fetch_" + appId + ".zip");
+
+            string destFile;
+            if (!string.IsNullOrWhiteSpace(destinationZipPath))
+            {
+                destFile = Path.GetFullPath(destinationZipPath);
+                var parent = Path.GetDirectoryName(destFile);
+                if (!string.IsNullOrEmpty(parent))
+                    Directory.CreateDirectory(parent);
+            }
+            else
+            {
+                var destDir = Path.Combine(Path.GetTempPath(), "blankplugin_manifests");
+                Directory.CreateDirectory(destDir);
+                destFile = Path.Combine(destDir, "accela_fetch_" + appId + ".zip");
+            }
 
             logger.Info("Downloading manifest for AppID " + appId + " → " + destFile);
 
-            using (var response = _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result)
+            try
             {
-                if (!response.IsSuccessStatusCode)
+                using (var response = _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result)
                 {
-                    var body = response.Content.ReadAsStringAsync().Result;
-                    throw new Exception(MapStatusError((int)response.StatusCode, body));
-                }
-
-                var total = response.Content.Headers.ContentLength ?? -1L;
-                using (var src = response.Content.ReadAsStreamAsync().Result)
-                using (var dst = File.Create(destFile))
-                {
-                    var buf = new byte[8192];
-                    long downloaded = 0;
-                    int read;
-                    while ((read = src.Read(buf, 0, buf.Length)) > 0)
+                    if (!response.IsSuccessStatusCode)
                     {
-                        dst.Write(buf, 0, read);
-                        downloaded += read;
-                        if (total > 0)
-                            progress?.Report((int)(downloaded * 100 / total));
+                        var body = response.Content.ReadAsStringAsync().Result;
+                        throw new Exception(MapStatusError((int)response.StatusCode, body));
+                    }
+
+                    var total = response.Content.Headers.ContentLength ?? -1L;
+                    using (var src = response.Content.ReadAsStreamAsync().Result)
+                    using (var dst = File.Create(destFile))
+                    {
+                        var buf = new byte[8192];
+                        long downloaded = 0;
+                        int read;
+                        while ((read = src.Read(buf, 0, buf.Length)) > 0)
+                        {
+                            dst.Write(buf, 0, read);
+                            downloaded += read;
+                            if (total > 0)
+                                progress?.Report((int)(downloaded * 100 / total));
+                        }
                     }
                 }
-            }
 
-            progress?.Report(100);
-            logger.Info("Manifest downloaded: " + destFile);
-            return destFile;
+                progress?.Report(100);
+                logger.Info("Manifest downloaded: " + destFile);
+                return destFile;
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(destFile))
+                        File.Delete(destFile);
+                }
+                catch
+                {
+                    // best effort
+                }
+                throw;
+            }
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────

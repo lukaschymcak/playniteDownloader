@@ -39,6 +39,8 @@ namespace BlankPlugin
         private bool _downloading;
         private string _resolvedAppId;
         private string _currentDownloadDir;
+        private readonly string _manifestCacheRoot;
+        private int _manifestCacheApplyGen;
 
         // ── Network speed monitor ─────────────────────────────────────────────────
         private DispatcherTimer _speedTimer;
@@ -86,6 +88,7 @@ namespace BlankPlugin
         private Button _searchBtn;
         private ComboBox _searchResultsCombo;
         private Button _fetchBtnSearch;
+        private TextBlock _cachedManifestLabel;
 
         // ── UI: Depots ────────────────────────────────────────────────────────────
         private ScrollViewer _depotScroll;
@@ -108,11 +111,12 @@ namespace BlankPlugin
 
         /// <param name="game">The Playnite game to download. Pass null when pre-loading from a manifest ZIP.</param>
         /// <param name="initialData">Pre-loaded manifest data (from "Install from ZIP"). When provided, depots are populated immediately.</param>
-        public DownloadView(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager, IPlayniteAPI api, UpdateChecker updateChecker, GameData initialData = null)
+        public DownloadView(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager, IPlayniteAPI api, UpdateChecker updateChecker, string manifestCacheRoot, GameData initialData = null)
         {
             _game = game;
             _settings = settings;
             _api = api;
+            _manifestCacheRoot = manifestCacheRoot;
             _client = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
             _installedGamesManager = installedGamesManager;
@@ -154,11 +158,13 @@ namespace BlankPlugin
             InstalledGamesManager installedGamesManager,
             IPlayniteAPI api,
             UpdateChecker updateChecker,
+            string manifestCacheRoot,
             string headerImageUrl = null)
         {
             _game    = null;
             _settings = settings;
             _api      = api;
+            _manifestCacheRoot = manifestCacheRoot;
             _client   = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
             _installedGamesManager = installedGamesManager;
@@ -173,6 +179,7 @@ namespace BlankPlugin
             _resolvedAppId = appId;
             _gameInfoLabel.Text = name;
             ShowFoundPanel(appId, "\u2713 " + name + " (" + appId + ")");
+            ApplyCachedManifestIfPresent();
         }
 
         // ── Layout ───────────────────────────────────────────────────────────────
@@ -290,6 +297,16 @@ namespace BlankPlugin
             foundRow.Children.Add(_foundLabel);
             _foundPanel = foundRow;
             panel.Children.Add(_foundPanel);
+
+            _cachedManifestLabel = new TextBlock
+            {
+                Visibility = Visibility.Collapsed,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Brushes.LightSteelBlue,
+                Margin = new Thickness(0, 4, 0, 0),
+                FontSize = 12
+            };
+            panel.Children.Add(_cachedManifestLabel);
 
             // ── State C: search needed ────────────────────────────────────────────
             var searchStack = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 0) };
@@ -735,6 +752,7 @@ namespace BlankPlugin
                 _foundPanel.Visibility    = Visibility.Visible;
                 _fetchBtn.IsEnabled       = true;
             });
+            ApplyCachedManifestIfPresent();
         }
 
         private void ShowSearchPanel(List<MorrenusSearchResult> initialResults)
@@ -748,6 +766,7 @@ namespace BlankPlugin
                     _searchResultsCombo.Items.Add(r);
                 _searchResultsCombo.Visibility = Visibility.Visible;
                 _searchResultsCombo.SelectedIndex = 0;
+                ApplyCachedManifestIfPresent();
             }
         }
 
@@ -773,6 +792,7 @@ namespace BlankPlugin
             _searchResultsCombo.Visibility = Visibility.Collapsed;
             _fetchBtnSearch.IsEnabled = false;
             _resolvedAppId = null;
+            _cachedManifestLabel.Visibility = Visibility.Collapsed;
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -791,6 +811,7 @@ namespace BlankPlugin
                             _searchResultsCombo.Items.Add(r);
                         _searchResultsCombo.Visibility = Visibility.Visible;
                         _searchResultsCombo.SelectedIndex = 0;
+                        ApplyCachedManifestIfPresent();
                     });
                 }
                 catch (Exception ex)
@@ -810,7 +831,79 @@ namespace BlankPlugin
             {
                 _resolvedAppId = result.GameId;
                 _fetchBtnSearch.IsEnabled = !_downloading;
+                ApplyCachedManifestIfPresent();
             }
+        }
+
+        /// <summary>
+        /// When a saved Morrenus ZIP exists, show it and disable Fetch (greyed); still load depots from disk so reinstall works without the API.
+        /// </summary>
+        private void ApplyCachedManifestIfPresent()
+        {
+            if (string.IsNullOrEmpty(_manifestCacheRoot) || string.IsNullOrWhiteSpace(_resolvedAppId))
+                return;
+
+            var appId = _resolvedAppId.Trim();
+            var root = _manifestCacheRoot;
+            int gen = Interlocked.Increment(ref _manifestCacheApplyGen);
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                if (!ManifestCache.TryGetCachedZipPath(root, appId, out var zipPath))
+                {
+                    Dispatch(() =>
+                    {
+                        if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
+                        _cachedManifestLabel.Visibility = Visibility.Collapsed;
+                        RefreshFetchButtonsForCacheAndBusy();
+                    });
+                    return;
+                }
+
+                Dispatch(() =>
+                {
+                    if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
+                    _cachedManifestLabel.Visibility = Visibility.Visible;
+                    _cachedManifestLabel.Text =
+                        "Saved manifest on disk for this game. Fetch from Morrenus is disabled.";
+                    _fetchBtn.IsEnabled = false;
+                    _fetchBtnSearch.IsEnabled = false;
+                });
+
+                try
+                {
+                    var data = new ZipProcessor().Process(zipPath);
+                    Dispatch(() =>
+                    {
+                        if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
+                        _gameData = data;
+                        _gameInfoLabel.Text = data.GameName + "  (AppID: " + data.AppId + ")";
+                        PopulateDepots(data);
+                        _downloadBtn.IsEnabled = !_downloading && _gameData != null && _gameData.Depots.Count > 0;
+                    });
+                    AppendLog("Loaded saved manifest from disk.");
+                }
+                catch (Exception ex)
+                {
+                    logger.Error("Cached manifest load failed: " + ex);
+                    Dispatch(() =>
+                    {
+                        if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
+                        _cachedManifestLabel.Visibility = Visibility.Visible;
+                        _cachedManifestLabel.Text =
+                            "Saved manifest file exists but could not be read: " + ex.Message;
+                        RefreshFetchButtonsForCacheAndBusy();
+                    });
+                }
+            });
+        }
+
+        private void RefreshFetchButtonsForCacheAndBusy()
+        {
+            var hasId = !string.IsNullOrWhiteSpace(_resolvedAppId);
+            var cacheHit = hasId && ManifestCache.TryGetCachedZipPath(_manifestCacheRoot, _resolvedAppId, out _);
+            _fetchBtn.IsEnabled = !_downloading && hasId && !cacheHit;
+            _fetchBtnSearch.IsEnabled = !_downloading && hasId && !cacheHit;
         }
 
         // ── Fetch ────────────────────────────────────────────────────────────────
@@ -837,14 +930,40 @@ namespace BlankPlugin
                 try
                 {
                     AppendLog("Downloading manifest for AppID " + appId + "...");
-                    var zipPath = _client.DownloadManifest(appId,
-                        new Progress<int>(pct => Dispatch(() => _progressBar.Value = pct)));
+                    string zipPath;
+                    if (!string.IsNullOrEmpty(_manifestCacheRoot) &&
+                        ManifestCache.SanitizeAppIdForFileName(appId) != null)
+                    {
+                        var partPath = ManifestCache.GetPartPath(_manifestCacheRoot, appId);
+                        ManifestCache.TryDeletePartFile(partPath);
+                        _client.DownloadManifest(appId,
+                            new Progress<int>(pct => Dispatch(() => _progressBar.Value = pct)),
+                            partPath);
+                        ManifestCache.CommitPartToZip(_manifestCacheRoot, appId);
+                        zipPath = ManifestCache.GetCachedZipPath(_manifestCacheRoot, appId);
+                    }
+                    else
+                    {
+                        zipPath = _client.DownloadManifest(appId,
+                            new Progress<int>(pct => Dispatch(() => _progressBar.Value = pct)));
+                    }
 
                     AppendLog("Processing ZIP...");
                     var data = new ZipProcessor().Process(zipPath);
                     _gameData = data;
+                    if (!string.IsNullOrEmpty(_manifestCacheRoot))
+                        ManifestCache.WriteMeta(_manifestCacheRoot, data);
 
-                    Dispatch(() => PopulateDepots(data));
+                    Dispatch(() =>
+                    {
+                        PopulateDepots(data);
+                        _cachedManifestLabel.Visibility = Visibility.Visible;
+                        _cachedManifestLabel.Text =
+                            "Saved manifest on disk for this game. Fetch from Morrenus is disabled.";
+                        _fetchBtn.IsEnabled = false;
+                        _fetchBtnSearch.IsEnabled = false;
+                        _downloadBtn.IsEnabled = !_downloading && _gameData != null && _gameData.Depots.Count > 0;
+                    });
                     AppendLog("Ready. " + data.Depots.Count + " depots available.");
                 }
                 catch (Exception ex)
@@ -1886,8 +2005,9 @@ namespace BlankPlugin
             _downloading = busy;
             if (!busy) { _progressBar.IsIndeterminate = false; StopSpeedMonitor(); }
             var hasId = !string.IsNullOrWhiteSpace(_resolvedAppId);
-            _fetchBtn.IsEnabled       = !busy && hasId;
-            _fetchBtnSearch.IsEnabled = !busy && hasId;
+            var cacheHit = hasId && ManifestCache.TryGetCachedZipPath(_manifestCacheRoot, _resolvedAppId, out _);
+            _fetchBtn.IsEnabled       = !busy && hasId && !cacheHit;
+            _fetchBtnSearch.IsEnabled = !busy && hasId && !cacheHit;
             _downloadBtn.IsEnabled    = !busy && _gameData != null && _gameData.Depots.Count > 0;
             _stopBtn.IsEnabled        = busy;
             if (!string.IsNullOrEmpty(status))

@@ -967,7 +967,8 @@ namespace BlankPlugin
             if (window == null) return;
 
             window.Title = "BlankPlugin — " + data.GameName;
-            window.Content = new DownloadView(null, _settings, _installedGamesManager, _api, _updateChecker, data);
+            var manifestCache = ManifestCache.GetCacheDirectory(_plugin.GetPluginUserDataPath());
+            window.Content = new DownloadView(null, _settings, _installedGamesManager, _api, _updateChecker, manifestCache, data);
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
