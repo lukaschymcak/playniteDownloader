@@ -115,16 +115,16 @@ namespace BlankPlugin
             };
             root.Children.Add(depotScroll);
 
-            // Install path
+            // Steam library root (same as install flow — DepotDownloader appends steamapps/common/<dir>)
             root.Children.Add(new TextBlock
             {
-                Text = "Install path:",
+                Text = "Steam library folder (contains steamapps):",
                 FontSize = 12,
                 Margin = new Thickness(0, 0, 0, 4)
             });
             _installPathBox = new TextBox
             {
-                Text = _existingGame.InstallPath,
+                Text = ResolveSteamLibraryRoot(_existingGame),
                 Padding = new Thickness(4),
                 Margin = new Thickness(0, 0, 0, 12)
             };
@@ -276,10 +276,10 @@ namespace BlankPlugin
                 .Select(cb => (string)cb.Tag)
                 .ToList();
 
-            var installPath = _installPathBox.Text.Trim();
-            if (string.IsNullOrEmpty(installPath))
+            var libraryRoot = _installPathBox.Text.Trim();
+            if (string.IsNullOrEmpty(libraryRoot))
             {
-                MessageBox.Show("Install path cannot be empty.", "Error",
+                MessageBox.Show("Steam library folder cannot be empty.", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -290,16 +290,16 @@ namespace BlankPlugin
             SetStatus("Downloading…");
             AppendLog("Starting update for " + _existingGame.GameName);
 
-            var worker = new Thread(() => RunDownload(selectedDepots, installPath));
+            var worker = new Thread(() => RunDownload(selectedDepots, libraryRoot));
             worker.IsBackground = true;
             worker.Start();
         }
 
-        private void RunDownload(List<string> selectedDepots, string installPath)
+        private void RunDownload(List<string> selectedDepots, string libraryRoot)
         {
             try
             {
-                Directory.CreateDirectory(installPath);
+                Directory.CreateDirectory(libraryRoot);
 
                 // Clone GameData and set selected depots for the runner
                 var downloadData = new GameData
@@ -314,10 +314,13 @@ namespace BlankPlugin
                     SelectedDepots = selectedDepots
                 };
 
+                var gameInstallDir = Path.Combine(
+                    libraryRoot, "steamapps", "common", AcfWriter.GetInstallFolderName(downloadData));
+
                 var downloader = new DepotDownloaderRunner();
                 downloader.Run(
                     gameData: downloadData,
-                    destPath: installPath,
+                    destPath: libraryRoot,
                     onLog: line => AppendLog(line),
                     onProgress: pct => Dispatch(() =>
                     {
@@ -332,7 +335,10 @@ namespace BlankPlugin
                     .Where(kv => selectedDepots.Contains(kv.Key))
                     .ToDictionary(kv => kv.Key, kv => kv.Value);
                 _existingGame.SelectedDepots = new List<string>(selectedDepots);
-                _existingGame.SizeOnDisk = CalculateDirSize(installPath);
+                _existingGame.LibraryPath = libraryRoot;
+                _existingGame.InstallPath = gameInstallDir;
+                _existingGame.InstallDir = AcfWriter.GetInstallFolderName(downloadData);
+                _existingGame.SizeOnDisk = CalculateDirSize(gameInstallDir);
                 _gamesManager.Save(_existingGame);
 
                 // Clear the update status cache so UpdateGameDialog shows correct status
@@ -372,6 +378,33 @@ namespace BlankPlugin
                     _updateBtn.IsEnabled = true;
                     _progressBar.Visibility = Visibility.Collapsed;
                 });
+            }
+        }
+
+        /// <summary>
+        /// DepotDownloader expects the Steam library root (folder that contains <c>steamapps</c>), not .../common/GameName.
+        /// </summary>
+        private static string ResolveSteamLibraryRoot(InstalledGame game)
+        {
+            if (!string.IsNullOrWhiteSpace(game.LibraryPath))
+                return game.LibraryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            var install = game.InstallPath;
+            if (string.IsNullOrWhiteSpace(install)) return string.Empty;
+
+            var sep = Path.DirectorySeparatorChar;
+            var marker = string.Format("{0}steamapps{0}common{0}", sep);
+            var idx = install.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+                return install.Substring(0, idx).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            try
+            {
+                return Path.GetFullPath(install);
+            }
+            catch
+            {
+                return install;
             }
         }
 

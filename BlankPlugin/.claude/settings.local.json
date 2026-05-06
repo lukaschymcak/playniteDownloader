@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Lukas/Documents/Github/playniteDownloader/**)",
+      "Read(//c/Users/Lukas/Documents/Github/playniteDownloader/.cursor/**)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.cs$\")"
+    ]
+  }
+}
