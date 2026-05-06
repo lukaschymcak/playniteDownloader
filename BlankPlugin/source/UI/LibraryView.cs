@@ -63,6 +63,17 @@ namespace BlankPlugin
         private readonly BlankPlugin _plugin;
         private readonly UpdateChecker _updateChecker;
         private readonly MorrenusClient _client;
+        private readonly SteamIntegrationService _steamIntegration = new SteamIntegrationService();
+        private Dictionary<string, LuaIntegrationState> _luaByAppId = new Dictionary<string, LuaIntegrationState>(StringComparer.Ordinal);
+
+        private sealed class LuaIntegrationState
+        {
+            public bool CanAdd { get; set; }
+            public bool AlreadyAdded { get; set; }
+            public string Tooltip { get; set; }
+            public string ManifestZipPath { get; set; }
+            public string LuaFileName { get; set; }
+        }
 
         // API status bar
         private TextBlock _statusLabel;
@@ -162,6 +173,29 @@ namespace BlankPlugin
             refreshBtn.Click += (s, e) => RefreshLibraryList();
             DockPanel.SetDock(refreshBtn, Dock.Right);
             bottomBar.Children.Add(refreshBtn);
+
+            var reconcileBtn = new Button
+            {
+                Content = "Reconcile Steam Installs",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            reconcileBtn.Click += (s, e) =>
+            {
+                try
+                {
+                    var r = _plugin?.ReconcileInstalledState();
+                    if (r != null)
+                        logger.Info("Manual reconcile: added=" + r.Added + ", updated=" + r.Updated + ", removed=" + r.Removed);
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("Manual reconcile failed: " + ex.Message);
+                }
+                RefreshLibraryList();
+            };
+            DockPanel.SetDock(reconcileBtn, Dock.Right);
+            bottomBar.Children.Add(reconcileBtn);
 
             _librarySummaryLabel = new TextBlock
             {
@@ -275,6 +309,13 @@ namespace BlankPlugin
             _librarySummaryLabel.Text = installedCount + " installed \u00b7 " + savedOnlyCount + " saved  |  " +
                 SteamLibraryHelper.FormatSize(totalSize);
 
+            var appIds = merged
+                .Select(row => row.Installed != null ? row.Installed.AppId : (row.Bookmark != null ? row.Bookmark.AppId : null))
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            _luaByAppId = BuildLuaStateMap(appIds);
+
             var filtered = merged
                 .Where(row => MatchesLibraryFilter(row, filter))
                 .OrderBy(row => row.SortName, StringComparer.OrdinalIgnoreCase)
@@ -381,7 +422,8 @@ namespace BlankPlugin
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
-            var updateStatus = _updateChecker?.GetStatus(game.AppId);
+            var canReliablyCheckUpdates = game.ManifestGIDs != null && game.ManifestGIDs.Count > 0;
+            var updateStatus = canReliablyCheckUpdates ? _updateChecker?.GetStatus(game.AppId) : null;
             if (updateStatus == "up_to_date")
             {
                 info.Children.Add(new TextBlock
@@ -457,6 +499,22 @@ namespace BlankPlugin
             };
             uninstallBtn.Click += (s, e) => UninstallGame(game);
 
+            var moreBtn = new Button
+            {
+                Content = "\u22EE",
+                Width = 34,
+                Height = LibraryCardButtonHeight,
+                FontSize = 16,
+                Margin = new Thickness(8, 0, 0, 0),
+                ToolTip = "More actions"
+            };
+            var installedMenu = BuildLibraryCardMenuForInstalled(game, game.GameName ?? game.AppId);
+            moreBtn.Click += (s, e) =>
+            {
+                installedMenu.PlacementTarget = moreBtn;
+                installedMenu.IsOpen = true;
+            };
+
             if (updateStatus == "update_available")
             {
                 var updateBtn = new Button
@@ -491,6 +549,7 @@ namespace BlankPlugin
 
             btnStack.Children.Add(openBtn);
             btnStack.Children.Add(uninstallBtn);
+            btnStack.Children.Add(moreBtn);
 
             Grid.SetColumn(btnStack, 2);
             grid.Children.Add(btnStack);
@@ -504,7 +563,7 @@ namespace BlankPlugin
             card.Child = grid;
 
             // ── Update status accent stripe ──────────────────────────────────────
-            var status = _updateChecker?.GetStatus(game.AppId);
+            var status = canReliablyCheckUpdates ? _updateChecker?.GetStatus(game.AppId) : null;
             Brush accentBrush = null;
             if (status == "up_to_date")
                 accentBrush = new SolidColorBrush(Color.FromRgb(50, 205, 50));
@@ -630,8 +689,25 @@ namespace BlankPlugin
             };
             removeBtn.Click += (s, e) => RemoveBookmark(bookmark, displayName);
 
+            var moreBtn = new Button
+            {
+                Content = "\u22EE",
+                Width = 34,
+                Height = LibraryCardButtonHeight,
+                FontSize = 16,
+                Margin = new Thickness(8, 0, 0, 0),
+                ToolTip = "More actions"
+            };
+            var bookmarkMenu = BuildLibraryCardMenuForBookmark(bookmark, displayName);
+            moreBtn.Click += (s, e) =>
+            {
+                bookmarkMenu.PlacementTarget = moreBtn;
+                bookmarkMenu.IsOpen = true;
+            };
+
             btnStack.Children.Add(downloadBtn);
             btnStack.Children.Add(removeBtn);
+            btnStack.Children.Add(moreBtn);
             Grid.SetColumn(btnStack, 2);
             grid.Children.Add(btnStack);
 
@@ -662,6 +738,534 @@ namespace BlankPlugin
 
             _libraryGames.Remove(bookmark.AppId);
             RefreshLibraryList();
+        }
+
+        private ContextMenu BuildLibraryCardMenuForInstalled(InstalledGame game, string displayName)
+        {
+            var menu = new ContextMenu();
+
+            var addToSteam = new MenuItem { Header = "Add to Steam" };
+            if (string.IsNullOrWhiteSpace(game?.AppId) || !_luaByAppId.TryGetValue(game.AppId, out var st))
+            {
+                addToSteam.IsEnabled = !string.IsNullOrWhiteSpace(game?.AppId);
+                addToSteam.ToolTip = "Try Add to Steam (will report exact missing manifest paths if not found).";
+                addToSteam.Click += (s, e) => AddToSteamFromLibrary(game.AppId, displayName, null, false);
+            }
+            else
+            {
+                addToSteam.IsEnabled = true;
+                addToSteam.ToolTip = st.Tooltip;
+                addToSteam.Click += (s, e) => AddToSteamFromLibrary(game.AppId, displayName, st.ManifestZipPath, st.AlreadyAdded);
+            }
+            menu.Items.Add(addToSteam);
+
+            var createManifest = new MenuItem { Header = "Create manifest" };
+            createManifest.Click += (s, e) => CreateSteamManifestForInstalled(game.AppId, displayName);
+            menu.Items.Add(createManifest);
+
+            var chooseInstallFolder = new MenuItem { Header = "Choose install folder" };
+            chooseInstallFolder.Click += (s, e) => LinkInstalledGameToInstallFolder(game, displayName);
+            menu.Items.Add(chooseInstallFolder);
+
+            return menu;
+        }
+
+        private ContextMenu BuildLibraryCardMenuForBookmark(SavedLibraryGame bookmark, string displayName)
+        {
+            var menu = new ContextMenu();
+
+            var addToSteam = new MenuItem { Header = "Add to Steam" };
+            if (string.IsNullOrWhiteSpace(bookmark?.AppId) || !_luaByAppId.TryGetValue(bookmark.AppId, out var st))
+            {
+                addToSteam.IsEnabled = !string.IsNullOrWhiteSpace(bookmark?.AppId);
+                addToSteam.ToolTip = "Try Add to Steam (will report exact missing manifest paths if not found).";
+                addToSteam.Click += (s, e) => AddToSteamFromLibrary(bookmark.AppId, displayName, null, false);
+            }
+            else
+            {
+                addToSteam.IsEnabled = true;
+                addToSteam.ToolTip = st.Tooltip;
+                addToSteam.Click += (s, e) => AddToSteamFromLibrary(bookmark.AppId, displayName, st.ManifestZipPath, st.AlreadyAdded);
+            }
+            menu.Items.Add(addToSteam);
+
+            var createManifest = new MenuItem { Header = "Create manifest" };
+            createManifest.Click += (s, e) => CreateSteamManifestForInstalled(bookmark.AppId, displayName);
+            menu.Items.Add(createManifest);
+
+            var chooseInstallFolder = new MenuItem { Header = "Choose install folder" };
+            chooseInstallFolder.Click += (s, e) => LinkBookmarkToInstallFolder(bookmark, displayName);
+            menu.Items.Add(chooseInstallFolder);
+
+            return menu;
+        }
+
+        private void LinkBookmarkToInstallFolder(SavedLibraryGame bookmark, string displayName)
+        {
+            if (bookmark == null || string.IsNullOrWhiteSpace(bookmark.AppId) || _installedGamesManager == null)
+                return;
+
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select the installed game folder for \"" + displayName + "\"",
+                ShowNewFolderButton = false
+            };
+
+            var result = dialog.ShowDialog();
+            if (result != System.Windows.Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
+                return;
+
+            var selectedPath = dialog.SelectedPath.Trim();
+            if (!Directory.Exists(selectedPath))
+                return;
+
+            var installDir = Path.GetFileName(selectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var libraryRoot = ResolveSteamLibraryRootFromInstallPath(selectedPath);
+            var size = GetDirectorySizeSafe(selectedPath);
+
+            var existing = _installedGamesManager.FindByAppId(bookmark.AppId);
+            var linked = existing ?? new InstalledGame { AppId = bookmark.AppId };
+            linked.GameName = displayName;
+            linked.InstallPath = selectedPath;
+            linked.LibraryPath = libraryRoot;
+            linked.InstallDir = string.IsNullOrWhiteSpace(installDir) ? linked.InstallDir : installDir;
+            linked.InstalledDate = linked.InstalledDate == default(DateTime) ? DateTime.UtcNow : linked.InstalledDate;
+            linked.SizeOnDisk = size > 0 ? size : linked.SizeOnDisk;
+            if (!string.IsNullOrWhiteSpace(bookmark.HeaderImageUrl) && string.IsNullOrWhiteSpace(linked.HeaderImageUrl))
+                linked.HeaderImageUrl = bookmark.HeaderImageUrl;
+
+            _installedGamesManager.Save(linked);
+            logger.Info("Manually linked install for app " + bookmark.AppId + " to: " + selectedPath);
+            RefreshLibraryList();
+        }
+
+        private void LinkInstalledGameToInstallFolder(InstalledGame game, string displayName)
+        {
+            if (game == null || string.IsNullOrWhiteSpace(game.AppId) || _installedGamesManager == null)
+                return;
+
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select the installed game folder for \"" + displayName + "\"",
+                ShowNewFolderButton = false
+            };
+
+            var result = dialog.ShowDialog();
+            if (result != System.Windows.Forms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.SelectedPath))
+                return;
+
+            var selectedPath = dialog.SelectedPath.Trim();
+            if (!Directory.Exists(selectedPath))
+                return;
+
+            game.InstallPath = selectedPath;
+            game.InstallDir = Path.GetFileName(selectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var libraryRoot = ResolveSteamLibraryRootFromInstallPath(selectedPath);
+            if (!string.IsNullOrWhiteSpace(libraryRoot))
+                game.LibraryPath = libraryRoot;
+            var size = GetDirectorySizeSafe(selectedPath);
+            if (size > 0)
+                game.SizeOnDisk = size;
+            _installedGamesManager.Save(game);
+            RefreshLibraryList();
+        }
+
+        private void FetchManifestGidsForApp(string appId, string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(appId) || _installedGamesManager == null)
+                return;
+
+            var installed = _installedGamesManager.FindByAppId(appId);
+            if (installed == null || string.IsNullOrWhiteSpace(installed.InstallPath) || !Directory.Exists(installed.InstallPath))
+            {
+                _api?.Dialogs?.ShowMessage(
+                    "Pick the game folder first via \"Choose install folder\", then fetch manifest GIDs.",
+                    "Fetch manifest GIDs",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var runner = new ManifestCheckerRunner();
+                    if (!runner.IsReady)
+                    {
+                        Dispatch(() => _api?.Dialogs?.ShowMessage(
+                            "ManifestChecker.exe is not available in plugin deps.",
+                            "Fetch manifest GIDs",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning));
+                        return;
+                    }
+
+                    var run = runner.Run(new[] { appId });
+                    if (run.results == null)
+                    {
+                        Dispatch(() => _api?.Dialogs?.ShowMessage(
+                            "Could not fetch manifest GIDs: " + (run.error ?? "Unknown error"),
+                            "Fetch manifest GIDs",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning));
+                        return;
+                    }
+
+                    var appResults = run.results
+                        .Where(r => string.Equals(r.AppId, appId, StringComparison.Ordinal))
+                        .Where(r => !string.IsNullOrWhiteSpace(r.DepotId) && !string.IsNullOrWhiteSpace(r.ManifestGid))
+                        .ToList();
+
+                    if (appResults.Count == 0)
+                    {
+                        Dispatch(() => _api?.Dialogs?.ShowMessage(
+                            "Steam returned no public depot manifest GIDs for this app.",
+                            "Fetch manifest GIDs",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning));
+                        return;
+                    }
+
+                    if (installed.ManifestGIDs == null)
+                        installed.ManifestGIDs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var item in appResults)
+                        installed.ManifestGIDs[item.DepotId] = item.ManifestGid;
+
+                    installed.SelectedDepots = installed.ManifestGIDs.Keys
+                        .Where(k => !string.IsNullOrWhiteSpace(k))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    var firstBuildId = appResults
+                        .Select(r => r.BuildId)
+                        .FirstOrDefault(b => !string.IsNullOrWhiteSpace(b));
+                    if (!string.IsNullOrWhiteSpace(firstBuildId))
+                        installed.SteamBuildId = firstBuildId;
+
+                    _installedGamesManager.Save(installed);
+
+                    Dispatch(() =>
+                    {
+                        _api?.Dialogs?.ShowMessage(
+                            "Fetched " + appResults.Count + " manifest GID(s) for \"" + displayName + "\".",
+                            "Fetch manifest GIDs",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        RefreshLibraryList();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("FetchManifestGidsForApp failed: " + ex.Message);
+                    Dispatch(() => _api?.Dialogs?.ShowMessage(
+                        "Failed to fetch manifest GIDs: " + ex.Message,
+                        "Fetch manifest GIDs",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error));
+                }
+            });
+        }
+
+        private static string ResolveSteamLibraryRootFromInstallPath(string installPath)
+        {
+            if (string.IsNullOrWhiteSpace(installPath))
+                return null;
+
+            var fullPath = Path.GetFullPath(installPath);
+            var di = new DirectoryInfo(fullPath);
+            if (di.Parent == null || di.Parent.Parent == null)
+                return null;
+
+            // Expect: <library>\steamapps\common\<game folder>
+            if (!string.Equals(di.Parent.Name, "common", StringComparison.OrdinalIgnoreCase))
+                return null;
+            if (!string.Equals(di.Parent.Parent.Name, "steamapps", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var root = di.Parent.Parent.Parent;
+            return root != null ? root.FullName : null;
+        }
+
+        private static long GetDirectorySizeSafe(string path)
+        {
+            try
+            {
+                long total = 0;
+                var dir = new DirectoryInfo(path);
+                foreach (var file in dir.EnumerateFiles("*", SearchOption.AllDirectories))
+                {
+                    total += file.Length;
+                }
+                return total;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private Dictionary<string, LuaIntegrationState> BuildLuaStateMap(IEnumerable<string> appIds)
+        {
+            var map = new Dictionary<string, LuaIntegrationState>(StringComparer.Ordinal);
+            var steamPath = _steamIntegration.GetSteamPath();
+
+            foreach (var appIdRaw in appIds)
+            {
+                var appId = appIdRaw?.Trim();
+                if (string.IsNullOrWhiteSpace(appId))
+                    continue;
+
+                var st = new LuaIntegrationState();
+                map[appId] = st;
+
+                var cacheRoot = _plugin != null ? ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath) : null;
+                var installed = _installedGamesManager != null ? _installedGamesManager.FindByAppId(appId) : null;
+                var preferredZip = installed != null ? installed.ManifestZipPath : null;
+                var zip = _steamIntegration.ResolveManifestZip(appId, preferredZip, cacheRoot);
+                st.ManifestZipPath = zip;
+                if (string.IsNullOrWhiteSpace(zip) || !File.Exists(zip))
+                {
+                    st.CanAdd = false;
+                    st.AlreadyAdded = false;
+                    st.Tooltip = "No cached manifest ZIP for this game.";
+                    continue;
+                }
+
+                try
+                {
+                    var luaPath = _steamIntegration.ExtractSingleLua(zip);
+                    var luaName = Path.GetFileName(luaPath);
+                    st.LuaFileName = luaName;
+                    if (string.IsNullOrWhiteSpace(steamPath) || !Directory.Exists(steamPath))
+                    {
+                        st.CanAdd = false;
+                        st.AlreadyAdded = false;
+                        st.Tooltip = "Steam install path not detected.";
+                        continue;
+                    }
+
+                    st.AlreadyAdded = _steamIntegration.IsLuaPresentInSteamConfig(steamPath, luaName);
+                    st.CanAdd = !st.AlreadyAdded;
+                    st.Tooltip = st.AlreadyAdded ? "Lua already exists in Steam config." : "Copy Lua to Steam config.";
+                }
+                catch (Exception ex)
+                {
+                    st.CanAdd = false;
+                    st.AlreadyAdded = false;
+                    st.Tooltip = "Manifest Lua error: " + ex.Message;
+                }
+            }
+
+            return map;
+        }
+
+        private void ConfigureAddToSteamButton(Button button, string appId, string displayName)
+        {
+            if (button == null)
+                return;
+
+            if (string.IsNullOrWhiteSpace(appId) || !_luaByAppId.TryGetValue(appId, out var st))
+            {
+                button.IsEnabled = false;
+                button.ToolTip = "No Lua info available.";
+                return;
+            }
+
+            button.IsEnabled = st.CanAdd;
+            button.ToolTip = st.Tooltip;
+            button.Click += (s, e) => AddToSteamFromLibrary(appId, displayName, st.ManifestZipPath, st.AlreadyAdded);
+        }
+
+        private void AddToSteamFromLibrary(string appId, string displayName, string manifestZipPath, bool luaAlreadyAdded)
+        {
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var steamPath = _steamIntegration.GetSteamPath();
+                    string luaTarget = null;
+                    if (!luaAlreadyAdded)
+                    {
+                        var zip = ResolveManifestZipStrict(appId, manifestZipPath);
+                        var lua = _steamIntegration.ExtractSingleLua(zip);
+                        luaTarget = _steamIntegration.CopyLuaToSteamConfig(lua, steamPath, true);
+                        logger.Info("Library Add to Steam (Lua): " + appId + " -> " + luaTarget);
+                    }
+                    var manifestStatus = EnsureSteamManifestForInstalled(appId, displayName);
+
+                    var restart = false;
+                    Dispatch(() =>
+                    {
+                        var summary = string.IsNullOrWhiteSpace(luaTarget)
+                            ? "Lua already exists in Steam config."
+                            : "Added \"" + displayName + "\" Lua to Steam config.";
+                        restart = _api.Dialogs.ShowMessage(
+                            summary + "\n" + manifestStatus + "\n\nRestart Steam now?",
+                            "Add to Steam",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question) == MessageBoxResult.Yes;
+                    });
+
+                    if (restart)
+                        _steamIntegration.RestartSteam(steamPath);
+                }
+                catch (Exception ex)
+                {
+                    Dispatch(() =>
+                    {
+                        _api.Dialogs.ShowMessage("Add to Steam failed: " + ex.Message,
+                            "Error",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+                finally
+                {
+                    Dispatch(() => RefreshLibraryList());
+                }
+            });
+        }
+
+        private string ResolveManifestZipStrict(string appId, string manifestZipPath)
+        {
+            var tried = new List<string>();
+            string found = null;
+
+            if (!string.IsNullOrWhiteSpace(manifestZipPath))
+            {
+                var p = Path.GetFullPath(manifestZipPath);
+                tried.Add(p + " (explicit)");
+                if (File.Exists(p))
+                    found = p;
+            }
+
+            var cacheRoot = _plugin != null ? ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath) : null;
+            var cached = ManifestCache.GetCachedZipPath(cacheRoot, appId);
+            if (!string.IsNullOrWhiteSpace(cached))
+            {
+                tried.Add(cached + " (cache by appId)");
+                if (found == null && File.Exists(cached))
+                    found = cached;
+            }
+
+            var installed = _installedGamesManager != null ? _installedGamesManager.FindByAppId(appId) : null;
+            if (installed != null && !string.IsNullOrWhiteSpace(installed.ManifestZipPath))
+            {
+                var p = Path.GetFullPath(installed.ManifestZipPath);
+                tried.Add(p + " (installed record)");
+                if (found == null && File.Exists(p))
+                    found = p;
+            }
+
+            if (found != null)
+            {
+                if (installed != null && !string.Equals(installed.ManifestZipPath, found, StringComparison.OrdinalIgnoreCase))
+                {
+                    installed.ManifestZipPath = found;
+                    _installedGamesManager.Save(installed);
+                }
+                return found;
+            }
+
+            throw new FileNotFoundException(
+                "Manifest ZIP not found for app " + appId + ". Checked:\n" + string.Join("\n", tried));
+        }
+
+        private string EnsureSteamManifestForInstalled(string appId, string displayName)
+        {
+            if (_installedGamesManager == null)
+                return "Manifest: skipped (manager unavailable).";
+
+            var installed = _installedGamesManager.FindByAppId(appId);
+            if (installed == null || string.IsNullOrWhiteSpace(installed.InstallPath) || !Directory.Exists(installed.InstallPath))
+                return "Manifest: skipped (choose install folder first).";
+
+            if (installed.ManifestGIDs == null || installed.ManifestGIDs.Count == 0)
+            {
+                var runner = new ManifestCheckerRunner();
+                if (!runner.IsReady)
+                    return "Manifest: skipped (ManifestChecker not available).";
+
+                var run = runner.Run(new[] { appId });
+                if (run.results == null)
+                    return "Manifest: skipped (could not fetch GIDs: " + (run.error ?? "unknown") + ").";
+
+                var appResults = run.results
+                    .Where(r => string.Equals(r.AppId, appId, StringComparison.Ordinal))
+                    .Where(r => !string.IsNullOrWhiteSpace(r.DepotId) && !string.IsNullOrWhiteSpace(r.ManifestGid))
+                    .ToList();
+                if (appResults.Count == 0)
+                    return "Manifest: skipped (Steam returned no public depot GIDs).";
+
+                installed.ManifestGIDs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in appResults)
+                    installed.ManifestGIDs[item.DepotId] = item.ManifestGid;
+                installed.SelectedDepots = installed.ManifestGIDs.Keys.ToList();
+                var firstBuildId = appResults
+                    .Select(r => r.BuildId)
+                    .FirstOrDefault(b => !string.IsNullOrWhiteSpace(b));
+                if (!string.IsNullOrWhiteSpace(firstBuildId))
+                    installed.SteamBuildId = firstBuildId;
+                _installedGamesManager.Save(installed);
+            }
+
+            var libraryRoot = string.IsNullOrWhiteSpace(installed.LibraryPath)
+                ? ResolveSteamLibraryRootFromInstallPath(installed.InstallPath)
+                : installed.LibraryPath;
+            if (string.IsNullOrWhiteSpace(libraryRoot))
+                return "Manifest: skipped (Steam library root not detected from install path).";
+
+            var gameData = new GameData
+            {
+                AppId = appId,
+                GameName = string.IsNullOrWhiteSpace(installed.GameName) ? displayName : installed.GameName,
+                InstallDir = string.IsNullOrWhiteSpace(installed.InstallDir)
+                    ? Path.GetFileName(installed.InstallPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                    : installed.InstallDir,
+                BuildId = string.IsNullOrWhiteSpace(installed.SteamBuildId) ? "0" : installed.SteamBuildId,
+                Manifests = new Dictionary<string, string>(installed.ManifestGIDs, StringComparer.OrdinalIgnoreCase),
+                SelectedDepots = installed.ManifestGIDs.Keys
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+            };
+
+            var acfPath = _steamIntegration.WriteAcfForInstall(gameData, libraryRoot, line => logger.Info(line));
+            installed.LibraryPath = libraryRoot;
+            installed.InstallDir = gameData.InstallDir;
+            installed.RegisteredWithSteam = true;
+            _installedGamesManager.Save(installed);
+            _updateChecker?.MarkUpToDate(appId);
+            return "Manifest: written to " + acfPath + ".";
+        }
+
+        private void CreateSteamManifestForInstalled(string appId, string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(appId))
+                return;
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var manifestStatus = EnsureSteamManifestForInstalled(appId, displayName);
+                    Dispatch(() =>
+                    {
+                        _api?.Dialogs?.ShowMessage(manifestStatus, "Create manifest",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        RefreshLibraryList();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("CreateSteamManifestForInstalled failed: " + ex.Message);
+                    Dispatch(() => _api?.Dialogs?.ShowMessage(
+                        "Create manifest failed: " + ex.Message,
+                        "Create manifest",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error));
+                }
+            });
         }
 
         private enum LibraryHeaderPersistTarget
@@ -944,6 +1548,7 @@ namespace BlankPlugin
                 try
                 {
                     var data = new ZipProcessor().Process(zipPath);
+                    CacheManifestZipForApp(zipPath, data);
                     Dispatch(() => SwitchToDownloadView(data));
                 }
                 catch (Exception ex)
@@ -957,6 +1562,34 @@ namespace BlankPlugin
             });
         }
 
+        private void CacheManifestZipForApp(string sourceZipPath, GameData data)
+        {
+            try
+            {
+                if (_plugin == null || data == null || string.IsNullOrWhiteSpace(data.AppId) || string.IsNullOrWhiteSpace(sourceZipPath))
+                    return;
+
+                var cacheRoot = ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath);
+                if (string.IsNullOrWhiteSpace(cacheRoot))
+                    return;
+
+                var partPath = ManifestCache.GetPartPath(cacheRoot, data.AppId);
+                var finalPath = ManifestCache.GetCachedZipPath(cacheRoot, data.AppId);
+                if (string.IsNullOrWhiteSpace(partPath) || string.IsNullOrWhiteSpace(finalPath))
+                    return;
+
+                ManifestCache.TryDeletePartFile(partPath);
+                File.Copy(sourceZipPath, partPath, true);
+                ManifestCache.CommitPartToZip(cacheRoot, data.AppId);
+                ManifestCache.WriteMeta(cacheRoot, data);
+                logger.Info("Cached manifest ZIP from Install-from-ZIP: " + finalPath);
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("Could not cache manifest ZIP from Install-from-ZIP: " + ex.Message);
+            }
+        }
+
         /// <summary>
         /// Replaces the library view with a download view in the same window.
         /// Called when the user picks a manifest ZIP to install from.
@@ -967,7 +1600,7 @@ namespace BlankPlugin
             if (window == null) return;
 
             window.Title = "BlankPlugin — " + data.GameName;
-            var manifestCache = ManifestCache.GetCacheDirectory(_plugin.GetPluginUserDataPath());
+            var manifestCache = ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath);
             window.Content = new DownloadView(null, _settings, _installedGamesManager, _api, _updateChecker, manifestCache, data);
         }
 

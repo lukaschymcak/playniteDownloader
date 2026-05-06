@@ -21,6 +21,7 @@ namespace BlankPlugin
         internal BlankPluginSettings Settings { get; private set; }
         internal InstalledGamesManager InstalledGames { get; private set; }
         internal LibraryGamesManager LibraryGames { get; private set; }
+        internal string PluginUserDataPath => GetPluginUserDataPath();
 
         private UpdateChecker _updateChecker;
         private Game _lastSelectedGame;
@@ -42,12 +43,31 @@ namespace BlankPlugin
             InstalledGames = new InstalledGamesManager(GetPluginUserDataPath());
             LibraryGames   = new LibraryGamesManager(GetPluginUserDataPath());
 
+            try
+            {
+                var reconcile = InstalledGames.ReconcileWithSteamLibraries(
+                    LibraryGames?.GetAll(),
+                    PlayniteApi?.Database?.Games);
+                logger.Info("Startup reconcile: added=" + reconcile.Added + ", updated=" + reconcile.Updated + ", removed=" + reconcile.Removed);
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("Startup reconcile failed: " + ex.Message);
+            }
+
             // Initialize update checker
             var runner = new ManifestCheckerRunner();
             _updateChecker = new UpdateChecker(runner, InstalledGames, PlayniteApi);
 
             // Run update check on startup (fire and forget — does not block Playnite)
             _ = _updateChecker.RunAsync();
+        }
+
+        internal ReconcileResult ReconcileInstalledState()
+        {
+            if (InstalledGames == null)
+                return new ReconcileResult();
+            return InstalledGames.ReconcileWithSteamLibraries(LibraryGames?.GetAll(), PlayniteApi?.Database?.Games);
         }
 
         public override void OnApplicationStopped(OnApplicationStoppedEventArgs args)

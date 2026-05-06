@@ -14,6 +14,7 @@ namespace BlankPlugin
         public string AppId { get; set; }
         public string DepotId { get; set; }
         public string ManifestGid { get; set; }
+        public string BuildId { get; set; }
     }
 
     /// <summary>

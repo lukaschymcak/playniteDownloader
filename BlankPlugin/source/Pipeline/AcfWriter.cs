@@ -34,6 +34,9 @@ namespace BlankPlugin
 
         private static string BuildAcf(GameData data, string installFolderName, long sizeOnDisk)
         {
+            var nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            var buildId = string.IsNullOrWhiteSpace(data.BuildId) ? "0" : data.BuildId;
+
             var sb = new StringBuilder();
             sb.AppendLine("\"AppState\"");
             sb.AppendLine("{");
@@ -42,13 +45,24 @@ namespace BlankPlugin
             sb.AppendLine("\t\"name\"\t\t\"" + data.GameName + "\"");
             sb.AppendLine("\t\"StateFlags\"\t\t\"4\"");
             sb.AppendLine("\t\"installdir\"\t\t\"" + installFolderName + "\"");
+            sb.AppendLine("\t\"LastUpdated\"\t\t\"" + nowUnix + "\"");
             sb.AppendLine("\t\"SizeOnDisk\"\t\t\"" + sizeOnDisk + "\"");
-            sb.AppendLine("\t\"buildid\"\t\t\"" + (data.BuildId ?? "0") + "\"");
+            sb.AppendLine("\t\"StagingSize\"\t\t\"0\"");
+            sb.AppendLine("\t\"buildid\"\t\t\"" + buildId + "\"");
+            sb.AppendLine("\t\"UpdateResult\"\t\t\"0\"");
+            sb.AppendLine("\t\"BytesToDownload\"\t\t\"0\"");
+            sb.AppendLine("\t\"BytesDownloaded\"\t\t\"0\"");
+            sb.AppendLine("\t\"BytesToStage\"\t\t\"0\"");
+            sb.AppendLine("\t\"BytesStaged\"\t\t\"0\"");
+            sb.AppendLine("\t\"TargetBuildID\"\t\t\"" + buildId + "\"");
+            sb.AppendLine("\t\"AutoUpdateBehavior\"\t\t\"0\"");
+            sb.AppendLine("\t\"AllowOtherDownloadsWhileRunning\"\t\t\"0\"");
+            sb.AppendLine("\t\"ScheduledAutoUpdate\"\t\t\"0\"");
 
             // InstalledDepots
             sb.AppendLine("\t\"InstalledDepots\"");
             sb.AppendLine("\t{");
-            foreach (var depotId in data.SelectedDepots)
+            foreach (var depotId in data.SelectedDepots ?? new System.Collections.Generic.List<string>())
             {
                 if (!data.Manifests.TryGetValue(depotId, out var manifestGid)) continue;
                 var size = data.Depots.TryGetValue(depotId, out var info) ? info.Size : 0;
@@ -67,7 +81,8 @@ namespace BlankPlugin
         public static string GetInstallFolderName(GameData data)
         {
             if (!string.IsNullOrWhiteSpace(data.InstallDir)) return data.InstallDir;
-            var safe = Regex.Replace(data.GameName ?? "", @"[^\w\s-]", "").Trim().Replace(" ", "_");
+            var safe = Regex.Replace(data.GameName ?? "", @"[^\w\s-]", "");
+            safe = Regex.Replace(safe, @"\s+", " ").Trim();
             return string.IsNullOrEmpty(safe) ? "App_" + data.AppId : safe;
         }
 

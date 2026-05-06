@@ -1,9 +1,11 @@
 using Newtonsoft.Json;
 using Playnite.SDK;
+using Playnite.SDK.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace BlankPlugin
 {
@@ -153,5 +155,193 @@ namespace BlankPlugin
                 return new List<InstalledGame>(_games);
             }
         }
+
+        public ReconcileResult ReconcileWithSteamLibraries(IEnumerable<SavedLibraryGame> bookmarks, IEnumerable<Game> playniteGames)
+        {
+            lock (_lock)
+            {
+                var result = new ReconcileResult();
+                var candidates = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (var g in _games)
+                {
+                    if (!string.IsNullOrWhiteSpace(g.AppId))
+                        candidates.Add(g.AppId.Trim());
+                }
+
+                if (bookmarks != null)
+                {
+                    foreach (var b in bookmarks)
+                    {
+                        if (!string.IsNullOrWhiteSpace(b?.AppId))
+                            candidates.Add(b.AppId.Trim());
+                    }
+                }
+
+                var steamPluginGuid = new Guid("CB91DFC9-B977-43BF-8E70-55F46E410FAB");
+                if (playniteGames != null)
+                {
+                    foreach (var pg in playniteGames)
+                    {
+                        if (pg == null || pg.PluginId != steamPluginGuid || string.IsNullOrWhiteSpace(pg.GameId))
+                            continue;
+                        candidates.Add(pg.GameId.Trim());
+                    }
+                }
+
+                var steamByAppId = DiscoverSteamInstalls();
+                var changed = false;
+
+                foreach (var appId in candidates)
+                {
+                    if (!steamByAppId.TryGetValue(appId, out var discovered))
+                        continue;
+
+                    var existing = _games.FirstOrDefault(g => string.Equals(g.AppId, appId, StringComparison.Ordinal));
+                    if (existing == null)
+                    {
+                        _games.Add(discovered);
+                        result.Added++;
+                        changed = true;
+                        continue;
+                    }
+
+                    var updated = false;
+                    if (!Directory.Exists(existing.InstallPath) || !string.Equals(existing.InstallPath, discovered.InstallPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        existing.InstallPath = discovered.InstallPath;
+                        updated = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existing.LibraryPath) || !string.Equals(existing.LibraryPath, discovered.LibraryPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        existing.LibraryPath = discovered.LibraryPath;
+                        updated = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existing.InstallDir) || !string.Equals(existing.InstallDir, discovered.InstallDir, StringComparison.Ordinal))
+                    {
+                        existing.InstallDir = discovered.InstallDir;
+                        updated = true;
+                    }
+                    if (string.IsNullOrWhiteSpace(existing.GameName) && !string.IsNullOrWhiteSpace(discovered.GameName))
+                    {
+                        existing.GameName = discovered.GameName;
+                        updated = true;
+                    }
+                    if (existing.InstalledDate == default(DateTime))
+                    {
+                        existing.InstalledDate = discovered.InstalledDate;
+                        updated = true;
+                    }
+
+                    if (updated)
+                    {
+                        result.Updated++;
+                        changed = true;
+                    }
+                }
+
+                var removed = new List<InstalledGame>();
+                foreach (var game in _games.ToList())
+                {
+                    if (!Directory.Exists(game.InstallPath))
+                    {
+                        _games.Remove(game);
+                        removed.Add(game);
+                    }
+                }
+                if (removed.Count > 0)
+                {
+                    result.Removed = removed.Count;
+                    changed = true;
+                }
+
+                if (changed)
+                    SaveToDisk();
+
+                return result;
+            }
+        }
+
+        private static Dictionary<string, InstalledGame> DiscoverSteamInstalls()
+        {
+            var result = new Dictionary<string, InstalledGame>(StringComparer.Ordinal);
+            var libs = SteamLibraryHelper.GetSteamLibraries();
+
+            foreach (var lib in libs)
+            {
+                try
+                {
+                    var steamapps = Path.Combine(lib, "steamapps");
+                    if (!Directory.Exists(steamapps))
+                        continue;
+
+                    foreach (var acf in Directory.GetFiles(steamapps, "appmanifest_*.acf", SearchOption.TopDirectoryOnly))
+                    {
+                        var match = Regex.Match(Path.GetFileName(acf) ?? "", @"^appmanifest_(\d+)\.acf$", RegexOptions.IgnoreCase);
+                        if (!match.Success)
+                            continue;
+                        var appId = match.Groups[1].Value;
+
+                        var content = File.ReadAllText(acf);
+                        var installDir = ExtractAcfValue(content, "installdir");
+                        if (string.IsNullOrWhiteSpace(installDir))
+                            installDir = "App_" + appId;
+
+                        var name = ExtractAcfValue(content, "name");
+                        if (string.IsNullOrWhiteSpace(name))
+                            name = "App_" + appId;
+
+                        var installPath = Path.Combine(steamapps, "common", installDir);
+                        if (!Directory.Exists(installPath))
+                            continue;
+
+                        long size = 0;
+                        try
+                        {
+                            foreach (var f in Directory.GetFiles(installPath, "*", SearchOption.AllDirectories))
+                            {
+                                try { size += new FileInfo(f).Length; } catch { }
+                            }
+                        }
+                        catch { }
+
+                        if (!result.ContainsKey(appId))
+                        {
+                            result[appId] = new InstalledGame
+                            {
+                                AppId = appId,
+                                GameName = name,
+                                InstallDir = installDir,
+                                InstallPath = installPath,
+                                LibraryPath = lib,
+                                InstalledDate = DateTime.UtcNow,
+                                SizeOnDisk = size
+                            };
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Debug("DiscoverSteamInstalls failed for library '" + lib + "': " + ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        private static string ExtractAcfValue(string content, string key)
+        {
+            if (string.IsNullOrEmpty(content) || string.IsNullOrEmpty(key))
+                return null;
+            var m = Regex.Match(content, "\"" + Regex.Escape(key) + "\"\\s*\"([^\"]*)\"", RegexOptions.IgnoreCase);
+            return m.Success ? m.Groups[1].Value : null;
+        }
+    }
+
+    public sealed class ReconcileResult
+    {
+        public int Added { get; set; }
+        public int Updated { get; set; }
+        public int Removed { get; set; }
     }
 }

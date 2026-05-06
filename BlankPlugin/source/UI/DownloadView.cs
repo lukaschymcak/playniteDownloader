@@ -41,6 +41,7 @@ namespace BlankPlugin
         private string _currentDownloadDir;
         private readonly string _manifestCacheRoot;
         private int _manifestCacheApplyGen;
+        private string _cacheReadFailedAppId;
 
         // ── Network speed monitor ─────────────────────────────────────────────────
         private DispatcherTimer _speedTimer;
@@ -58,7 +59,10 @@ namespace BlankPlugin
         // ── Post-download actions ─────────────────────────────────────────────────
         private Button _postSteamlessBtn;
         private Button _postRegisterBtn;
+        private Button _postMarkInstalledBtn;
         private string _lastDestPath;
+        private string _lastManifestZipPath;
+        private readonly SteamIntegrationService _steamIntegration;
 
         // ── Installed game tracking ───────────────────────────────────────────────
         private readonly InstalledGamesManager _installedGamesManager;
@@ -95,8 +99,6 @@ namespace BlankPlugin
         private StackPanel _depotList;
 
         // ── UI: Options ───────────────────────────────────────────────────────────
-        private CheckBox _steamlessCheck;
-        private CheckBox _registerSteamCheck;
         private string _selectedLibraryPath;
         private TextBlock _selectedLibLabel;
         private Button _goldbergBtn;
@@ -119,6 +121,7 @@ namespace BlankPlugin
             _manifestCacheRoot = manifestCacheRoot;
             _client = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
+            _steamIntegration = new SteamIntegrationService();
             _installedGamesManager = installedGamesManager;
             _updateChecker = updateChecker;
 
@@ -167,6 +170,7 @@ namespace BlankPlugin
             _manifestCacheRoot = manifestCacheRoot;
             _client   = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
+            _steamIntegration = new SteamIntegrationService();
             _installedGamesManager = installedGamesManager;
             _updateChecker = updateChecker;
             _headerImageUrl = headerImageUrl;
@@ -521,18 +525,6 @@ namespace BlankPlugin
             steamRow.Children.Add(usernameBox);
             panel.Children.Add(steamRow);
 
-            _steamlessCheck = new CheckBox
-            {
-                Content = "Strip DRM with Steamless (optional)",
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-            _registerSteamCheck = new CheckBox
-            {
-                Content = "Register with Steam as installed (writes appmanifest .acf)",
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-            panel.Children.Add(_steamlessCheck);
-            panel.Children.Add(_registerSteamCheck);
             return panel;
         }
 
@@ -611,7 +603,7 @@ namespace BlankPlugin
                 Content = "Run Steamless",
                 Padding = new Thickness(12, 6, 12, 6),
                 Margin = new Thickness(0, 0, 6, 0),
-                Visibility = Visibility.Collapsed,
+                Visibility = Visibility.Visible,
                 ToolTip = "Strip Steam DRM from downloaded executables"
             };
             _postSteamlessBtn.Click += OnPostSteamlessClicked;
@@ -619,13 +611,24 @@ namespace BlankPlugin
 
             _postRegisterBtn = new Button
             {
-                Content = "Register with Steam",
+                Content = "Add to Steam",
                 Padding = new Thickness(12, 6, 12, 6),
-                Visibility = Visibility.Collapsed,
-                ToolTip = "Write Steam appmanifest .acf so Steam recognizes the game"
+                Visibility = Visibility.Visible,
+                ToolTip = "Copy Morrenus .lua file to Steam\\config\\lua and restart Steam"
             };
             _postRegisterBtn.Click += OnPostRegisterClicked;
             DockPanel.SetDock(_postRegisterBtn, Dock.Left);
+
+            _postMarkInstalledBtn = new Button
+            {
+                Content = "Mark Installed in Steam",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(6, 0, 0, 0),
+                Visibility = Visibility.Visible,
+                ToolTip = "Write appmanifest .acf to show Installed in Steam"
+            };
+            _postMarkInstalledBtn.Click += OnPostMarkInstalledClicked;
+            DockPanel.SetDock(_postMarkInstalledBtn, Dock.Left);
 
             _goldbergBtn = new Button
             {
@@ -640,6 +643,7 @@ namespace BlankPlugin
 
             postRow.Children.Add(_postSteamlessBtn);
             postRow.Children.Add(_postRegisterBtn);
+            postRow.Children.Add(_postMarkInstalledBtn);
             postRow.Children.Add(_goldbergBtn);
             container.Children.Add(postRow);
 
@@ -844,6 +848,7 @@ namespace BlankPlugin
                 return;
 
             var appId = _resolvedAppId.Trim();
+            _cacheReadFailedAppId = null;
             var root = _manifestCacheRoot;
             int gen = Interlocked.Increment(ref _manifestCacheApplyGen);
 
@@ -883,6 +888,7 @@ namespace BlankPlugin
                     {
                         if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
                         _gameData = data;
+                        _lastManifestZipPath = zipPath;
                         _gameInfoLabel.Text = data.GameName + "  (AppID: " + data.AppId + ")";
                         PopulateDepots(data, GetInstalledDepotIdsForPopulate());
                         _downloadBtn.IsEnabled = !_downloading && _gameData != null && _gameData.Depots.Count > 0;
@@ -892,12 +898,14 @@ namespace BlankPlugin
                 catch (Exception ex)
                 {
                     logger.Error("Cached manifest load failed: " + ex);
+                    _cacheReadFailedAppId = appId;
+                    try { ManifestCache.DeleteCached(root, appId); } catch { }
                     Dispatch(() =>
                     {
                         if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
                         _cachedManifestLabel.Visibility = Visibility.Visible;
                         _cachedManifestLabel.Text =
-                            "Saved manifest file exists but could not be read: " + ex.Message;
+                            "Saved manifest file was invalid/locked and has been removed. Fetch from Morrenus is enabled. Details: " + ex.Message;
                         RefreshFetchButtonsForCacheAndBusy();
                     });
                 }
@@ -957,6 +965,7 @@ namespace BlankPlugin
                     AppendLog("Processing ZIP...");
                     var data = new ZipProcessor().Process(zipPath);
                     _gameData = data;
+                    _lastManifestZipPath = zipPath;
                     if (!string.IsNullOrEmpty(_manifestCacheRoot))
                         ManifestCache.WriteMeta(_manifestCacheRoot, data);
 
@@ -1164,12 +1173,7 @@ namespace BlankPlugin
 
             _currentDownloadDir = _downloader.ComputeDownloadDir(_gameData, destPath);
 
-            var runSteamless  = _steamlessCheck.IsChecked == true;
-            var registerSteam = _registerSteamCheck.IsChecked == true;
-
             _lastDestPath = destPath;
-            _postSteamlessBtn.Visibility = Visibility.Collapsed;
-            _postRegisterBtn.Visibility = Visibility.Collapsed;
             _goldbergBtn.Visibility = Visibility.Collapsed;
 
             SetBusy(true, "Allocating disk space — this may take a while for large games...");
@@ -1205,24 +1209,6 @@ namespace BlankPlugin
                         maxDownloads:  _settings.MaxDownloads,
                         onStatus:      status => Dispatch(() => _statusLabel.Text = status),
                         steamUsername: string.IsNullOrWhiteSpace(username) ? null : username);
-
-                    if (runSteamless)
-                    {
-                        AppendLog("--- Running Steamless ---");
-                        var installDir = Path.Combine(destPath, "steamapps", "common",
-                            AcfWriter.GetInstallFolderName(_gameData));
-                        new SteamlessRunner(_downloader.DotnetPath).Run(installDir, line => AppendLog(line));
-                    }
-
-                    if (registerSteam)
-                    {
-                        AppendLog("--- Writing Steam ACF ---");
-                        var depotsForAc = priorInstalled != null
-                            ? MergeDepotIdLists(priorInstalled.SelectedDepots, selected)
-                            : selected;
-                        _gameData.SelectedDepots = depotsForAc;
-                        AcfWriter.Write(_gameData, destPath, line => AppendLog(line));
-                    }
 
                     if (_installedGamesManager != null)
                     {
@@ -1268,10 +1254,12 @@ namespace BlankPlugin
                                     PlayniteGameId        = priorInstalled.PlayniteGameId != Guid.Empty
                                         ? priorInstalled.PlayniteGameId
                                         : (_game?.Id ?? Guid.Empty),
-                                    DrmStripped           = priorInstalled.DrmStripped || runSteamless,
-                                    RegisteredWithSteam   = priorInstalled.RegisteredWithSteam || registerSteam,
+                                    DrmStripped           = priorInstalled.DrmStripped,
+                                    RegisteredWithSteam   = priorInstalled.RegisteredWithSteam,
                                     GseSavesCopied        = priorInstalled.GseSavesCopied,
-                                    HeaderImageUrl        = _headerImageUrl ?? priorInstalled.HeaderImageUrl
+                                    HeaderImageUrl        = _headerImageUrl ?? priorInstalled.HeaderImageUrl,
+                                    SteamBuildId          = string.IsNullOrWhiteSpace(_gameData.BuildId) ? priorInstalled.SteamBuildId : _gameData.BuildId,
+                                    ManifestZipPath       = string.IsNullOrWhiteSpace(_lastManifestZipPath) ? priorInstalled.ManifestZipPath : _lastManifestZipPath
                                 };
                                 _installedGamesManager.Save(mergedEntry);
                                 AppendLog("Install record updated (add-on depots merged).");
@@ -1308,9 +1296,11 @@ namespace BlankPlugin
                                         .Where(kv => _gameData.SelectedDepots.Contains(kv.Key))
                                         .ToDictionary(kv => kv.Key, kv => kv.Value),
                                     PlayniteGameId   = _game?.Id ?? Guid.Empty,
-                                    DrmStripped      = runSteamless,
-                                    RegisteredWithSteam = registerSteam,
-                                    HeaderImageUrl   = _headerImageUrl
+                                    DrmStripped      = false,
+                                    RegisteredWithSteam = false,
+                                    HeaderImageUrl   = _headerImageUrl,
+                                    SteamBuildId     = _gameData.BuildId,
+                                    ManifestZipPath  = _lastManifestZipPath
                                 };
                                 _installedGamesManager.Save(installedEntry);
                                 AppendLog("Game saved to installed library.");
@@ -1486,8 +1476,6 @@ namespace BlankPlugin
                         _speedLabel.Visibility = Visibility.Collapsed;
                         _etaLabel.Text = "";
                         _etaLabel.Visibility = Visibility.Collapsed;
-                        _postSteamlessBtn.Visibility = Visibility.Visible;
-                        _postRegisterBtn.Visibility = Visibility.Visible;
                         _goldbergBtn.Visibility = Visibility.Visible;
                     });
                 }
@@ -1546,8 +1534,6 @@ namespace BlankPlugin
                     _speedLabel.Visibility = Visibility.Collapsed;
                     _etaLabel.Text = "";
                     _etaLabel.Visibility = Visibility.Collapsed;
-                    _postSteamlessBtn.Visibility = Visibility.Collapsed;
-                    _postRegisterBtn.Visibility = Visibility.Collapsed;
                     _goldbergBtn.Visibility = Visibility.Collapsed;
                 });
             }
@@ -1560,9 +1546,13 @@ namespace BlankPlugin
 
         private void OnPostSteamlessClicked(object sender, RoutedEventArgs e)
         {
-            if (_gameData == null || string.IsNullOrEmpty(_lastDestPath)) return;
-            var installDir = Path.Combine(_lastDestPath, "steamapps", "common",
-                AcfWriter.GetInstallFolderName(_gameData));
+            var installDir = ResolveInstallDirForActions();
+            if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
+            {
+                AppendLog("Steamless: install folder not found. Download or install first.");
+                return;
+            }
+
             _postSteamlessBtn.IsEnabled = false;
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -1571,6 +1561,12 @@ namespace BlankPlugin
                     AppendLog("--- Running Steamless ---");
                     new SteamlessRunner(_downloader.DotnetPath).Run(installDir, line => AppendLog(line));
                     AppendLog("Steamless finished.");
+
+                    if (_installedGame != null && _installedGamesManager != null)
+                    {
+                        _installedGame.DrmStripped = true;
+                        _installedGamesManager.Save(_installedGame);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1585,25 +1581,195 @@ namespace BlankPlugin
 
         private void OnPostRegisterClicked(object sender, RoutedEventArgs e)
         {
-            if (_gameData == null || string.IsNullOrEmpty(_lastDestPath)) return;
             _postRegisterBtn.IsEnabled = false;
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
                 {
-                    AppendLog("--- Writing Steam ACF ---");
-                    AcfWriter.Write(_gameData, _lastDestPath, line => AppendLog(line));
-                    AppendLog("ACF manifest written.");
+                    AppendLog("--- Add to Steam (.lua) ---");
+                    var sourceLua = ResolveSingleLuaSourcePath();
+                    if (string.IsNullOrEmpty(sourceLua) || !File.Exists(sourceLua))
+                        throw new InvalidOperationException("No .lua file found in the current Morrenus manifest context.");
+
+                    var steamPath = _steamIntegration.GetSteamPath();
+                    var targetLua = _steamIntegration.CopyLuaToSteamConfig(sourceLua, steamPath, true);
+                    AppendLog("Copied .lua to: " + targetLua);
+
+                    var shouldMarkInstalled = false;
+                    Dispatch(() =>
+                    {
+                        shouldMarkInstalled = _api.Dialogs.ShowMessage(
+                            "Lua copied.\n\nAlso mark this game as Installed in Steam (write appmanifest .acf)?",
+                            "Add to Steam",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question) == MessageBoxResult.Yes;
+                    });
+
+                    if (shouldMarkInstalled)
+                    {
+                        var libraryRoot = ResolveLibraryRootForActions();
+                        var data = BuildGameDataForActions();
+                        if (string.IsNullOrWhiteSpace(libraryRoot) || data == null)
+                            throw new InvalidOperationException("Cannot write ACF: missing game/library context.");
+
+                        _steamIntegration.WriteAcfForInstall(data, libraryRoot, line => AppendLog(line));
+                        AppendLog("ACF manifest written.");
+                    }
+
+                    if (_installedGame != null && _installedGamesManager != null)
+                    {
+                        _installedGame.RegisteredWithSteam = true;
+                        _installedGamesManager.Save(_installedGame);
+                    }
+
+                    var shouldRestart = false;
+                    Dispatch(() =>
+                    {
+                        shouldRestart = _api.Dialogs.ShowMessage(
+                            shouldMarkInstalled
+                                ? "Lua copied and ACF written.\n\nRestart Steam now?"
+                                : "Lua file copied to Steam config.\n\nRestart Steam now?",
+                            "Add to Steam",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question) == MessageBoxResult.Yes;
+                    });
+
+                    if (!shouldRestart)
+                    {
+                        AppendLog("Steam restart skipped by user.");
+                        return;
+                    }
+
+                    AppendLog("Restarting Steam...");
+                    _steamIntegration.RestartSteam(steamPath);
+                    AppendLog("Steam restarted.");
                 }
                 catch (Exception ex)
                 {
-                    AppendLog("ERROR writing ACF: " + ex.Message);
+                    AppendLog("ERROR Add to Steam: " + ex.Message);
                 }
                 finally
                 {
                     Dispatch(() => _postRegisterBtn.IsEnabled = true);
                 }
             });
+        }
+
+        private void OnPostMarkInstalledClicked(object sender, RoutedEventArgs e)
+        {
+            var libraryRoot = ResolveLibraryRootForActions();
+            var data = BuildGameDataForActions();
+            if (string.IsNullOrWhiteSpace(libraryRoot) || data == null)
+            {
+                AppendLog("Mark Installed in Steam: missing game/library context.");
+                return;
+            }
+
+            _postMarkInstalledBtn.IsEnabled = false;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    AppendLog("--- Mark Installed in Steam (ACF) ---");
+                    _steamIntegration.WriteAcfForInstall(data, libraryRoot, line => AppendLog(line));
+                    AppendLog("ACF manifest written.");
+
+                    if (_installedGame != null && _installedGamesManager != null)
+                    {
+                        _installedGame.RegisteredWithSteam = true;
+                        _installedGamesManager.Save(_installedGame);
+                    }
+
+                    var shouldRestart = false;
+                    Dispatch(() =>
+                    {
+                        shouldRestart = _api.Dialogs.ShowMessage(
+                            "ACF written.\n\nRestart Steam now?",
+                            "Mark Installed in Steam",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question) == MessageBoxResult.Yes;
+                    });
+
+                    if (!shouldRestart)
+                    {
+                        AppendLog("Steam restart skipped by user.");
+                        return;
+                    }
+
+                    var steamPath = _steamIntegration.GetSteamPath();
+                    AppendLog("Restarting Steam...");
+                    _steamIntegration.RestartSteam(steamPath);
+                    AppendLog("Steam restarted.");
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("ERROR Mark Installed in Steam: " + ex.Message);
+                }
+                finally
+                {
+                    Dispatch(() => _postMarkInstalledBtn.IsEnabled = true);
+                }
+            });
+        }
+
+        private string ResolveInstallDirForActions()
+        {
+            if (_installedGame != null && !string.IsNullOrWhiteSpace(_installedGame.InstallPath))
+                return _installedGame.InstallPath;
+            if (!string.IsNullOrWhiteSpace(_lastDestPath) && _gameData != null)
+                return Path.Combine(_lastDestPath, "steamapps", "common", AcfWriter.GetInstallFolderName(_gameData));
+            return null;
+        }
+
+        private string ResolveLibraryRootForActions()
+        {
+            if (!string.IsNullOrWhiteSpace(_lastDestPath))
+                return _lastDestPath;
+            if (_installedGame != null && !string.IsNullOrWhiteSpace(_installedGame.LibraryPath))
+                return _installedGame.LibraryPath;
+            return _selectedLibraryPath;
+        }
+
+        private GameData BuildGameDataForActions()
+        {
+            if (_gameData != null && !string.IsNullOrWhiteSpace(_gameData.AppId))
+                return _gameData;
+            if (_installedGame == null || string.IsNullOrWhiteSpace(_installedGame.AppId))
+                return null;
+
+            var gd = new GameData
+            {
+                AppId = _installedGame.AppId,
+                GameName = string.IsNullOrWhiteSpace(_installedGame.GameName) ? ("App_" + _installedGame.AppId) : _installedGame.GameName,
+                InstallDir = _installedGame.InstallDir,
+                BuildId = string.IsNullOrWhiteSpace(_installedGame.SteamBuildId) ? "0" : _installedGame.SteamBuildId,
+                SelectedDepots = new List<string>(_installedGame.SelectedDepots ?? new List<string>()),
+                Manifests = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                Depots = new Dictionary<string, DepotInfo>(),
+                Dlcs = new Dictionary<string, string>()
+            };
+
+            if (_installedGame.ManifestGIDs != null)
+            {
+                foreach (var kv in _installedGame.ManifestGIDs)
+                    gd.Manifests[kv.Key] = kv.Value;
+            }
+
+            return gd;
+        }
+
+        private string ResolveSingleLuaSourcePath()
+        {
+            var zipPath = ResolveManifestZipPathForActions();
+            if (string.IsNullOrWhiteSpace(zipPath))
+                return null;
+            return _steamIntegration.ExtractSingleLua(zipPath);
+        }
+
+        private string ResolveManifestZipPathForActions()
+        {
+            var appId = _gameData != null ? _gameData.AppId : (_installedGame != null ? _installedGame.AppId : null);
+            return _steamIntegration.ResolveManifestZip(appId, _lastManifestZipPath, _manifestCacheRoot);
         }
 
         private void OnGoldbergClicked(object sender, RoutedEventArgs e)
@@ -1713,6 +1879,8 @@ namespace BlankPlugin
         {
             if (string.IsNullOrWhiteSpace(_resolvedAppId)) return false;
             if (_installedGame != null) return false;
+            if (string.Equals(_cacheReadFailedAppId, _resolvedAppId.Trim(), StringComparison.Ordinal))
+                return false;
             return ManifestCache.TryGetCachedZipPath(_manifestCacheRoot, _resolvedAppId, out _);
         }
 
@@ -2056,6 +2224,7 @@ namespace BlankPlugin
                     Dispatch(() =>
                     {
                         LoadFromZip(data);
+                        _lastManifestZipPath = zipPath;
                         btn.IsEnabled = true;
                     });
                 }

@@ -37,5 +37,11 @@ namespace BlankPlugin
 
         /// <summary>Steam API header_image URL. Null for old entries — LibraryView fetches and caches it on first load.</summary>
         public string HeaderImageUrl { get; set; }
+
+        /// <summary>Last known Steam build ID used when writing appmanifest.</summary>
+        public string SteamBuildId { get; set; }
+
+        /// <summary>Absolute path to the manifest ZIP used for this install (when known).</summary>
+        public string ManifestZipPath { get; set; }
     }
 }

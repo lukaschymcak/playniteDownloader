@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
 using System.Text.RegularExpressions;
 
 namespace BlankPlugin
@@ -38,7 +39,8 @@ namespace BlankPlugin
 
             var gameData = new GameData();
 
-            using (var zip = ZipFile.OpenRead(zipPath))
+            using (var zipStream = OpenZipReadStreamWithRetry(zipPath))
+            using (var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: false))
             {
                 // ── Find and read the LUA file ──────────────────────────────────
                 ZipArchiveEntry luaEntry = null;
@@ -86,6 +88,34 @@ namespace BlankPlugin
                 + " Depots=" + gameData.Depots.Count);
 
             return gameData;
+        }
+
+        private static FileStream OpenZipReadStreamWithRetry(string zipPath)
+        {
+            const int maxAttempts = 8;
+            const int delayMs = 180;
+            Exception last = null;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    return new FileStream(
+                        zipPath,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.ReadWrite | FileShare.Delete);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    last = ex;
+                    if (attempt == maxAttempts)
+                        break;
+                    Thread.Sleep(delayMs);
+                }
+            }
+
+            throw new IOException("Failed to open manifest ZIP after retries: " + zipPath, last);
         }
 
         // ── LUA parsing ─────────────────────────────────────────────────────────

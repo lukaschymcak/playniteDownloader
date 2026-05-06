@@ -147,6 +147,7 @@ for (int i = 0; i < appIds.Count; i += batchSize)
 
         var depots = kv["depots"];
         if (depots == KeyValue.Invalid) continue;
+        var buildId = depots["branches"]?["public"]?["buildid"]?.Value;
 
         foreach (var depot in depots.Children)
         {
@@ -162,7 +163,7 @@ for (int i = 0; i < appIds.Count; i += batchSize)
             var gid = pub["gid"]?.Value;
             if (!string.IsNullOrEmpty(gid) && gid != "0")
             {
-                results.Add(new { appId = appIdStr, depotId = depot.Name, manifestGid = gid });
+                results.Add(new { appId = appIdStr, depotId = depot.Name, manifestGid = gid, buildId = buildId });
             }
         }
     }
