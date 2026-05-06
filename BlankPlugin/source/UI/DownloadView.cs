@@ -864,10 +864,16 @@ namespace BlankPlugin
                 {
                     if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
                     _cachedManifestLabel.Visibility = Visibility.Visible;
-                    _cachedManifestLabel.Text =
-                        "Saved manifest on disk for this game. Fetch from Morrenus is disabled.";
-                    _fetchBtn.IsEnabled = false;
-                    _fetchBtnSearch.IsEnabled = false;
+                    _cachedManifestLabel.Text = _installedGame != null
+                        ? "Saved manifest on disk. Use Fetch from Morrenus to refresh the depot list."
+                        : "Saved manifest on disk for this game. Fetch from Morrenus is disabled.";
+                    if (_installedGame == null)
+                    {
+                        _fetchBtn.IsEnabled = false;
+                        _fetchBtnSearch.IsEnabled = false;
+                    }
+                    else
+                        RefreshFetchButtonsForCacheAndBusy();
                 });
 
                 try
@@ -878,7 +884,7 @@ namespace BlankPlugin
                         if (gen != _manifestCacheApplyGen || _resolvedAppId != appId) return;
                         _gameData = data;
                         _gameInfoLabel.Text = data.GameName + "  (AppID: " + data.AppId + ")";
-                        PopulateDepots(data);
+                        PopulateDepots(data, GetInstalledDepotIdsForPopulate());
                         _downloadBtn.IsEnabled = !_downloading && _gameData != null && _gameData.Depots.Count > 0;
                     });
                     AppendLog("Loaded saved manifest from disk.");
@@ -901,9 +907,9 @@ namespace BlankPlugin
         private void RefreshFetchButtonsForCacheAndBusy()
         {
             var hasId = !string.IsNullOrWhiteSpace(_resolvedAppId);
-            var cacheHit = hasId && ManifestCache.TryGetCachedZipPath(_manifestCacheRoot, _resolvedAppId, out _);
-            _fetchBtn.IsEnabled = !_downloading && hasId && !cacheHit;
-            _fetchBtnSearch.IsEnabled = !_downloading && hasId && !cacheHit;
+            var blocked = CacheBlocksMorrenusFetch();
+            _fetchBtn.IsEnabled = !_downloading && hasId && !blocked;
+            _fetchBtnSearch.IsEnabled = !_downloading && hasId && !blocked;
         }
 
         // ── Fetch ────────────────────────────────────────────────────────────────
@@ -956,12 +962,18 @@ namespace BlankPlugin
 
                     Dispatch(() =>
                     {
-                        PopulateDepots(data);
+                        PopulateDepots(data, GetInstalledDepotIdsForPopulate());
                         _cachedManifestLabel.Visibility = Visibility.Visible;
-                        _cachedManifestLabel.Text =
-                            "Saved manifest on disk for this game. Fetch from Morrenus is disabled.";
-                        _fetchBtn.IsEnabled = false;
-                        _fetchBtnSearch.IsEnabled = false;
+                        _cachedManifestLabel.Text = _installedGame != null
+                            ? "Saved manifest on disk. Use Fetch from Morrenus to refresh the depot list."
+                            : "Saved manifest on disk for this game. Fetch from Morrenus is disabled.";
+                        if (_installedGame == null)
+                        {
+                            _fetchBtn.IsEnabled = false;
+                            _fetchBtnSearch.IsEnabled = false;
+                        }
+                        else
+                            RefreshFetchButtonsForCacheAndBusy();
                         _downloadBtn.IsEnabled = !_downloading && _gameData != null && _gameData.Depots.Count > 0;
                     });
                     AppendLog("Ready. " + data.Depots.Count + " depots available.");
@@ -980,7 +992,16 @@ namespace BlankPlugin
             _workerThread.Start();
         }
 
-        private void PopulateDepots(GameData data)
+        /// <summary>
+        /// Builds the depot checklist. For a plugin-installed game, depot ids in <paramref name="installedDepotIds"/>
+        /// render as read-only rows so they are not offered as download targets; other depots get checkboxes.
+        /// Fresh-install flow: all depots are checkboxes; Windows-tagged depots checked by default.
+        /// </summary>
+        /// <param name="installedDepotIds">
+        /// When <see cref="_installedGame"/> is set and this is non-empty, matching depots show as installed (non-CheckBox).
+        /// Ignored when not in add-on context. Callers use <see cref="GetInstalledDepotIdsForPopulate"/>.
+        /// </param>
+        private void PopulateDepots(GameData data, ICollection<string> installedDepotIds = null)
         {
             _depotList.Children.Clear();
 
@@ -995,6 +1016,21 @@ namespace BlankPlugin
                 return;
             }
 
+            HashSet<string> installedSet = null;
+            if (_installedGame != null && installedDepotIds != null && installedDepotIds.Count > 0)
+                installedSet = new HashSet<string>(installedDepotIds, StringComparer.OrdinalIgnoreCase);
+
+            if (_installedGame != null)
+            {
+                _depotList.Children.Add(new TextBlock
+                {
+                    Text = "Depots already in your install are listed below as read-only. Check additional depots to download them; only new selections are fetched.",
+                    Foreground = Brushes.LightGray,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(4, 4, 4, 8)
+                });
+            }
+
             var sorted = data.Depots
                 .OrderBy(kv => OsSortKey(kv.Value.OsList))
                 .ThenBy(kv => kv.Value.Description)
@@ -1004,15 +1040,32 @@ namespace BlankPlugin
             {
                 var depotId = kv.Key;
                 var info = kv.Value;
+                var windowsDefault = info.OsList == null
+                    || info.OsList.Equals("windows", StringComparison.OrdinalIgnoreCase);
+                var sizeText = info.Size > 0 ? "  [" + SteamLibraryHelper.FormatSize(info.Size) + "]" : "";
+                var line = string.Format("[{0}] {1}{2}  (id: {3})",
+                    (info.OsList ?? "?").ToUpper(), info.Description, sizeText, depotId);
+
+                // Read-only row: not a CheckBox so OnDownloadClicked never treats it as a download target.
+                if (installedSet != null && installedSet.Contains(depotId))
+                {
+                    _depotList.Children.Add(new TextBlock
+                    {
+                        Text = "[INSTALLED]  " + line,
+                        Foreground = Brushes.LightSteelBlue,
+                        Margin = new Thickness(4, 2, 4, 2),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    });
+                    continue;
+                }
+
                 var cb = new CheckBox
                 {
                     Tag = depotId,
                     Margin = new Thickness(4, 2, 4, 2),
-                    IsChecked = info.OsList == null || info.OsList.Equals("windows", StringComparison.OrdinalIgnoreCase)
+                    IsChecked = windowsDefault
                 };
-                var sizeText = info.Size > 0 ? "  [" + SteamLibraryHelper.FormatSize(info.Size) + "]" : "";
-                cb.Content = string.Format("[{0}] {1}{2}  (id: {3})",
-                    (info.OsList ?? "?").ToUpper(), info.Description, sizeText, depotId);
+                cb.Content = line;
                 _depotList.Children.Add(cb);
             }
 
@@ -1025,12 +1078,24 @@ namespace BlankPlugin
         {
             if (_gameData == null || _downloading) return;
 
-            string destPath;
+            var priorInstalled = _installedGame;
+
+            string destPath = null;
             if (_selectedLibraryPath != null)
-            {
                 destPath = _selectedLibraryPath;
+            else if (priorInstalled != null && !string.IsNullOrWhiteSpace(priorInstalled.LibraryPath))
+            {
+                var lib = priorInstalled.LibraryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (Directory.Exists(lib))
+                {
+                    destPath = lib;
+                    _selectedLibraryPath = destPath;
+                    _selectedLibLabel.Text = destPath;
+                    _selectedLibLabel.Foreground = Brushes.White;
+                }
             }
-            else
+
+            if (destPath == null)
             {
                 var libraries = SteamLibraryHelper.GetSteamLibraries();
                 if (libraries.Count == 0)
@@ -1050,6 +1115,7 @@ namespace BlankPlugin
                 _selectedLibLabel.Text = picked;
                 _selectedLibLabel.Foreground = Brushes.White;
             }
+
             AppendLog("Installing to Steam library: " + destPath);
 
             if (!_downloader.IsReady)
@@ -1072,7 +1138,30 @@ namespace BlankPlugin
                 return;
             }
 
-            _gameData.SelectedDepots = selected;
+            List<string> depotsForRunner;
+            if (priorInstalled != null)
+            {
+                var prev = new HashSet<string>(
+                    priorInstalled.SelectedDepots ?? new List<string>(),
+                    StringComparer.OrdinalIgnoreCase);
+                var alreadyInstalledSelected = selected.Where(id => prev.Contains(id)).ToList();
+                if (alreadyInstalledSelected.Count > 0)
+                    logger.Info("DownloadView: checkboxes included depot ids already on install (unexpected): "
+                        + string.Join(", ", alreadyInstalledSelected));
+                depotsForRunner = selected.Where(id => !prev.Contains(id)).ToList();
+                if (depotsForRunner.Count == 0)
+                {
+                    AppendLog("No new depots to download — all selected depots are already in this install. Check additional depots to add content.");
+                    return;
+                }
+                AppendLog("Add-on: downloading new depot(s): " + string.Join(", ", depotsForRunner));
+            }
+            else
+            {
+                depotsForRunner = selected;
+                _gameData.SelectedDepots = selected;
+            }
+
             _currentDownloadDir = _downloader.ComputeDownloadDir(_gameData, destPath);
 
             var runSteamless  = _steamlessCheck.IsChecked == true;
@@ -1101,7 +1190,8 @@ namespace BlankPlugin
                     if (!string.IsNullOrWhiteSpace(username))
                         AppendLog("Using Steam account: " + username);
 
-                    _downloader.Run(_gameData, destPath,
+                    var runData = CloneGameDataWithDepots(_gameData, depotsForRunner);
+                    _downloader.Run(runData, destPath,
                         onLog:         line   => AppendLog(line),
                         onProgress:    pct    => Dispatch(() =>
                         {
@@ -1127,6 +1217,10 @@ namespace BlankPlugin
                     if (registerSteam)
                     {
                         AppendLog("--- Writing Steam ACF ---");
+                        var depotsForAc = priorInstalled != null
+                            ? MergeDepotIdLists(priorInstalled.SelectedDepots, selected)
+                            : selected;
+                        _gameData.SelectedDepots = depotsForAc;
                         AcfWriter.Write(_gameData, destPath, line => AppendLog(line));
                     }
 
@@ -1134,40 +1228,96 @@ namespace BlankPlugin
                     {
                         try
                         {
-                            var installDir = AcfWriter.GetInstallFolderName(_gameData);
-                            var installPath = Path.Combine(destPath, "steamapps", "common", installDir);
-
-                            long sizeOnDisk = 0;
-                            if (Directory.Exists(installPath))
+                            if (priorInstalled != null)
                             {
-                                try { sizeOnDisk = GetDirectorySize(installPath); }
-                                catch { /* best effort */ }
+                                var mergedList = MergeDepotIdLists(priorInstalled.SelectedDepots, selected);
+                                _gameData.SelectedDepots = new List<string>(mergedList);
+
+                                var installDir = AcfWriter.GetInstallFolderName(_gameData);
+                                var installPath = Path.Combine(destPath, "steamapps", "common", installDir);
+
+                                long sizeOnDisk = 0;
+                                if (Directory.Exists(installPath))
+                                {
+                                    try { sizeOnDisk = GetDirectorySize(installPath); }
+                                    catch { /* best effort */ }
+                                }
+
+                                var manifestGids = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                                foreach (var depotId in mergedList)
+                                {
+                                    if (_gameData.Manifests != null && _gameData.Manifests.TryGetValue(depotId, out var gid)
+                                        && !string.IsNullOrEmpty(gid))
+                                        manifestGids[depotId] = gid;
+                                    else if (priorInstalled.ManifestGIDs != null
+                                        && priorInstalled.ManifestGIDs.TryGetValue(depotId, out var oldGid))
+                                        manifestGids[depotId] = oldGid;
+                                }
+
+                                var mergedEntry = new InstalledGame
+                                {
+                                    AppId                 = _gameData.AppId,
+                                    GameName              = _gameData.GameName,
+                                    InstallPath           = installPath,
+                                    LibraryPath           = destPath,
+                                    InstallDir            = installDir,
+                                    InstalledDate         = priorInstalled.InstalledDate,
+                                    SizeOnDisk            = sizeOnDisk,
+                                    SelectedDepots        = mergedList,
+                                    ManifestGIDs          = manifestGids,
+                                    PlayniteGameId        = priorInstalled.PlayniteGameId != Guid.Empty
+                                        ? priorInstalled.PlayniteGameId
+                                        : (_game?.Id ?? Guid.Empty),
+                                    DrmStripped           = priorInstalled.DrmStripped || runSteamless,
+                                    RegisteredWithSteam   = priorInstalled.RegisteredWithSteam || registerSteam,
+                                    GseSavesCopied        = priorInstalled.GseSavesCopied,
+                                    HeaderImageUrl        = _headerImageUrl ?? priorInstalled.HeaderImageUrl
+                                };
+                                _installedGamesManager.Save(mergedEntry);
+                                AppendLog("Install record updated (add-on depots merged).");
+                                Dispatch(() =>
+                                {
+                                    _installedGame = mergedEntry;
+                                    PopulateDepots(_gameData, GetInstalledDepotIdsForPopulate());
+                                });
+                                _updateChecker?.RunAsync();
                             }
-
-                            var installedEntry = new InstalledGame
+                            else
                             {
-                                AppId            = _gameData.AppId,
-                                GameName         = _gameData.GameName,
-                                InstallPath      = installPath,
-                                LibraryPath      = destPath,
-                                InstallDir       = installDir,
-                                InstalledDate    = DateTime.UtcNow,
-                                SizeOnDisk       = sizeOnDisk,
-                                SelectedDepots   = new List<string>(_gameData.SelectedDepots),
-                                ManifestGIDs     = _gameData.Manifests
-                                    .Where(kv => _gameData.SelectedDepots.Contains(kv.Key))
-                                    .ToDictionary(kv => kv.Key, kv => kv.Value),
-                                PlayniteGameId   = _game?.Id ?? Guid.Empty,
-                                DrmStripped      = runSteamless,
-                                RegisteredWithSteam = registerSteam,
-                                HeaderImageUrl   = _headerImageUrl
-                            };
-                            _installedGamesManager.Save(installedEntry);
-                            AppendLog("Game saved to installed library.");
+                                var installDir = AcfWriter.GetInstallFolderName(_gameData);
+                                var installPath = Path.Combine(destPath, "steamapps", "common", installDir);
 
-                            // Register with Playnite when installed from library mode (no game context)
-                            if (_game == null && _api != null)
-                            {
+                                long sizeOnDisk = 0;
+                                if (Directory.Exists(installPath))
+                                {
+                                    try { sizeOnDisk = GetDirectorySize(installPath); }
+                                    catch { /* best effort */ }
+                                }
+
+                                var installedEntry = new InstalledGame
+                                {
+                                    AppId            = _gameData.AppId,
+                                    GameName         = _gameData.GameName,
+                                    InstallPath      = installPath,
+                                    LibraryPath      = destPath,
+                                    InstallDir       = installDir,
+                                    InstalledDate    = DateTime.UtcNow,
+                                    SizeOnDisk       = sizeOnDisk,
+                                    SelectedDepots   = new List<string>(_gameData.SelectedDepots),
+                                    ManifestGIDs     = _gameData.Manifests
+                                        .Where(kv => _gameData.SelectedDepots.Contains(kv.Key))
+                                        .ToDictionary(kv => kv.Key, kv => kv.Value),
+                                    PlayniteGameId   = _game?.Id ?? Guid.Empty,
+                                    DrmStripped      = runSteamless,
+                                    RegisteredWithSteam = registerSteam,
+                                    HeaderImageUrl   = _headerImageUrl
+                                };
+                                _installedGamesManager.Save(installedEntry);
+                                AppendLog("Game saved to installed library.");
+
+                                // Register with Playnite when installed from library mode (no game context)
+                                if (_game == null && _api != null)
+                                {
                                 var hasAppId = !string.IsNullOrWhiteSpace(_gameData.AppId);
                                 if (!hasAppId && string.IsNullOrWhiteSpace(_gameData.GameName))
                                 {
@@ -1298,6 +1448,7 @@ namespace BlankPlugin
                                         AppendLog("WARNING: Could not sync with Playnite library: " + exLib.Message);
                                     }
                                 }
+                            }
                             }
                         }
                         catch (Exception exSave)
@@ -1516,14 +1667,80 @@ namespace BlankPlugin
                 Dispatch(() =>
                 {
                     _resolveStatusLabel.Visibility = Visibility.Collapsed;
-                    _foundPanel.Visibility = Visibility.Collapsed;
+                    _foundPanel.Visibility = Visibility.Visible;
+                    _foundLabel.Text = "\u2713 " + _installedGame.GameName + " (" + _installedGame.AppId + ")";
                     _searchPanel.Visibility = Visibility.Collapsed;
                     _installedPanel.Visibility = Visibility.Visible;
+                    _downloadBtn.Content = "Download selected depots (add-on)";
                     _downloadBtn.IsEnabled = false;
-                    _downloadBtn.Content = "Already Installed";
                     _resolvedAppId = _installedGame.AppId;
+                    ApplyPrefillLibraryFromInstalled();
+                    RefreshFetchButtonsForCacheAndBusy();
+                    ApplyCachedManifestIfPresent();
                 });
             }
+        }
+
+        /// <summary>
+        /// When adding depots to an existing install, default the Steam library root from the saved record
+        /// (DepotDownloader expects library root, not .../common/GameName).
+        /// </summary>
+        private void ApplyPrefillLibraryFromInstalled()
+        {
+            if (_installedGame == null) return;
+            var lib = _installedGame.LibraryPath;
+            if (string.IsNullOrWhiteSpace(lib)) return;
+            lib = lib.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (!Directory.Exists(lib)) return;
+            _selectedLibraryPath = lib;
+            if (_selectedLibLabel != null)
+            {
+                _selectedLibLabel.Text = lib;
+                _selectedLibLabel.Foreground = Brushes.White;
+            }
+        }
+
+        /// <summary>Depot ids already saved on the install record — used to show read-only rows in add-on mode.</summary>
+        private ICollection<string> GetInstalledDepotIdsForPopulate()
+        {
+            if (_installedGame?.SelectedDepots == null || _installedGame.SelectedDepots.Count == 0)
+                return null;
+            return _installedGame.SelectedDepots;
+        }
+
+        /// <summary>Morrenus fetch is blocked by disk cache only for non-installed flows; installed users need refresh for new depots.</summary>
+        private bool CacheBlocksMorrenusFetch()
+        {
+            if (string.IsNullOrWhiteSpace(_resolvedAppId)) return false;
+            if (_installedGame != null) return false;
+            return ManifestCache.TryGetCachedZipPath(_manifestCacheRoot, _resolvedAppId, out _);
+        }
+
+        private static GameData CloneGameDataWithDepots(GameData src, List<string> depotIdsForRun)
+        {
+            return new GameData
+            {
+                AppId          = src.AppId,
+                GameName       = src.GameName,
+                InstallDir     = src.InstallDir,
+                BuildId        = src.BuildId,
+                Depots         = src.Depots,
+                Manifests      = src.Manifests,
+                Dlcs           = src.Dlcs,
+                SelectedDepots = new List<string>(depotIdsForRun)
+            };
+        }
+
+        private static List<string> MergeDepotIdLists(IEnumerable<string> a, IEnumerable<string> b)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (a != null)
+                foreach (var x in a)
+                    if (!string.IsNullOrEmpty(x)) set.Add(x);
+            if (b != null)
+                foreach (var x in b)
+                    if (!string.IsNullOrEmpty(x)) set.Add(x);
+            return set.ToList();
         }
 
         private static bool TitlesMatch(string a, string b)
@@ -2005,9 +2222,9 @@ namespace BlankPlugin
             _downloading = busy;
             if (!busy) { _progressBar.IsIndeterminate = false; StopSpeedMonitor(); }
             var hasId = !string.IsNullOrWhiteSpace(_resolvedAppId);
-            var cacheHit = hasId && ManifestCache.TryGetCachedZipPath(_manifestCacheRoot, _resolvedAppId, out _);
-            _fetchBtn.IsEnabled       = !busy && hasId && !cacheHit;
-            _fetchBtnSearch.IsEnabled = !busy && hasId && !cacheHit;
+            var blocked = CacheBlocksMorrenusFetch();
+            _fetchBtn.IsEnabled       = !busy && hasId && !blocked;
+            _fetchBtnSearch.IsEnabled = !busy && hasId && !blocked;
             _downloadBtn.IsEnabled    = !busy && _gameData != null && _gameData.Depots.Count > 0;
             _stopBtn.IsEnabled        = busy;
             if (!string.IsNullOrEmpty(status))
