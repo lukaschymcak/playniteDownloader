@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,11 +13,11 @@ namespace BlankPlugin
 {
     public class SearchView : UserControl
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
-        private readonly BlankPluginSettings   _settings;
-        private readonly IPlayniteAPI          _api;
-        private readonly BlankPlugin           _plugin;
+        private readonly AppSettings           _settings;
+        private readonly IDialogService        _dialogService;
+        private readonly IAppHost              _appHost;
         private readonly LibraryGamesManager   _libraryGames;
         private readonly SteamApiClient        _steamClient;
 
@@ -51,12 +50,12 @@ namespace BlankPlugin
         private bool                       _dlcPrefetchBusy = false;
         private string                     _dlcCacheLabel   = null;  // "N DLC for [game]"
 
-        public SearchView(BlankPluginSettings settings, IPlayniteAPI api, BlankPlugin plugin, LibraryGamesManager libraryGames)
+        public SearchView(AppSettings settings, IDialogService dialogService, IAppHost appHost, LibraryGamesManager libraryGames)
         {
-            _settings     = settings;
-            _api          = api;
-            _plugin       = plugin;
-            _libraryGames = libraryGames;
+            _settings       = settings;
+            _dialogService  = dialogService;
+            _appHost        = appHost;
+            _libraryGames   = libraryGames;
             _steamClient  = new SteamApiClient(() => _settings.SteamWebApiKey);
 
             Content = BuildLayout();
@@ -699,7 +698,7 @@ namespace BlankPlugin
             var buttons = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
 
             var inLibrary = _libraryGames != null && _libraryGames.Contains(game.AppId);
-            var ig = _plugin?.InstalledGames?.FindByAppId(game.AppId);
+            var ig = _appHost?.InstalledGames?.FindByAppId(game.AppId);
             var installed = ig != null && Directory.Exists(ig.InstallPath);
 
             var addBtn = new Button
@@ -724,7 +723,7 @@ namespace BlankPlugin
             buttons.Children.Add(addBtn);
 
             var downloadBtn = new Button { Content = "Download", Margin = new Thickness(0, 0, 0, 3), Width = 72 };
-            downloadBtn.Click += (s, e) => _plugin.OpenDownloadForAppId(game.AppId, game.Name, imgUrl);
+            downloadBtn.Click += (s, e) => _appHost.OpenDownloadForAppId(game.AppId, game.Name, imgUrl);
             buttons.Children.Add(downloadBtn);
 
             var steamDbBtn = new Button { Content = "SteamDB", Margin = new Thickness(0, 0, 0, 3), Width = 72 };
