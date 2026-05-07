@@ -2,7 +2,7 @@ using System;
 
 namespace BlankPlugin
 {
-    public sealed class NullLogger : ILogger
+    public sealed class NullCoreLogger : ICoreLogger
     {
         public void Info(string message) { }
         public void Warn(string message) { }

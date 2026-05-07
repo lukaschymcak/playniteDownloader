@@ -2,7 +2,7 @@ using System;
 
 namespace BlankPlugin
 {
-    public interface ILogger
+    public interface ICoreLogger
     {
         void Info(string message);
         void Warn(string message);

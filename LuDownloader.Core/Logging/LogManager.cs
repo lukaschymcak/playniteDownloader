@@ -2,13 +2,13 @@ using System;
 
 namespace BlankPlugin
 {
-    public static class LogManager
+    public static class CoreLogManager
     {
-        private static Func<ILogger> _factory = () => new NullLogger();
+        private static Func<ICoreLogger> _factory = () => new NullCoreLogger();
 
-        public static void SetFactory(Func<ILogger> factory)
+        public static void SetFactory(Func<ICoreLogger> factory)
             => _factory = factory ?? throw new ArgumentNullException(nameof(factory));
 
-        public static ILogger GetLogger() => _factory();
+        public static ICoreLogger GetLogger() => _factory();
     }
 }
