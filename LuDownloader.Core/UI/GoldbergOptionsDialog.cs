@@ -1,7 +1,6 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using Playnite.SDK;
 
 namespace BlankPlugin
 {
@@ -161,24 +160,15 @@ namespace BlankPlugin
         /// <summary>Returns null if cancelled.</summary>
         public static GoldbergOptions ShowPicker(
             Window owner,
-            IPlayniteAPI api,
+            IDialogService dialogService,
             string detectedArch,
             string appOutputDir)
         {
             var dialog = new GoldbergOptionsDialog(detectedArch, appOutputDir);
-            var window = api.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = false,
-                ShowCloseButton = true
-            });
-            window.Title = "Goldberg Emulator";
+            var window = dialogService.CreateWindow("Goldberg Emulator", dialog, owner);
             window.Width = 420;
             window.SizeToContent = SizeToContent.Height;
             window.ResizeMode = ResizeMode.NoResize;
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            window.Owner = owner;
-            window.Content = dialog;
             window.ShowDialog();
             return dialog._result;
         }

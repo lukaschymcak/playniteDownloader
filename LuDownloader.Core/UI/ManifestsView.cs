@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,15 +9,15 @@ namespace BlankPlugin
     /// </summary>
     public class ManifestsView : UserControl
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
-        private readonly BlankPlugin _plugin;
+        private readonly IAppHost _appHost;
         private StackPanel _listPanel;
         private TextBlock _emptyLabel;
 
-        public ManifestsView(BlankPlugin plugin)
+        public ManifestsView(IAppHost appHost)
         {
-            _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
+            _appHost = appHost ?? throw new ArgumentNullException(nameof(appHost));
             Content = BuildLayout();
             Loaded += (_, __) => RefreshList();
         }
@@ -79,7 +78,7 @@ namespace BlankPlugin
         {
             try
             {
-                var cacheDir = ManifestCache.GetCacheDirectory(_plugin.GetPluginUserDataPath());
+                var cacheDir = ManifestCache.GetCacheDirectory(_appHost.UserDataPath);
                 var entries = ManifestCache.EnumerateCached(cacheDir);
 
                 _listPanel.Children.Clear();
@@ -128,7 +127,7 @@ namespace BlankPlugin
             {
                 try
                 {
-                    _plugin.OpenDownloadForAppId(entry.AppId, entry.DisplayName);
+                    _appHost.OpenDownloadForAppId(entry.AppId, entry.DisplayName);
                 }
                 catch (Exception ex)
                 {

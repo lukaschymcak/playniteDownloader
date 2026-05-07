@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,12 +18,12 @@ namespace BlankPlugin
     /// </summary>
     public class UpdateWindow : UserControl
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         private readonly InstalledGame _existingGame;
-        private readonly BlankPluginSettings _settings;
+        private readonly AppSettings _settings;
         private readonly InstalledGamesManager _gamesManager;
-        private readonly IPlayniteAPI _api;
+        private readonly IDialogService _dialogService;
         private readonly GameData _preloadedData; // null = API path
         private readonly UpdateChecker _updateChecker;
 
@@ -41,16 +40,16 @@ namespace BlankPlugin
 
         public UpdateWindow(
             InstalledGame existingGame,
-            BlankPluginSettings settings,
+            AppSettings settings,
             InstalledGamesManager gamesManager,
-            IPlayniteAPI api,
+            IDialogService dialogService,
             GameData preloadedData = null,
             UpdateChecker updateChecker = null)
         {
             _existingGame = existingGame;
             _settings = settings;
             _gamesManager = gamesManager;
-            _api = api;
+            _dialogService = dialogService;
             _preloadedData = preloadedData;
             _updateChecker = updateChecker;
 

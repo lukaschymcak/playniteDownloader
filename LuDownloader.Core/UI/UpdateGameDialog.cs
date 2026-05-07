@@ -2,8 +2,6 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using Playnite.SDK;
-using Playnite.SDK.Models;
 
 namespace BlankPlugin
 {
@@ -15,22 +13,22 @@ namespace BlankPlugin
     public class UpdateGameDialog : UserControl
     {
         private readonly InstalledGame _game;
-        private readonly BlankPluginSettings _settings;
+        private readonly AppSettings _settings;
         private readonly InstalledGamesManager _gamesManager;
-        private readonly IPlayniteAPI _api;
+        private readonly IDialogService _dialogService;
         private readonly UpdateChecker _updateChecker;
 
         public UpdateGameDialog(
             InstalledGame game,
-            BlankPluginSettings settings,
+            AppSettings settings,
             InstalledGamesManager gamesManager,
-            IPlayniteAPI api,
+            IDialogService dialogService,
             UpdateChecker updateChecker)
         {
             _game = game;
             _settings = settings;
             _gamesManager = gamesManager;
-            _api = api;
+            _dialogService = dialogService;
             _updateChecker = updateChecker;
 
             var panel = new StackPanel
@@ -159,24 +157,16 @@ namespace BlankPlugin
         {
             Window.GetWindow(this)?.Close();
 
-            var window = _api.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = false,
-                ShowCloseButton = true
-            });
-            window.Title = "Update — " + _game.GameName;
+            var updateWindow = new UpdateWindow(_game, _settings, _gamesManager, _dialogService, null, _updateChecker);
+            var window = _dialogService.CreateWindow("Update — " + _game.GameName, updateWindow, _dialogService.GetMainWindow());
             window.Width = 700;
             window.Height = 500;
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            window.Owner = _api.Dialogs.GetCurrentAppWindow();
-            window.Content = new UpdateWindow(_game, _settings, _gamesManager, _api, null, _updateChecker);
             window.ShowDialog();
         }
 
         private void OnUpdateViaZip()
         {
-            var zipPath = _api.Dialogs.SelectFile("Manifest ZIP|*.zip");
+            var zipPath = _dialogService.SelectFile("Manifest ZIP|*.zip");
             if (string.IsNullOrEmpty(zipPath)) return;
 
             GameData freshData;
@@ -201,18 +191,10 @@ namespace BlankPlugin
 
             Window.GetWindow(this)?.Close();
 
-            var window = _api.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = false,
-                ShowCloseButton = true
-            });
-            window.Title = "Update — " + _game.GameName;
+            var updateWindow = new UpdateWindow(_game, _settings, _gamesManager, _dialogService, freshData, _updateChecker);
+            var window = _dialogService.CreateWindow("Update — " + _game.GameName, updateWindow, _dialogService.GetMainWindow());
             window.Width = 700;
             window.Height = 500;
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            window.Owner = _api.Dialogs.GetCurrentAppWindow();
-            window.Content = new UpdateWindow(_game, _settings, _gamesManager, _api, freshData, _updateChecker);
             window.ShowDialog();
         }
     }

@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -201,28 +200,17 @@ namespace BlankPlugin
 
         // ── Static entry point ────────────────────────────────────────────────────
 
-        public static string ShowPicker(Window owner, List<string> imageIds, IgdbClient igdb, IPlayniteAPI api)
+        public static string ShowPicker(Window owner, List<string> imageIds, IgdbClient igdb, IDialogService dialogService)
         {
             if (imageIds == null || imageIds.Count == 0) return null;
 
             // Single image — use it without asking
             if (imageIds.Count == 1) return imageIds[0];
 
-            var window = api.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = false,
-                ShowCloseButton = true
-            });
-            window.Owner = owner;
-
-            window.Title = "Select Background Image";
+            var dialog = new IgdbBackgroundPickerDialog(imageIds, igdb);
+            var window = dialogService.CreateWindow("Select Background Image", dialog, owner);
             window.Width = 680;
             window.Height = 520;
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-
-            var dialog = new IgdbBackgroundPickerDialog(imageIds, igdb);
-            window.Content = dialog;
             window.ShowDialog();
 
             return dialog.SelectedImageId;

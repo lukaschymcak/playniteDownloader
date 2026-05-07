@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -281,23 +280,12 @@ namespace BlankPlugin
 
         // ── Static entry point ────────────────────────────────────────────────────
 
-        public static IgdbGameResult ShowPicker(Window owner, string gameName, IgdbClient igdb, IPlayniteAPI api)
+        public static IgdbGameResult ShowPicker(Window owner, string gameName, IgdbClient igdb, IDialogService dialogService)
         {
-            var window = api.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = false,
-                ShowCloseButton = true
-            });
-            window.Owner = owner;
-
-            window.Title = "IGDB Metadata — " + gameName;
+            var dialog = new IgdbMetadataPickerDialog(gameName, igdb);
+            var window = dialogService.CreateWindow("IGDB Metadata — " + gameName, dialog, owner);
             window.Width = 520;
             window.Height = 560;
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-
-            var dialog = new IgdbMetadataPickerDialog(gameName, igdb);
-            window.Content = dialog;
             window.ShowDialog();
 
             return dialog.SelectedResult;

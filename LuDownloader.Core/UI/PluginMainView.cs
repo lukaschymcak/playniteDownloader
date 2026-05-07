@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System.Windows.Controls;
 
 namespace BlankPlugin
@@ -6,12 +5,12 @@ namespace BlankPlugin
     public class PluginMainView : UserControl
     {
         public PluginMainView(
-            BlankPluginSettings settings,
+            AppSettings settings,
             InstalledGamesManager installedGames,
             LibraryGamesManager libraryGames,
-            IPlayniteAPI api,
+            IDialogService dialogService,
             UpdateChecker updateChecker,
-            BlankPlugin plugin)
+            IAppHost appHost)
         {
             var tabs = new TabControl();
 
@@ -19,21 +18,21 @@ namespace BlankPlugin
             var libraryTab = new TabItem
             {
                 Header  = "Library",
-                Content = new LibraryView(settings, installedGames, libraryGames, api, updateChecker, plugin)
+                Content = new LibraryView(settings, installedGames, libraryGames, dialogService, updateChecker, appHost)
             };
 
             // Tab 1: Search (new)
             var searchTab = new TabItem
             {
                 Header  = "Search",
-                Content = new SearchView(settings, api, plugin, libraryGames)
+                Content = new SearchView(settings, dialogService, appHost, libraryGames)
             };
 
             // Tab 2: Cached Morrenus manifests (sidebar window only — not in DownloadView)
             var manifestsTab = new TabItem
             {
                 Header  = "Manifests",
-                Content = new ManifestsView(plugin)
+                Content = new ManifestsView(appHost)
             };
 
             tabs.Items.Add(libraryTab);
