@@ -1,5 +1,4 @@
 using Newtonsoft.Json;
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,7 +12,7 @@ namespace BlankPlugin
     /// </summary>
     public static class ManifestCache
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private static readonly Regex SafeAppIdRegex = new Regex(@"^\d+$", RegexOptions.Compiled);
 
         public static string GetCacheDirectory(string pluginUserDataPath)

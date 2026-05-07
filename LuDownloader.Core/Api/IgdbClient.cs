@@ -1,5 +1,4 @@
 using Newtonsoft.Json.Linq;
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -40,7 +39,7 @@ namespace BlankPlugin
     /// </remarks>
     public class IgdbClient
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         private const string TokenUrl  = "https://id.twitch.tv/oauth2/token";
         private const string GamesUrl  = "https://api.igdb.com/v4/games";

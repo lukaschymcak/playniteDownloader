@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,7 +12,7 @@ namespace BlankPlugin
     /// </summary>
     public class SteamlessRunner
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         private readonly string _dotnetPath;
         private readonly string _steamlessDll;

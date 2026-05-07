@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -11,7 +10,7 @@ namespace BlankPlugin
     /// </summary>
     public sealed class SteamIntegrationService
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         public string GetSteamPath()
         {

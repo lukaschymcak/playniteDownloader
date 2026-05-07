@@ -1,6 +1,5 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +42,7 @@ namespace BlankPlugin
     /// </remarks>
     public class SteamApiClient
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private const string ApiBase   = "https://api.steampowered.com";
         private const string StoreBase = "https://store.steampowered.com";
 

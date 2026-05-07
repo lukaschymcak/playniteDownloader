@@ -1,5 +1,4 @@
 using Newtonsoft.Json;
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,7 +11,7 @@ namespace BlankPlugin
     /// </summary>
     public class LibraryGamesManager
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private readonly string _dataFilePath;
         private List<SavedLibraryGame> _entries;
         private readonly object _lock = new object();

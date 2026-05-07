@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.IO;
 using System.Net;
@@ -16,7 +15,7 @@ namespace BlankPlugin
     /// </remarks>
     public static class CoverDownloader
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private static readonly HttpClient _http;
 
         static CoverDownloader()

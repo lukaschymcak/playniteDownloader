@@ -1,6 +1,5 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -31,7 +30,7 @@ namespace BlankPlugin
     /// </remarks>
     public class MorrenusClient
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private const string BaseUrl = "https://manifest.morrenus.xyz/api/v1";
 
         private readonly HttpClient _http;

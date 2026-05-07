@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.IO;
 using System.Text;
@@ -13,7 +12,7 @@ namespace BlankPlugin
     /// </summary>
     public static class AcfWriter
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         public static string Write(GameData gameData, string steamLibraryPath, Action<string> onLog)
         {

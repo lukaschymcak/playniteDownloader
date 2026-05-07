@@ -1,4 +1,3 @@
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,7 +18,7 @@ namespace BlankPlugin
     /// </summary>
     public class ZipProcessor
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         // Depot descriptions blacklisted by content keyword
         private static readonly HashSet<string> DescBlacklist = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
