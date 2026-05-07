@@ -1,5 +1,3 @@
-using Playnite.SDK;
-using Playnite.SDK.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,11 +14,11 @@ namespace BlankPlugin
     /// </summary>
     public class UpdateChecker
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         private readonly ManifestCheckerRunner _runner;
         private readonly InstalledGamesManager _gamesManager;
-        private readonly IPlayniteAPI _playniteApi;
+        private readonly IAppHost _appHost;
 
         // In-memory cache: AppId -> status string
         // Status values: "up_to_date" | "update_available" | "cannot_determine" | "checking"
@@ -33,11 +31,11 @@ namespace BlankPlugin
         public UpdateChecker(
             ManifestCheckerRunner runner,
             InstalledGamesManager gamesManager,
-            IPlayniteAPI playniteApi)
+            IAppHost appHost)
         {
             _runner = runner;
             _gamesManager = gamesManager;
-            _playniteApi = playniteApi;
+            _appHost = appHost;
         }
 
         public string GetStatus(string appId)
@@ -95,10 +93,7 @@ namespace BlankPlugin
                     {
                         logger.Warn("UpdateChecker: ManifestCheckerRunner failed: " + error);
 
-                        _playniteApi.Notifications.Add(new NotificationMessage(
-                            "blankplugin_check_failed_" + DateTime.Now.Ticks,
-                            "LuDownloader: Update check failed — " + error,
-                            NotificationType.Error));
+                        _appHost.ShowNotification("LuDownloader: Update check failed — " + error, isError: true);
 
                         // Mark all as cannot_determine
                         foreach (var game in checkable)
@@ -174,10 +169,7 @@ namespace BlankPlugin
                             message = "Updates available for " + updatesAvailable.Count + " games: "
                                       + string.Join(", ", updatesAvailable);
 
-                        _playniteApi.Notifications.Add(new NotificationMessage(
-                            "blankplugin_updates_" + DateTime.Now.Ticks,
-                            message,
-                            NotificationType.Info));
+                        _appHost.ShowNotification(message, isError: false);
                     }
                 }
                 catch (Exception ex)

@@ -1,6 +1,4 @@
 using Newtonsoft.Json;
-using Playnite.SDK;
-using Playnite.SDK.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +13,7 @@ namespace BlankPlugin
     /// </summary>
     public class InstalledGamesManager
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private readonly string _dataFilePath;
         private List<InstalledGame> _games;
         private readonly object _lock = new object();
@@ -156,7 +154,7 @@ namespace BlankPlugin
             }
         }
 
-        public ReconcileResult ReconcileWithSteamLibraries(IEnumerable<SavedLibraryGame> bookmarks, IEnumerable<Game> playniteGames)
+        public ReconcileResult ReconcileWithSteamLibraries(IEnumerable<SavedLibraryGame> bookmarks, IEnumerable<string> additionalSteamAppIds = null)
         {
             lock (_lock)
             {
@@ -178,14 +176,12 @@ namespace BlankPlugin
                     }
                 }
 
-                var steamPluginGuid = new Guid("CB91DFC9-B977-43BF-8E70-55F46E410FAB");
-                if (playniteGames != null)
+                if (additionalSteamAppIds != null)
                 {
-                    foreach (var pg in playniteGames)
+                    foreach (var appId in additionalSteamAppIds)
                     {
-                        if (pg == null || pg.PluginId != steamPluginGuid || string.IsNullOrWhiteSpace(pg.GameId))
-                            continue;
-                        candidates.Add(pg.GameId.Trim());
+                        if (!string.IsNullOrWhiteSpace(appId))
+                            candidates.Add(appId.Trim());
                     }
                 }
 
