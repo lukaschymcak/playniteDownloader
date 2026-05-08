@@ -1,5 +1,7 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace LuDownloader.App
 {
@@ -19,6 +21,7 @@ namespace LuDownloader.App
             Width = 1100;
             Height = 750;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Background = new SolidColorBrush(Color.FromRgb(30, 30, 35));
 
             _installedGames = new BlankPlugin.InstalledGamesManager(appHost.UserDataPath);
             _libraryGames   = new BlankPlugin.LibraryGamesManager(appHost.UserDataPath);
@@ -30,7 +33,21 @@ namespace LuDownloader.App
             _mainView = new BlankPlugin.PluginMainView(
                 settings, _installedGames, _libraryGames, dialogService, _updateChecker, appHost);
 
-            Content = _mainView;
+            var menuBar = new Menu();
+            var settingsMenu = new MenuItem { Header = "Settings" };
+            settingsMenu.Click += (s, e) =>
+            {
+                var win = new SettingsWindow((Settings.StandaloneSettings)settings, this);
+                win.ShowDialog();
+            };
+            menuBar.Items.Add(settingsMenu);
+
+            DockPanel.SetDock(menuBar, Dock.Top);
+
+            var outer = new DockPanel();
+            outer.Children.Add(menuBar);
+            outer.Children.Add(_mainView);
+            Content = outer;
         }
     }
 }
