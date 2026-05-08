@@ -1,6 +1,4 @@
 using Microsoft.Win32;
-using Playnite.SDK;
-using Playnite.SDK.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,15 +21,23 @@ namespace BlankPlugin
     /// </summary>
     public class DownloadView : UserControl
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
         private static readonly Guid SteamPluginGuid = new Guid("CB91DFC9-B977-43BF-8E70-55F46E410FAB");
 
         // ── Services ─────────────────────────────────────────────────────────────
-        private readonly Game _game;
-        private readonly BlankPluginSettings _settings;
-        private readonly IPlayniteAPI _api;
+        private readonly AppSettings _settings;
+        private readonly IDialogService _dialogService;
+        private readonly IAppHost _appHost;
         private readonly MorrenusClient _client;
         private readonly DepotDownloaderRunner _downloader;
+
+        // ── Initial game context (for AppId resolution) ──────────────────────────
+        private readonly string _initialGameName;
+        private readonly string _initialGameId;
+        private readonly Guid _initialGamePluginId;
+        private readonly Guid _initialPlayniteGameId;
+        private readonly List<string> _initialGameLinkUrls;
+        private readonly bool _hasInitialGame;
 
         // ── State ────────────────────────────────────────────────────────────────
         private GameData _gameData;
@@ -111,13 +117,39 @@ namespace BlankPlugin
         private TextBlock _speedLabel;
         private TextBox _logBox;
 
-        /// <param name="game">The Playnite game to download. Pass null when pre-loading from a manifest ZIP.</param>
+        /// <summary>
+        /// Constructor used when launching with a known game context (e.g. a host library entry).
+        /// </summary>
+        /// <param name="gameName">Display name of the game; used for resolution and search defaults.</param>
+        /// <param name="gameId">Host-supplied identifier. When <paramref name="pluginId"/> equals the Steam plugin GUID, this is treated as a Steam AppId.</param>
+        /// <param name="pluginId">Host plugin GUID; pass <see cref="Guid.Empty"/> when not applicable.</param>
+        /// <param name="playniteGameId">Optional host library entry GUID for cross-references; pass <see cref="Guid.Empty"/> when none.</param>
+        /// <param name="gameLinkUrls">Optional URLs to scan for a Steam store link (used to derive AppId when not Steam-plugin).</param>
         /// <param name="initialData">Pre-loaded manifest data (from "Install from ZIP"). When provided, depots are populated immediately.</param>
-        public DownloadView(Game game, BlankPluginSettings settings, InstalledGamesManager installedGamesManager, IPlayniteAPI api, UpdateChecker updateChecker, string manifestCacheRoot, GameData initialData = null)
+        public DownloadView(
+            string gameName,
+            string gameId,
+            Guid pluginId,
+            Guid playniteGameId,
+            IEnumerable<string> gameLinkUrls,
+            AppSettings settings,
+            InstalledGamesManager installedGamesManager,
+            IDialogService dialogService,
+            IAppHost appHost,
+            UpdateChecker updateChecker,
+            string manifestCacheRoot,
+            GameData initialData = null)
         {
-            _game = game;
+            _initialGameName = gameName;
+            _initialGameId = gameId;
+            _initialGamePluginId = pluginId;
+            _initialPlayniteGameId = playniteGameId;
+            _initialGameLinkUrls = gameLinkUrls != null ? new List<string>(gameLinkUrls) : new List<string>();
+            _hasInitialGame = !string.IsNullOrWhiteSpace(gameName) || !string.IsNullOrWhiteSpace(gameId);
+
             _settings = settings;
-            _api = api;
+            _dialogService = dialogService;
+            _appHost = appHost;
             _manifestCacheRoot = manifestCacheRoot;
             _client = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
@@ -138,9 +170,9 @@ namespace BlankPlugin
                 _resolveStatusLabel.Visibility = Visibility.Collapsed;
                 PopulateDepots(initialData);
             }
-            else if (_game != null)
+            else if (_hasInitialGame)
             {
-                _gameInfoLabel.Text = _game.Name;
+                _gameInfoLabel.Text = _initialGameName ?? string.Empty;
 
                 if (_installedGamesManager != null)
                     CheckIfInstalled();
@@ -151,22 +183,41 @@ namespace BlankPlugin
         }
 
         /// <summary>
+        /// Convenience constructor for launching without any game context (e.g. Install-from-ZIP entry).
+        /// </summary>
+        public DownloadView(
+            AppSettings settings,
+            InstalledGamesManager installedGamesManager,
+            IDialogService dialogService,
+            IAppHost appHost,
+            UpdateChecker updateChecker,
+            string manifestCacheRoot,
+            GameData initialData = null)
+            : this(null, null, Guid.Empty, Guid.Empty, null,
+                   settings, installedGamesManager, dialogService, appHost, updateChecker, manifestCacheRoot, initialData)
+        {
+        }
+
+        /// <summary>
         /// Constructor used when launching from a Steam search result.
         /// Skips game resolution and goes directly to the "found" state with the given appId.
         /// </summary>
         public DownloadView(
             string appId,
             string name,
-            BlankPluginSettings settings,
+            AppSettings settings,
             InstalledGamesManager installedGamesManager,
-            IPlayniteAPI api,
+            IDialogService dialogService,
+            IAppHost appHost,
             UpdateChecker updateChecker,
             string manifestCacheRoot,
             string headerImageUrl = null)
         {
-            _game    = null;
+            _hasInitialGame = false;
+            _initialGameLinkUrls = new List<string>();
             _settings = settings;
-            _api      = api;
+            _dialogService = dialogService;
+            _appHost = appHost;
             _manifestCacheRoot = manifestCacheRoot;
             _client   = new MorrenusClient(() => _settings.ApiKey);
             _downloader = new DepotDownloaderRunner();
@@ -273,7 +324,7 @@ namespace BlankPlugin
                 Text = "Identifying game...",
                 Foreground = Brushes.Gray,
                 FontStyle = FontStyles.Italic,
-                Visibility = _game != null ? Visibility.Visible : Visibility.Collapsed
+                Visibility = _hasInitialGame ? Visibility.Visible : Visibility.Collapsed
             };
             panel.Children.Add(_resolveStatusLabel);
 
@@ -334,7 +385,7 @@ namespace BlankPlugin
             _searchTextBox = new TextBox
             {
                 VerticalAlignment = VerticalAlignment.Center,
-                Text = _game != null ? _game.Name : ""
+                Text = _hasInitialGame ? (_initialGameName ?? "") : ""
             };
             searchInputRow.Children.Add(_searchBtn);
             searchInputRow.Children.Add(_searchTextBox);
@@ -472,7 +523,7 @@ namespace BlankPlugin
                     return;
                 }
                 var ownerWindow = Window.GetWindow(this);
-                var picked = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libs, _api);
+                var picked = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libs, _dialogService);
                 if (picked != null)
                 {
                     _selectedLibraryPath = picked;
@@ -515,7 +566,6 @@ namespace BlankPlugin
             usernameBox.TextChanged += (s, e) =>
             {
                 _settings.SteamUsername = usernameBox.Text.Trim();
-                _settings.EndEdit();
             };
 
             authBtn.Click += (s, e) => OnAuthenticateClicked(usernameBox.Text.Trim());
@@ -709,9 +759,9 @@ namespace BlankPlugin
         private void ResolveAppId()
         {
             // Step 1a: Steam library plugin — GameId IS the AppID
-            if (_game.PluginId == SteamPluginGuid)
+            if (_initialGamePluginId == SteamPluginGuid && !string.IsNullOrWhiteSpace(_initialGameId))
             {
-                SetConfident(_game.GameId, "✓  " + _game.Name + "  (" + _game.GameId + ")");
+                SetConfident(_initialGameId, "✓  " + (_initialGameName ?? string.Empty) + "  (" + _initialGameId + ")");
                 return;
             }
 
@@ -719,14 +769,14 @@ namespace BlankPlugin
             var steamId = TryExtractSteamIdFromLinks();
             if (steamId != null)
             {
-                SetConfident(steamId, "✓  " + _game.Name + "  (" + steamId + ")");
+                SetConfident(steamId, "✓  " + (_initialGameName ?? string.Empty) + "  (" + steamId + ")");
                 return;
             }
 
             // Step 2: search by name
             try
             {
-                var results = _client.SearchGames(_game.Name);
+                var results = _client.SearchGames(_initialGameName ?? string.Empty);
                 if (results.Count == 1)
                     SetConfident(results[0].GameId, "✓  " + results[0].GameName + "  (" + results[0].GameId + ")");
                 else
@@ -776,11 +826,11 @@ namespace BlankPlugin
 
         private string TryExtractSteamIdFromLinks()
         {
-            if (_game.Links == null) return null;
-            foreach (var link in _game.Links)
+            if (_initialGameLinkUrls == null) return null;
+            foreach (var url in _initialGameLinkUrls)
             {
-                if (link?.Url == null) continue;
-                var m = Regex.Match(link.Url, @"store\.steampowered\.com/app/(\d+)");
+                if (string.IsNullOrEmpty(url)) continue;
+                var m = Regex.Match(url, @"store\.steampowered\.com/app/(\d+)");
                 if (m.Success) return m.Groups[1].Value;
             }
             return null;
@@ -1113,7 +1163,7 @@ namespace BlankPlugin
                     return;
                 }
                 var ownerWindow = Window.GetWindow(this);
-                var picked = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libraries, _api);
+                var picked = SteamLibraryPickerDialog.ShowPicker(ownerWindow, libraries, _dialogService);
                 if (picked == null)
                 {
                     AppendLog("Download cancelled — no library selected.");
@@ -1253,7 +1303,7 @@ namespace BlankPlugin
                                     ManifestGIDs          = manifestGids,
                                     PlayniteGameId        = priorInstalled.PlayniteGameId != Guid.Empty
                                         ? priorInstalled.PlayniteGameId
-                                        : (_game?.Id ?? Guid.Empty),
+                                        : _initialPlayniteGameId,
                                     DrmStripped           = priorInstalled.DrmStripped,
                                     RegisteredWithSteam   = priorInstalled.RegisteredWithSteam,
                                     GseSavesCopied        = priorInstalled.GseSavesCopied,
@@ -1295,7 +1345,7 @@ namespace BlankPlugin
                                     ManifestGIDs     = _gameData.Manifests
                                         .Where(kv => _gameData.SelectedDepots.Contains(kv.Key))
                                         .ToDictionary(kv => kv.Key, kv => kv.Value),
-                                    PlayniteGameId   = _game?.Id ?? Guid.Empty,
+                                    PlayniteGameId   = _initialPlayniteGameId,
                                     DrmStripped      = false,
                                     RegisteredWithSteam = false,
                                     HeaderImageUrl   = _headerImageUrl,
@@ -1304,141 +1354,6 @@ namespace BlankPlugin
                                 };
                                 _installedGamesManager.Save(installedEntry);
                                 AppendLog("Game saved to installed library.");
-
-                                // Register with Playnite when installed from library mode (no game context)
-                                if (_game == null && _api != null)
-                                {
-                                var hasAppId = !string.IsNullOrWhiteSpace(_gameData.AppId);
-                                if (!hasAppId && string.IsNullOrWhiteSpace(_gameData.GameName))
-                                {
-                                    AppendLog("WARNING: Skipping Playnite library sync — missing Steam AppId and title.");
-                                }
-                                else
-                                {
-                                    try
-                                    {
-                                        Game playniteGame = null;
-                                        var createdNewPlayniteEntry = false;
-
-                                        Dispatch(() =>
-                                        {
-                                            var existing = FindExistingPlayniteGameToLink(
-                                                hasAppId ? _gameData.AppId : "",
-                                                _gameData.GameName);
-
-                                            if (existing != null)
-                                            {
-                                                playniteGame = existing;
-                                                playniteGame.InstallDirectory = installedEntry.InstallPath;
-                                                playniteGame.IsInstalled = true;
-                                                _api.Database.Games.Update(playniteGame);
-                                            }
-                                            else if (hasAppId)
-                                            {
-                                                playniteGame = new Game(_gameData.GameName)
-                                                {
-                                                    GameId           = _gameData.AppId,
-                                                    PluginId         = SteamPluginGuid,
-                                                    InstallDirectory = installedEntry.InstallPath,
-                                                    IsInstalled      = true
-                                                };
-                                                _api.Database.Games.Add(playniteGame);
-                                                createdNewPlayniteEntry = true;
-                                            }
-                                        });
-
-                                        if (playniteGame == null)
-                                        {
-                                            AppendLog(!hasAppId
-                                                ? "WARNING: Skipping Playnite library sync — missing Steam AppId; no unique matching library game by title."
-                                                : "WARNING: Could not sync with Playnite library (unexpected).");
-                                        }
-                                        else
-                                        {
-                                            if (createdNewPlayniteEntry)
-                                                AppendLog("Added to Playnite library.");
-                                            else if (hasAppId)
-                                                AppendLog("Linked install to existing Playnite library entry (Steam AppId " + _gameData.AppId + ").");
-                                            else
-                                                AppendLog("Linked install to existing Playnite library entry (matched title).");
-
-                                            var igdb = new IgdbClient(_settings.IgdbClientId, _settings.IgdbClientSecret);
-
-                                            if (igdb.HasCredentials)
-                                            {
-                                                bool wantsMetadata = false;
-                                                Dispatch(() =>
-                                                {
-                                                    var q = createdNewPlayniteEntry
-                                                        ? "\"" + _gameData.GameName + "\" was added to your Playnite library.\n\n" +
-                                                          "Search IGDB for metadata (description, genres, cover art)?"
-                                                        : "\"" + _gameData.GameName + "\" is already in your Playnite library; the install folder was updated.\n\n" +
-                                                          "Search IGDB for metadata (description, genres, cover art)?";
-                                                    wantsMetadata = _api.Dialogs.ShowMessage(
-                                                            q, "Download Metadata",
-                                                            MessageBoxButton.YesNo, MessageBoxImage.Question)
-                                                        == MessageBoxResult.Yes;
-                                                });
-
-                                                if (wantsMetadata)
-                                                {
-                                                    IgdbGameResult igdbSelection = null;
-                                                    Dispatch(() =>
-                                                    {
-                                                        igdbSelection = IgdbMetadataPickerDialog.ShowPicker(
-                                                            Window.GetWindow(this), _gameData.GameName, igdb, _api);
-                                                    });
-
-                                                    if (igdbSelection != null)
-                                                    {
-                                                        AppendLog("Fetching metadata for: " + igdbSelection.Name + "...");
-                                                        var metadata = igdb.GetMetadata(igdbSelection.Id);
-                                                        if (metadata != null)
-                                                        {
-                                                            Dispatch(() => ApplyIgdbMetadata(playniteGame, metadata, igdb));
-                                                            AppendLog("Metadata applied.");
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        AppendLog("Metadata search cancelled.");
-                                                    }
-                                                }
-                                            }
-                                            else
-                                            {
-                                                // No IGDB credentials — silently grab Steam CDN cover
-                                                var coverPath = CoverDownloader.Download(_gameData.GameName, _gameData.AppId, null);
-                                                if (coverPath != null)
-                                                {
-                                                    Dispatch(() =>
-                                                    {
-                                                        try
-                                                        {
-                                                            var fileId = _api.Database.AddFile(coverPath, playniteGame.Id);
-                                                            playniteGame.CoverImage = fileId;
-                                                            _api.Database.Games.Update(playniteGame);
-                                                        }
-                                                        catch (Exception exCover)
-                                                        {
-                                                            logger.Warn("Could not store Steam CDN cover: " + exCover.Message);
-                                                        }
-                                                    });
-                                                    try { File.Delete(coverPath); } catch { }
-                                                    AppendLog("Cover art stored from Steam CDN.");
-                                                }
-                                            }
-
-                                            installedEntry.PlayniteGameId = playniteGame.Id;
-                                            _installedGamesManager.Save(installedEntry);
-                                        }
-                                    }
-                                    catch (Exception exLib)
-                                    {
-                                        AppendLog("WARNING: Could not sync with Playnite library: " + exLib.Message);
-                                    }
-                                }
-                            }
                             }
                         }
                         catch (Exception exSave)
@@ -1598,7 +1513,7 @@ namespace BlankPlugin
                     var shouldMarkInstalled = false;
                     Dispatch(() =>
                     {
-                        shouldMarkInstalled = _api.Dialogs.ShowMessage(
+                        shouldMarkInstalled = _dialogService.ShowMessage(
                             "Lua copied.\n\nAlso mark this game as Installed in Steam (write appmanifest .acf)?",
                             "Add to Steam",
                             MessageBoxButton.YesNo,
@@ -1625,7 +1540,7 @@ namespace BlankPlugin
                     var shouldRestart = false;
                     Dispatch(() =>
                     {
-                        shouldRestart = _api.Dialogs.ShowMessage(
+                        shouldRestart = _dialogService.ShowMessage(
                             shouldMarkInstalled
                                 ? "Lua copied and ACF written.\n\nRestart Steam now?"
                                 : "Lua file copied to Steam config.\n\nRestart Steam now?",
@@ -1683,7 +1598,7 @@ namespace BlankPlugin
                     var shouldRestart = false;
                     Dispatch(() =>
                     {
-                        shouldRestart = _api.Dialogs.ShowMessage(
+                        shouldRestart = _dialogService.ShowMessage(
                             "ACF written.\n\nRestart Steam now?",
                             "Mark Installed in Steam",
                             MessageBoxButton.YesNo,
@@ -1784,7 +1699,7 @@ namespace BlankPlugin
             var detectedArch = GoldbergRunner.DetectArch(_currentDownloadDir);
             var appOutputDir = Path.Combine(
                 _settings.GoldbergFilesPath, "generate_emu_config", "_OUTPUT", _resolvedAppId.Trim());
-            var options = GoldbergOptionsDialog.ShowPicker(Window.GetWindow(this), _api, detectedArch, appOutputDir);
+            var options = GoldbergOptionsDialog.ShowPicker(Window.GetWindow(this), _dialogService, detectedArch, appOutputDir);
             if (options == null)
             {
                 AppendLog("Goldberg setup cancelled.");
@@ -1823,10 +1738,15 @@ namespace BlankPlugin
 
         private void CheckIfInstalled()
         {
-            _installedGame = _installedGamesManager.FindByPlayniteId(_game.Id);
+            if (_initialPlayniteGameId != Guid.Empty)
+                _installedGame = _installedGamesManager.FindByPlayniteId(_initialPlayniteGameId);
 
-            if (_installedGame == null && _game.PluginId == SteamPluginGuid)
-                _installedGame = _installedGamesManager.FindByAppId(_game.GameId);
+            if (_installedGame == null
+                && _initialGamePluginId == SteamPluginGuid
+                && !string.IsNullOrWhiteSpace(_initialGameId))
+            {
+                _installedGame = _installedGamesManager.FindByAppId(_initialGameId);
+            }
 
             if (_installedGame != null)
             {
@@ -1911,81 +1831,6 @@ namespace BlankPlugin
             return set.ToList();
         }
 
-        private static bool TitlesMatch(string a, string b)
-        {
-            if (string.IsNullOrWhiteSpace(a) && string.IsNullOrWhiteSpace(b))
-                return true;
-            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
-                return false;
-            return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// Finds an existing Playnite <see cref="Game"/> to attach this install to. Pass 1: official Steam plugin
-        /// with matching <see cref="Game.GameId"/> (Steam AppId); when the manifest has a title, the library name must
-        /// match too (otherwise wrong Steam rows are not hijacked). If the manifest title is empty, AppId-only Steam
-        /// match is used. Pass 2: exactly one library game (any plugin) with a matching title — for manual/non-Steam entries.
-        /// </summary>
-        private Game FindExistingPlayniteGameToLink(string steamAppId, string manifestDisplayName)
-        {
-            if (_api == null)
-                return null;
-
-            var nameNonEmpty = !string.IsNullOrWhiteSpace(manifestDisplayName);
-            var appIdNorm = string.IsNullOrWhiteSpace(steamAppId) ? null : steamAppId.Trim();
-            if (appIdNorm != null && appIdNorm.Length == 0)
-                appIdNorm = null;
-
-            if (appIdNorm != null)
-            {
-                Game firstSteam = null;
-                var steamCount = 0;
-                foreach (var g in _api.Database.Games)
-                {
-                    if (g.PluginId != SteamPluginGuid)
-                        continue;
-                    if (string.IsNullOrEmpty(g.GameId))
-                        continue;
-                    if (!string.Equals(g.GameId.Trim(), appIdNorm, StringComparison.Ordinal))
-                        continue;
-                    if (nameNonEmpty && !TitlesMatch(g.Name, manifestDisplayName))
-                        continue;
-
-                    if (firstSteam == null)
-                        firstSteam = g;
-                    steamCount++;
-                }
-
-                if (steamCount > 1)
-                    logger.Warn("Multiple Playnite games share Steam AppId " + appIdNorm + "; using first match.");
-
-                if (firstSteam != null)
-                    return firstSteam;
-            }
-
-            if (!nameNonEmpty)
-                return null;
-
-            Game uniqueByName = null;
-            var nameMatchCount = 0;
-            foreach (var g in _api.Database.Games)
-            {
-                if (!TitlesMatch(g.Name, manifestDisplayName))
-                    continue;
-                if (nameMatchCount == 0)
-                    uniqueByName = g;
-                nameMatchCount++;
-            }
-
-            if (nameMatchCount > 1)
-            {
-                logger.Warn("Multiple Playnite games titled \"" + manifestDisplayName + "\"; skipping name-only link.");
-                return null;
-            }
-
-            return uniqueByName;
-        }
-
         private void OnOpenFolderClicked(object sender, RoutedEventArgs e)
         {
             if (_installedGame != null && Directory.Exists(_installedGame.InstallPath))
@@ -2000,9 +1845,9 @@ namespace BlankPlugin
             _installedPanel.Visibility = Visibility.Collapsed;
             _downloadBtn.Content = "Download Selected Depots";
             _downloadBtn.IsEnabled = false;
-            _resolveStatusLabel.Visibility = _game != null ? Visibility.Visible : Visibility.Collapsed;
+            _resolveStatusLabel.Visibility = _hasInitialGame ? Visibility.Visible : Visibility.Collapsed;
 
-            if (_game != null)
+            if (_hasInitialGame)
                 ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
         }
 
@@ -2037,25 +1882,25 @@ namespace BlankPlugin
                 _installedGamesManager.Remove(_installedGame.AppId);
                 AppendLog("Uninstalled: " + _installedGame.GameName);
 
-                if (_api != null && _installedGame.PlayniteGameId != Guid.Empty)
+                if (_installedGame.PlayniteGameId != Guid.Empty)
                 {
-                    var removeFromPlaynite = _api.Dialogs.ShowMessage(
-                        "Remove \"" + _installedGame.GameName + "\" from Playnite library as well?",
+                    var removeFromHost = _dialogService.ShowMessage(
+                        "Remove \"" + _installedGame.GameName + "\" from library as well?",
                         "Remove from Library",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
 
-                    if (removeFromPlaynite == MessageBoxResult.Yes)
-                        _api.Database.Games.Remove(_installedGame.PlayniteGameId);
+                    if (removeFromHost == MessageBoxResult.Yes)
+                        _appHost?.RemoveFromHostLibrary(_installedGame.PlayniteGameId.ToString());
                 }
 
                 _installedGame = null;
                 _installedPanel.Visibility = Visibility.Collapsed;
                 _downloadBtn.Content = "Download Selected Depots";
                 _downloadBtn.IsEnabled = false;
-                _resolveStatusLabel.Visibility = _game != null ? Visibility.Visible : Visibility.Collapsed;
+                _resolveStatusLabel.Visibility = _hasInitialGame ? Visibility.Visible : Visibility.Collapsed;
 
-                if (_game != null)
+                if (_hasInitialGame)
                     ThreadPool.QueueUserWorkItem(_ => ResolveAppId());
             }
             catch (Exception ex)
@@ -2077,18 +1922,6 @@ namespace BlankPlugin
 
             var lightFg = Brushes.WhiteSmoke;
 
-            var pwdWindow = _api.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = false,
-                ShowCloseButton = true
-            });
-            pwdWindow.Owner = _api.Dialogs.GetCurrentAppWindow();
-            pwdWindow.Title = "Steam Password";
-            pwdWindow.Width = 360;
-            pwdWindow.Height = 140;
-            pwdWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-
             var stack = new StackPanel { Margin = new Thickness(16) };
 
             stack.Children.Add(new TextBlock
@@ -2106,6 +1939,11 @@ namespace BlankPlugin
                 CaretBrush = lightFg
             };
 
+            var pwdWindow = _dialogService.CreateWindow("Steam Password", stack, _dialogService.GetMainWindow());
+            pwdWindow.Width = 360;
+            pwdWindow.Height = 140;
+            pwdWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
             var okBtn = new Button
             {
                 Content = "Open Auth Window",
@@ -2115,7 +1953,6 @@ namespace BlankPlugin
             okBtn.Click += (s, e) => pwdWindow.DialogResult = true;
             stack.Children.Add(pwdBox);
             stack.Children.Add(okBtn);
-            pwdWindow.Content = stack;
             pwdBox.Focus();
 
             if (pwdWindow.ShowDialog() != true) return;
@@ -2128,76 +1965,6 @@ namespace BlankPlugin
 
             ThreadPool.QueueUserWorkItem(_ =>
                 _downloader.Authenticate(username, password, line => AppendLog(line)));
-        }
-
-        // ── IGDB metadata ─────────────────────────────────────────────────────────
-
-        private void ApplyIgdbMetadata(Game game, IgdbMetadata metadata, IgdbClient igdb)
-        {
-            if (!string.IsNullOrEmpty(metadata.Name))
-                game.Name = metadata.Name;
-
-            if (!string.IsNullOrEmpty(metadata.Summary))
-                game.Description = metadata.Summary;
-
-            if (metadata.Genres.Count > 0)
-                game.GenreIds = metadata.Genres.ConvertAll(g => _api.Database.Genres.Add(g).Id);
-
-            if (metadata.Developers.Count > 0)
-                game.DeveloperIds = metadata.Developers.ConvertAll(d => _api.Database.Companies.Add(d).Id);
-
-            if (metadata.Publishers.Count > 0)
-                game.PublisherIds = metadata.Publishers.ConvertAll(p => _api.Database.Companies.Add(p).Id);
-
-            if (metadata.Tags.Count > 0)
-                game.TagIds = metadata.Tags.ConvertAll(t => _api.Database.Tags.Add(t).Id);
-
-            if (metadata.ReleaseYear.HasValue)
-                game.ReleaseDate = new ReleaseDate(metadata.ReleaseYear.Value);
-
-            if (!string.IsNullOrEmpty(metadata.CoverImageId))
-            {
-                try
-                {
-                    var coverPath = igdb.DownloadCoverByImageId(metadata.CoverImageId);
-                    if (coverPath != null)
-                    {
-                        var fileId = _api.Database.AddFile(coverPath, game.Id);
-                        game.CoverImage = fileId;
-                        try { File.Delete(coverPath); } catch { }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.Warn("Could not store IGDB cover: " + ex.Message);
-                }
-            }
-
-            if (metadata.Artworks.Count > 0)
-            {
-                try
-                {
-                    var selectedArtId = IgdbBackgroundPickerDialog.ShowPicker(
-                        Window.GetWindow(this), metadata.Artworks, igdb, _api);
-
-                    if (!string.IsNullOrEmpty(selectedArtId))
-                    {
-                        var bgPath = igdb.DownloadArtworkByImageId(selectedArtId);
-                        if (bgPath != null)
-                        {
-                            var fileId = _api.Database.AddFile(bgPath, game.Id);
-                            game.BackgroundImage = fileId;
-                            try { File.Delete(bgPath); } catch { }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.Warn("Could not store IGDB background: " + ex.Message);
-                }
-            }
-
-            _api.Database.Games.Update(game);
         }
 
         // ── Load from ZIP ─────────────────────────────────────────────────────────
