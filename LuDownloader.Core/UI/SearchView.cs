@@ -100,7 +100,13 @@ namespace BlankPlugin
             Grid.SetRow(resultsArea, 1);
             root.Children.Add(resultsArea);
 
-            return root;
+            var outerBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(30, 30, 35)),
+                Child = root
+            };
+            TextElement.SetForeground(outerBorder, Brushes.WhiteSmoke);
+            return outerBorder;
         }
 
         private UIElement BuildResultsArea()

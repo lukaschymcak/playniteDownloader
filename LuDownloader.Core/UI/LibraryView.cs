@@ -206,7 +206,12 @@ namespace BlankPlugin
             Grid.SetRow(bottomBar, 3);
             root.Children.Add(bottomBar);
 
-            var border = new Border { Padding = new Thickness(12), Child = root };
+            var border = new Border
+            {
+                Padding    = new Thickness(12),
+                Child      = root,
+                Background = new SolidColorBrush(Color.FromRgb(30, 30, 35))
+            };
             TextElement.SetForeground(border, Brushes.WhiteSmoke);
             return border;
         }

@@ -71,7 +71,13 @@ namespace BlankPlugin
             Grid.SetRow(stack, 1);
             root.Children.Add(stack);
 
-            return root;
+            var outerBorder = new Border
+            {
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 35)),
+                Child = root
+            };
+            System.Windows.Documents.TextElement.SetForeground(outerBorder, System.Windows.Media.Brushes.WhiteSmoke);
+            return outerBorder;
         }
 
         private void RefreshList()

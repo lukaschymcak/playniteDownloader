@@ -12,7 +12,12 @@ namespace BlankPlugin
             UpdateChecker updateChecker,
             IAppHost appHost)
         {
-            var tabs = new TabControl();
+            var tabs = new TabControl
+            {
+                Background   = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 35)),
+                Foreground   = System.Windows.Media.Brushes.WhiteSmoke,
+                BorderBrush  = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 70, 80)),
+            };
 
             // Tab 0: Library (existing view, untouched)
             var libraryTab = new TabItem
