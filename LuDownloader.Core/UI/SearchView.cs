@@ -105,7 +105,7 @@ namespace BlankPlugin
                 Background = new SolidColorBrush(Color.FromRgb(30, 30, 35)),
                 Child = root
             };
-            TextElement.SetForeground(outerBorder, Brushes.WhiteSmoke);
+            System.Windows.Documents.TextElement.SetForeground(outerBorder, Brushes.WhiteSmoke);
             return outerBorder;
         }
 
