@@ -284,7 +284,13 @@ namespace BlankPlugin
             steamIdRow.Children.Add(steamIdBox);
             root.Children.Add(steamIdRow);
 
-            Content = root;
+            var border = new Border
+            {
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 35)),
+                Child = root
+            };
+            System.Windows.Documents.TextElement.SetForeground(border, System.Windows.Media.Brushes.WhiteSmoke);
+            Content = border;
         }
     }
 }
