@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net462;net9.0-windows</TargetFrameworks>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>BlankPlugin</RootNamespace>
     <AssemblyName>LuDownloader.Core</AssemblyName>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
