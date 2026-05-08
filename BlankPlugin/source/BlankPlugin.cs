@@ -12,22 +12,27 @@ using Playnite.SDK.Plugins;
 
 namespace BlankPlugin
 {
-    public class BlankPlugin : GenericPlugin
+    public class BlankPlugin : GenericPlugin, IAppHost
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         public override Guid Id { get; } = Guid.Parse("A1B2C3D4-E5F6-7890-ABCD-EF1234567890");
 
         internal BlankPluginSettings Settings { get; private set; }
-        internal InstalledGamesManager InstalledGames { get; private set; }
+        public InstalledGamesManager InstalledGames { get; private set; }
         internal LibraryGamesManager LibraryGames { get; private set; }
         internal string PluginUserDataPath => GetPluginUserDataPath();
 
+        public string UserDataPath => GetPluginUserDataPath();
+
+        private PlayniteDialogService _dialogService;
         private UpdateChecker _updateChecker;
         private Game _lastSelectedGame;
 
         public BlankPlugin(IPlayniteAPI api) : base(api)
         {
+            CoreLogManager.SetFactory(() => new PlayniteLoggerAdapter(Playnite.SDK.LogManager.GetLogger()));
+            _dialogService = new PlayniteDialogService(api);
             Settings = new BlankPluginSettings(this);
             Properties = new GenericPluginProperties { HasSettings = true };
         }
@@ -45,9 +50,7 @@ namespace BlankPlugin
 
             try
             {
-                var reconcile = InstalledGames.ReconcileWithSteamLibraries(
-                    LibraryGames?.GetAll(),
-                    PlayniteApi?.Database?.Games);
+                var reconcile = ReconcileInstalledState();
                 logger.Info("Startup reconcile: added=" + reconcile.Added + ", updated=" + reconcile.Updated + ", removed=" + reconcile.Removed);
             }
             catch (Exception ex)
@@ -57,17 +60,40 @@ namespace BlankPlugin
 
             // Initialize update checker
             var runner = new ManifestCheckerRunner();
-            _updateChecker = new UpdateChecker(runner, InstalledGames, PlayniteApi);
+            _updateChecker = new UpdateChecker(runner, InstalledGames, this);
 
             // Run update check on startup (fire and forget — does not block Playnite)
             _ = _updateChecker.RunAsync();
         }
 
-        internal ReconcileResult ReconcileInstalledState()
+        public ReconcileResult ReconcileInstalledState()
         {
             if (InstalledGames == null)
                 return new ReconcileResult();
-            return InstalledGames.ReconcileWithSteamLibraries(LibraryGames?.GetAll(), PlayniteApi?.Database?.Games);
+
+            var steamPluginGuid = new Guid("CB91DFC9-B977-43BF-8E70-55F46E410FAB");
+            var steamAppIds = PlayniteApi?.Database?.Games
+                ?.Where(g => g != null && g.PluginId == steamPluginGuid && !string.IsNullOrWhiteSpace(g.GameId))
+                ?.Select(g => g.GameId);
+            return InstalledGames.ReconcileWithSteamLibraries(LibraryGames?.GetAll(), steamAppIds);
+        }
+
+        public void RemoveFromHostLibrary(string playniteGameId)
+        {
+            if (Guid.TryParse(playniteGameId, out var guid))
+            {
+                var game = PlayniteApi?.Database?.Games?.Get(guid);
+                if (game != null)
+                    PlayniteApi.Database.Games.Remove(game);
+            }
+        }
+
+        public void ShowNotification(string message, bool isError = false)
+        {
+            PlayniteApi?.Notifications?.Add(new NotificationMessage(
+                "ludownloader_" + DateTime.Now.Ticks,
+                message,
+                isError ? NotificationType.Error : NotificationType.Info));
         }
 
         public override void OnApplicationStopped(OnApplicationStoppedEventArgs args)
@@ -143,7 +169,7 @@ namespace BlankPlugin
                         Description = "Uninstall",
                         Action = menuArgs =>
                         {
-                            var result = PlayniteApi.Dialogs.ShowMessage(
+                            var result = _dialogService.ShowMessage(
                                 string.Format("Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
                                     installed.GameName, installed.InstallPath),
                                 "Uninstall Game",
@@ -169,7 +195,7 @@ namespace BlankPlugin
                                 }
                                 catch (Exception ex)
                                 {
-                                    PlayniteApi.Dialogs.ShowMessage("Error during uninstall: " + ex.Message, "Uninstall Error",
+                                    _dialogService.ShowMessage("Error during uninstall: " + ex.Message, "Uninstall Error",
                                         MessageBoxButton.OK, MessageBoxImage.Error);
                                 }
                             }
@@ -192,18 +218,18 @@ namespace BlankPlugin
                                     runner.Run(installed.InstallPath, line => { });
                                     installed.DrmStripped = true;
                                     InstalledGames.Save(installed);
-                                    PlayniteApi.Dialogs.ShowMessage("Steamless completed.", "DRM Removal",
+                                    _dialogService.ShowMessage("Steamless completed.", "DRM Removal",
                                         MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                                 else
                                 {
-                                    PlayniteApi.Dialogs.ShowMessage("No Steam DRM detected on executables.", "Steamless",
+                                    _dialogService.ShowMessage("No Steam DRM detected on executables.", "Steamless",
                                         MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                PlayniteApi.Dialogs.ShowMessage("Steamless error: " + ex.Message, "Error",
+                                _dialogService.ShowMessage("Steamless error: " + ex.Message, "Error",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
                             }
                         }
@@ -218,7 +244,7 @@ namespace BlankPlugin
                             if (!Directory.Exists(installed.InstallPath)) return;
                             if (string.IsNullOrWhiteSpace(Settings.GoldbergFilesPath))
                             {
-                                PlayniteApi.Dialogs.ShowMessage("Goldberg files path not configured. Open Plugin Settings first.",
+                                _dialogService.ShowMessage("Goldberg files path not configured. Open Plugin Settings first.",
                                     "Goldberg", MessageBoxButton.OK, MessageBoxImage.Warning);
                                 return;
                             }
@@ -226,7 +252,7 @@ namespace BlankPlugin
                             var appOutputDir = System.IO.Path.Combine(
                                 Settings.GoldbergFilesPath, "generate_emu_config", "_OUTPUT", installed.AppId.Trim());
                             var options = GoldbergOptionsDialog.ShowPicker(
-                                PlayniteApi.Dialogs.GetCurrentAppWindow(), PlayniteApi, detectedArch, appOutputDir);
+                                _dialogService.GetMainWindow(), _dialogService, detectedArch, appOutputDir);
                             if (options == null) return;
                             try
                             {
@@ -236,7 +262,7 @@ namespace BlankPlugin
                                     gseSavesCopied: installed.GseSavesCopied);
                                 if (string.IsNullOrEmpty(outputPath))
                                 {
-                                    PlayniteApi.Dialogs.ShowMessage(
+                                    _dialogService.ShowMessage(
                                         "Goldberg setup did not complete. Check the Playnite log for details.",
                                         "Goldberg", MessageBoxButton.OK, MessageBoxImage.Warning);
                                     return;
@@ -245,19 +271,19 @@ namespace BlankPlugin
                                 InstalledGames.Save(installed);
                                 if (!options.CopyFiles)
                                 {
-                                    PlayniteApi.Dialogs.ShowMessage(
+                                    _dialogService.ShowMessage(
                                         "Goldberg files were generated here:\n\n" + outputPath,
                                         "Goldberg", MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                                 else
                                 {
-                                    PlayniteApi.Dialogs.ShowMessage("Goldberg emulator applied successfully.", "Goldberg",
+                                    _dialogService.ShowMessage("Goldberg emulator applied successfully.", "Goldberg",
                                         MessageBoxButton.OK, MessageBoxImage.Information);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                PlayniteApi.Dialogs.ShowMessage("Goldberg error: " + ex.Message, "Error",
+                                _dialogService.ShowMessage("Goldberg error: " + ex.Message, "Error",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
                             }
                         }
@@ -269,19 +295,14 @@ namespace BlankPlugin
                         Description = "Update Game",
                         Action = menuArgs =>
                         {
-                            var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
-                            {
-                                ShowMinimizeButton = false,
-                                ShowMaximizeButton = false,
-                                ShowCloseButton = true
-                            });
-                            window.Title = "Update Game — " + installed.GameName;
+                            var dialog = new UpdateGameDialog(
+                                installed, Settings, InstalledGames, _dialogService, _updateChecker);
+                            var window = _dialogService.CreateWindow(
+                                "Update Game — " + installed.GameName,
+                                dialog,
+                                _dialogService.GetMainWindow());
                             window.Width = 480;
                             window.Height = 300;
-                            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                            window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-                            window.Content = new UpdateGameDialog(
-                                installed, Settings, InstalledGames, PlayniteApi, _updateChecker);
                             window.ShowDialog();
                         }
                     };
@@ -295,51 +316,36 @@ namespace BlankPlugin
         /// </summary>
         private void OpenPluginWindow(Game game)
         {
-            var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = true,
-                ShowCloseButton = true
-            });
-
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-
             if (game != null)
             {
+                var manifestCache = ManifestCache.GetCacheDirectory(GetPluginUserDataPath());
+                var links = game.Links?.Select(l => l.Url);
+                var view = new DownloadView(
+                    game.Name, game.GameId, game.PluginId, game.Id, links,
+                    Settings, InstalledGames, _dialogService, this, _updateChecker, manifestCache);
+                var window = _dialogService.CreateWindow("LuDownloader — " + game.Name, view, _dialogService.GetMainWindow());
                 window.Width = 700;
                 window.Height = 600;
-                window.Title = "LuDownloader \u2014 " + game.Name;
-                var manifestCache = ManifestCache.GetCacheDirectory(GetPluginUserDataPath());
-                window.Content = new DownloadView(game, Settings, InstalledGames, PlayniteApi, _updateChecker, manifestCache);
+                window.ShowDialog();
             }
             else
             {
+                var view = new PluginMainView(Settings, InstalledGames, LibraryGames, _dialogService, _updateChecker, this);
+                var window = _dialogService.CreateWindow("LuDownloader", view, _dialogService.GetMainWindow());
                 window.Width = 800;
                 window.Height = 600;
-                window.Title = "LuDownloader";
-                window.Content = new PluginMainView(Settings, InstalledGames, LibraryGames, PlayniteApi, _updateChecker, this);
+                window.ShowDialog();
             }
-
-            window.ShowDialog();
             _lastSelectedGame = null;
         }
 
-        public void OpenDownloadForAppId(string appId, string name, string headerImageUrl = null)
+        public void OpenDownloadForAppId(string appId, string name, string imageUrl = null)
         {
-            var window = PlayniteApi.Dialogs.CreateWindow(new WindowCreationOptions
-            {
-                ShowMinimizeButton = false,
-                ShowMaximizeButton = true,
-                ShowCloseButton = true
-            });
+            var manifestCache = ManifestCache.GetCacheDirectory(GetPluginUserDataPath());
+            var view = new DownloadView(appId, name, Settings, InstalledGames, _dialogService, this, _updateChecker, manifestCache, imageUrl);
+            var window = _dialogService.CreateWindow("LuDownloader — " + name, view, _dialogService.GetMainWindow());
             window.Width = 700;
             window.Height = 600;
-            window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            window.Owner = PlayniteApi.Dialogs.GetCurrentAppWindow();
-            window.Title = "LuDownloader \u2014 " + name;
-            var manifestCache = ManifestCache.GetCacheDirectory(GetPluginUserDataPath());
-            window.Content = new DownloadView(appId, name, Settings, InstalledGames, PlayniteApi, _updateChecker, manifestCache, headerImageUrl);
             window.ShowDialog();
         }
     }
