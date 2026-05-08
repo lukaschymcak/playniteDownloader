@@ -7,5 +7,6 @@ namespace BlankPlugin
         InstalledGamesManager InstalledGames { get; }
         void RemoveFromHostLibrary(string playniteGameId);
         void ShowNotification(string message, bool isError = false);
+        ReconcileResult ReconcileInstalledState();
     }
 }

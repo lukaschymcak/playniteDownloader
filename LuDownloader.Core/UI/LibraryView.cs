@@ -1,5 +1,4 @@
 using Microsoft.Win32;
-using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,7 +19,7 @@ namespace BlankPlugin
     /// </summary>
     public class LibraryView : UserControl
     {
-        private static readonly ILogger logger = LogManager.GetLogger();
+        private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         /// <summary>Steam header 460×215; fixed box matches Search tab header width (184) for readable art.</summary>
         private const int LibraryThumbWidthDip = 184;
@@ -56,11 +55,11 @@ namespace BlankPlugin
                     : (Bookmark?.GameName ?? Bookmark?.AppId ?? "");
         }
 
-        private readonly BlankPluginSettings _settings;
-        private readonly IPlayniteAPI _api;
+        private readonly AppSettings _settings;
+        private readonly IDialogService _dialogService;
         private readonly InstalledGamesManager _installedGamesManager;
         private readonly LibraryGamesManager _libraryGames;
-        private readonly BlankPlugin _plugin;
+        private readonly IAppHost _appHost;
         private readonly UpdateChecker _updateChecker;
         private readonly MorrenusClient _client;
         private readonly SteamIntegrationService _steamIntegration = new SteamIntegrationService();
@@ -85,13 +84,13 @@ namespace BlankPlugin
         private TextBlock _librarySummaryLabel;
         private TextBox _libraryFilterBox;
 
-        public LibraryView(BlankPluginSettings settings, InstalledGamesManager installedGamesManager, LibraryGamesManager libraryGames, IPlayniteAPI api, UpdateChecker updateChecker, BlankPlugin plugin)
+        public LibraryView(AppSettings settings, InstalledGamesManager installedGamesManager, LibraryGamesManager libraryGames, IDialogService dialogService, UpdateChecker updateChecker, IAppHost appHost)
         {
             _settings = settings;
-            _api = api;
+            _dialogService = dialogService;
             _installedGamesManager = installedGamesManager;
             _libraryGames = libraryGames;
-            _plugin = plugin;
+            _appHost = appHost;
             _updateChecker = updateChecker;
             _client = new MorrenusClient(() => _settings.ApiKey);
 
@@ -184,7 +183,7 @@ namespace BlankPlugin
             {
                 try
                 {
-                    var r = _plugin?.ReconcileInstalledState();
+                    var r = _appHost?.ReconcileInstalledState();
                     if (r != null)
                         logger.Info("Manual reconcile: added=" + r.Added + ", updated=" + r.Updated + ", removed=" + r.Removed);
                 }
@@ -529,18 +528,12 @@ namespace BlankPlugin
                 };
                 updateBtn.Click += (s, e) =>
                 {
-                    var window = _api.Dialogs.CreateWindow(new WindowCreationOptions
-                    {
-                        ShowMinimizeButton = false,
-                        ShowMaximizeButton = false,
-                        ShowCloseButton = true
-                    });
-                    window.Title = "Update Game — " + game.GameName;
+                    var window = _dialogService.CreateWindow(
+                        "Update Game — " + game.GameName,
+                        new UpdateGameDialog(game, _settings, _installedGamesManager, _dialogService, _updateChecker),
+                        _dialogService.GetMainWindow());
                     window.Width = 480;
                     window.Height = 300;
-                    window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                    window.Owner = _api.Dialogs.GetCurrentAppWindow();
-                    window.Content = new UpdateGameDialog(game, _settings, _installedGamesManager, _api, _updateChecker);
                     window.ShowDialog();
                     Dispatch(() => RefreshLibraryList());
                 };
@@ -676,8 +669,8 @@ namespace BlankPlugin
             };
             downloadBtn.Click += (s, e) =>
             {
-                if (_plugin != null)
-                    _plugin.OpenDownloadForAppId(bookmark.AppId, displayName, bookmark.HeaderImageUrl);
+                if (_appHost != null)
+                    _appHost.OpenDownloadForAppId(bookmark.AppId, displayName, bookmark.HeaderImageUrl);
             };
 
             var removeBtn = new Button
@@ -727,12 +720,9 @@ namespace BlankPlugin
                 return;
 
             var msg = "Remove \"" + displayName + "\" from the LuDownloader saved library?\n\n" +
-                      "(This does not uninstall games or remove them from Playnite.)";
-            var result = _api != null
-                ? _api.Dialogs.ShowMessage(msg, "Remove from saved library", MessageBoxButton.YesNo,
-                    MessageBoxImage.Question)
-                : MessageBox.Show(msg, "Remove from saved library", MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
+                      "(This does not uninstall games or remove them from the host library.)";
+            var result = _dialogService.ShowMessage(msg, "Remove from saved library", MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
 
             if (result != MessageBoxResult.Yes) return;
 
@@ -878,7 +868,7 @@ namespace BlankPlugin
             var installed = _installedGamesManager.FindByAppId(appId);
             if (installed == null || string.IsNullOrWhiteSpace(installed.InstallPath) || !Directory.Exists(installed.InstallPath))
             {
-                _api?.Dialogs?.ShowMessage(
+                _dialogService?.ShowMessage(
                     "Pick the game folder first via \"Choose install folder\", then fetch manifest GIDs.",
                     "Fetch manifest GIDs",
                     MessageBoxButton.OK,
@@ -893,7 +883,7 @@ namespace BlankPlugin
                     var runner = new ManifestCheckerRunner();
                     if (!runner.IsReady)
                     {
-                        Dispatch(() => _api?.Dialogs?.ShowMessage(
+                        Dispatch(() => _dialogService?.ShowMessage(
                             "ManifestChecker.exe is not available in plugin deps.",
                             "Fetch manifest GIDs",
                             MessageBoxButton.OK,
@@ -904,7 +894,7 @@ namespace BlankPlugin
                     var run = runner.Run(new[] { appId });
                     if (run.results == null)
                     {
-                        Dispatch(() => _api?.Dialogs?.ShowMessage(
+                        Dispatch(() => _dialogService?.ShowMessage(
                             "Could not fetch manifest GIDs: " + (run.error ?? "Unknown error"),
                             "Fetch manifest GIDs",
                             MessageBoxButton.OK,
@@ -919,7 +909,7 @@ namespace BlankPlugin
 
                     if (appResults.Count == 0)
                     {
-                        Dispatch(() => _api?.Dialogs?.ShowMessage(
+                        Dispatch(() => _dialogService?.ShowMessage(
                             "Steam returned no public depot manifest GIDs for this app.",
                             "Fetch manifest GIDs",
                             MessageBoxButton.OK,
@@ -947,7 +937,7 @@ namespace BlankPlugin
 
                     Dispatch(() =>
                     {
-                        _api?.Dialogs?.ShowMessage(
+                        _dialogService?.ShowMessage(
                             "Fetched " + appResults.Count + " manifest GID(s) for \"" + displayName + "\".",
                             "Fetch manifest GIDs",
                             MessageBoxButton.OK,
@@ -958,7 +948,7 @@ namespace BlankPlugin
                 catch (Exception ex)
                 {
                     logger.Warn("FetchManifestGidsForApp failed: " + ex.Message);
-                    Dispatch(() => _api?.Dialogs?.ShowMessage(
+                    Dispatch(() => _dialogService?.ShowMessage(
                         "Failed to fetch manifest GIDs: " + ex.Message,
                         "Fetch manifest GIDs",
                         MessageBoxButton.OK,
@@ -1019,7 +1009,7 @@ namespace BlankPlugin
                 var st = new LuaIntegrationState();
                 map[appId] = st;
 
-                var cacheRoot = _plugin != null ? ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath) : null;
+                var cacheRoot = _appHost != null ? ManifestCache.GetCacheDirectory(_appHost.UserDataPath) : null;
                 var installed = _installedGamesManager != null ? _installedGamesManager.FindByAppId(appId) : null;
                 var preferredZip = installed != null ? installed.ManifestZipPath : null;
                 var zip = _steamIntegration.ResolveManifestZip(appId, preferredZip, cacheRoot);
@@ -1100,7 +1090,7 @@ namespace BlankPlugin
                         var summary = string.IsNullOrWhiteSpace(luaTarget)
                             ? "Lua already exists in Steam config."
                             : "Added \"" + displayName + "\" Lua to Steam config.";
-                        restart = _api.Dialogs.ShowMessage(
+                        restart = _dialogService.ShowMessage(
                             summary + "\n" + manifestStatus + "\n\nRestart Steam now?",
                             "Add to Steam",
                             MessageBoxButton.YesNo,
@@ -1114,7 +1104,7 @@ namespace BlankPlugin
                 {
                     Dispatch(() =>
                     {
-                        _api.Dialogs.ShowMessage("Add to Steam failed: " + ex.Message,
+                        _dialogService.ShowMessage("Add to Steam failed: " + ex.Message,
                             "Error",
                             MessageBoxButton.OK, MessageBoxImage.Error);
                     });
@@ -1139,7 +1129,7 @@ namespace BlankPlugin
                     found = p;
             }
 
-            var cacheRoot = _plugin != null ? ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath) : null;
+            var cacheRoot = _appHost != null ? ManifestCache.GetCacheDirectory(_appHost.UserDataPath) : null;
             var cached = ManifestCache.GetCachedZipPath(cacheRoot, appId);
             if (!string.IsNullOrWhiteSpace(cached))
             {
@@ -1251,7 +1241,7 @@ namespace BlankPlugin
                     var manifestStatus = EnsureSteamManifestForInstalled(appId, displayName);
                     Dispatch(() =>
                     {
-                        _api?.Dialogs?.ShowMessage(manifestStatus, "Create manifest",
+                        _dialogService?.ShowMessage(manifestStatus, "Create manifest",
                             MessageBoxButton.OK, MessageBoxImage.Information);
                         RefreshLibraryList();
                     });
@@ -1259,7 +1249,7 @@ namespace BlankPlugin
                 catch (Exception ex)
                 {
                     logger.Warn("CreateSteamManifestForInstalled failed: " + ex.Message);
-                    Dispatch(() => _api?.Dialogs?.ShowMessage(
+                    Dispatch(() => _dialogService?.ShowMessage(
                         "Create manifest failed: " + ex.Message,
                         "Create manifest",
                         MessageBoxButton.OK,
@@ -1298,7 +1288,7 @@ namespace BlankPlugin
                     {
                         try
                         {
-                            var steamClient = new SteamApiClient(() => _plugin?.Settings?.SteamWebApiKey ?? "");
+                            var steamClient = new SteamApiClient(() => _settings?.SteamWebApiKey ?? "");
                             var details = steamClient.GetGameDetails(appId);
                             if (details != null && !string.IsNullOrWhiteSpace(details.HeaderImageUrl))
                             {
@@ -1441,9 +1431,7 @@ namespace BlankPlugin
                        var confirmMsg = string.Format(
                 "Uninstall \"{0}\"?\n\nThis will delete:\n{1}\n\nSave files in Documents/My Games and AppData will be preserved.",
                 game.GameName, game.InstallPath);
-            var result = _api != null
-                ? _api.Dialogs.ShowMessage(confirmMsg, "Uninstall Game", MessageBoxButton.YesNo, MessageBoxImage.Warning)
-                : MessageBox.Show(confirmMsg, "Uninstall Game", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            var result = _dialogService.ShowMessage(confirmMsg, "Uninstall Game", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
             if (result != MessageBoxResult.Yes) return;
 
@@ -1464,28 +1452,24 @@ namespace BlankPlugin
 
                 _installedGamesManager.Remove(game.AppId);
 
-                if (_api != null && game.PlayniteGameId != Guid.Empty)
+                if (game.PlayniteGameId != Guid.Empty)
                 {
-                    var removeFromPlaynite = _api.Dialogs.ShowMessage(
-                        "Remove \"" + game.GameName + "\" from Playnite library as well?",
-                        "Remove from Library",
+                    var removeFromHost = _dialogService.ShowMessage(
+                        "Remove \"" + game.GameName + "\" from library as well?",
+                        "Uninstall Game",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
 
-                    if (removeFromPlaynite == MessageBoxResult.Yes)
-                        _api.Database.Games.Remove(game.PlayniteGameId);
+                    if (removeFromHost == MessageBoxResult.Yes)
+                        _appHost?.RemoveFromHostLibrary(game.PlayniteGameId.ToString());
                 }
 
                 RefreshLibraryList();
             }
             catch (Exception ex)
             {
-                if (_api != null)
-                    _api.Dialogs.ShowMessage("Error during uninstall: " + ex.Message, "Uninstall Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                else
-                    MessageBox.Show("Error during uninstall: " + ex.Message, "Uninstall Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogService.ShowMessage("Error during uninstall: " + ex.Message, "Uninstall Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1566,10 +1550,10 @@ namespace BlankPlugin
         {
             try
             {
-                if (_plugin == null || data == null || string.IsNullOrWhiteSpace(data.AppId) || string.IsNullOrWhiteSpace(sourceZipPath))
+                if (_appHost == null || data == null || string.IsNullOrWhiteSpace(data.AppId) || string.IsNullOrWhiteSpace(sourceZipPath))
                     return;
 
-                var cacheRoot = ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath);
+                var cacheRoot = ManifestCache.GetCacheDirectory(_appHost.UserDataPath);
                 if (string.IsNullOrWhiteSpace(cacheRoot))
                     return;
 
@@ -1599,9 +1583,9 @@ namespace BlankPlugin
             var window = Window.GetWindow(this);
             if (window == null) return;
 
-            window.Title = "BlankPlugin — " + data.GameName;
-            var manifestCache = ManifestCache.GetCacheDirectory(_plugin.PluginUserDataPath);
-            window.Content = new DownloadView(null, _settings, _installedGamesManager, _api, _updateChecker, manifestCache, data);
+            window.Title = "LuDownloader — " + data.GameName;
+            var manifestCache = ManifestCache.GetCacheDirectory(_appHost.UserDataPath);
+            window.Content = new DownloadView(_settings, _installedGamesManager, _dialogService, _appHost, _updateChecker, manifestCache, data);
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
