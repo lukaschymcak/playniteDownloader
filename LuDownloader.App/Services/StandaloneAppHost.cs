@@ -69,7 +69,7 @@ namespace LuDownloader.App.Services
             if (_installedGames == null) return new BlankPlugin.ReconcileResult();
             return _installedGames.ReconcileWithSteamLibraries(
                 Enumerable.Empty<BlankPlugin.SavedLibraryGame>(),
-                null);
+                System.Linq.Enumerable.Empty<string>());
         }
 
         public void RemoveFromHostLibrary(string playniteGameId) { /* no Playnite DB in standalone */ }

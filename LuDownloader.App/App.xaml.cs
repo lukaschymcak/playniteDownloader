@@ -6,6 +6,8 @@ namespace LuDownloader.App
 {
     public partial class App : Application
     {
+        private Settings.StandaloneSettings _settings;
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -14,17 +16,24 @@ namespace LuDownloader.App
                 "LuDownloader");
             Directory.CreateDirectory(userDataPath);
 
-            BlankPlugin.CoreLogManager.SetFactory(
-                () => new Logging.FileLogger(Path.Combine(userDataPath, "ludownloader.log")));
+            var fileLogger = new Logging.FileLogger(Path.Combine(userDataPath, "ludownloader.log"));
+            BlankPlugin.CoreLogManager.SetFactory(() => fileLogger);
 
-            var settings = Settings.StandaloneSettings.Load(userDataPath);
+            _settings = Settings.StandaloneSettings.Load(userDataPath);
             var dialogService = new Services.StandaloneDialogService();
-            var appHost = new Services.StandaloneAppHost(userDataPath, dialogService, settings);
+            var appHost = new Services.StandaloneAppHost(userDataPath, dialogService, _settings);
 
-            var mainWindow = new MainWindow(settings, dialogService, appHost);
+            var mainWindow = new MainWindow(_settings, dialogService, appHost);
             appHost.SetMainWindow(mainWindow);
             dialogService.SetMainWindow(mainWindow);
+            Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            _settings?.Save();
+            base.OnExit(e);
         }
     }
 }
