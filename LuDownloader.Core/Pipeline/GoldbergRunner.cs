@@ -53,7 +53,7 @@ namespace BlankPlugin
         /// <summary>
         /// Runs Goldberg setup. Returns the absolute <c>_OUTPUT/{appId}</c> directory, or null if the tool is not ready.
         /// </summary>
-        public string Run(string gameDir, string appId, GoldbergOptions options, BlankPluginSettings settings, Action<string> onLog, bool gseSavesCopied = false)
+        public string Run(string gameDir, string appId, GoldbergOptions options, AppSettings settings, Action<string> onLog, bool gseSavesCopied = false)
         {
             if (options == null)
                 throw new ArgumentNullException(nameof(options));
