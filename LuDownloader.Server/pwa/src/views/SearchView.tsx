@@ -28,7 +28,11 @@ export default function SearchView(): JSX.Element {
 
   const queue = async (result: MorrenusSearchResult): Promise<void> => {
     try {
-      await api.tasks.create('download', { appId: result.gameId, gameName: result.gameName })
+      await api.tasks.create('add_to_library', {
+        appId: result.gameId,
+        gameName: result.gameName,
+        headerImageUrl: result.headerImageUrl,
+      })
       setQueued((prev) => new Set([...prev, result.gameId]))
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err))
@@ -68,7 +72,7 @@ export default function SearchView(): JSX.Element {
                 onClick={() => void queue(result)}
                 disabled={queued.has(result.gameId)}
                 style={{ background: queued.has(result.gameId) ? '#374151' : '#3b82f6', color: queued.has(result.gameId) ? '#9ca3af' : '#fff', border: 'none', borderRadius: 4, padding: '0.3rem 0.6rem', cursor: queued.has(result.gameId) ? 'default' : 'pointer', fontSize: '0.75rem', width: '100%' }}
-              >{queued.has(result.gameId) ? 'Queued ✓' : 'Queue Download'}</button>
+              >{queued.has(result.gameId) ? 'Queued' : 'Add to Library'}</button>
             </div>
           </div>
         ))}

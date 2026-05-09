@@ -4,7 +4,7 @@ import { startDownload } from '../ipc/depot'
 import { addToSteam } from '../ipc/steam'
 import { runSteamless } from '../ipc/steamless'
 import { checkUpdates } from '../ipc/manifest'
-import { listInstalled, listSavedLibrary } from '../ipc/games'
+import { addSavedLibrary, listInstalled, listSavedLibrary } from '../ipc/games'
 import { loadSettings } from '../ipc/settings'
 import { info, warn } from '../ipc/logger'
 
@@ -89,6 +89,16 @@ export class CloudSyncAgent {
         await startDownload(payload, this.window)
         break
       }
+      case 'add_to_library': {
+        const payload = task.payload as { appId: string; gameName?: string; headerImageUrl?: string }
+        if (!payload.appId) throw new Error('Missing appId for add_to_library task')
+        await addSavedLibrary({
+          appId: payload.appId,
+          gameName: payload.gameName || payload.appId,
+          headerImageUrl: payload.headerImageUrl,
+        })
+        break
+      }
       case 'add_to_steam': {
         const payload = task.payload as { appId: string }
         await addToSteam(payload.appId)
@@ -114,7 +124,7 @@ export class CloudSyncAgent {
     const settings = await loadSettings()
     if (!settings.cloudServerUrl || !settings.cloudApiKey) return null
     return {
-      serverUrl: settings.cloudServerUrl.replace(/\/$/, ''),
+      serverUrl: normalizeServerUrl(settings.cloudServerUrl),
       headers: { 'X-Api-Key': settings.cloudApiKey, 'Content-Type': 'application/json' }
     }
   }
@@ -155,4 +165,16 @@ interface Task {
   payload: unknown
   status: string
   progress: number | null
+}
+
+function normalizeServerUrl(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    return new URL(withProtocol).origin
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
 }
