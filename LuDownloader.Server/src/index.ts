@@ -26,8 +26,11 @@ app.route('/api/search', searchRouter)
 // Static assets (Vite outputs to assets/)
 app.use('/assets/*', serveStatic({ root: './pwa/dist' }))
 
-// SPA fallback — serve index.html for all non-API routes
-app.get('*', async (c) => {
+// SPA fallback — only fires when no route matched
+app.notFound(async (c) => {
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ error: 'Not found' }, 404)
+  }
   try {
     const html = await fsp.readFile('./pwa/dist/index.html', 'utf-8')
     return c.html(html)
