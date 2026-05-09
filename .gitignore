@@ -1,4 +1,4 @@
-# Build outputs (do not ignore BlankPlugin/source/deps/ — shipped binaries live there)
+# Build outputs (do not ignore deps/ or BlankPlugin/source/deps/ because shipped binaries live there)
 **/bin/
 **/obj/
 
@@ -16,3 +16,7 @@ BlankPlugin/source/.vs/
 .claude/scheduled_tasks.lock
 BlankPlugin/source/bin/.claude/
 BlankPlugin/source/.claude/
+
+# Node.js
+LuDownloader.Server/pwa/node_modules/
+LuDownloader.Server/pwa/dist/
