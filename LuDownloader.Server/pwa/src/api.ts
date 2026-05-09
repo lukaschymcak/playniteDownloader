@@ -89,16 +89,22 @@ function getConfig(): { serverUrl: string; headers: Record<string, string> } {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const { serverUrl, headers } = getConfig()
+  const reqHeaders: Record<string, string> = { 'X-Api-Key': headers['X-Api-Key'] }
+  if (body !== undefined) reqHeaders['Content-Type'] = 'application/json'
   const response = await fetch(`${serverUrl}${path}`, {
     method,
-    headers,
+    headers: reqHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
+  const text = await response.text()
   if (!response.ok) {
-    const text = await response.text().catch(() => '')
     throw new Error(`API error ${response.status}: ${text}`)
   }
-  return response.json() as Promise<T>
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error(`Bad response from ${path}: ${text.slice(0, 120)}`)
+  }
 }
 
 // === API client ===
