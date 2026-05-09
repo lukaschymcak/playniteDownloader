@@ -31,9 +31,11 @@ import {
 } from './ipc/steam';
 import { runSteamless } from './ipc/steamless';
 import { igdbSearch } from './ipc/igdb';
+import { CloudSyncAgent } from './sync/cloudSync';
 
 let mainWindow: BrowserWindow | null = null;
 let updateStatuses: Record<string, UpdateStatus> = {};
+const cloudSync = new CloudSyncAgent();
 
 function createWindow(): void {
   Menu.setApplicationMenu(null);
@@ -57,6 +59,10 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => mainWindow?.show());
   mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) cloudSync.setWindow(mainWindow);
+    void cloudSync.onStartup();
+  });
 
   if (is.dev && process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
@@ -73,6 +79,8 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+app.on('before-quit', () => cloudSync.stop());
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -195,6 +203,7 @@ async function getDiskFreeSpace(target: string): Promise<number | null> {
 async function sendLibraryChanged(): Promise<void> {
   try {
     mainWindow?.webContents.send('library:changed', await buildLibraryRows(updateStatuses));
+    void cloudSync.pushLibrary().catch(() => undefined);
   } catch (err) {
     mainWindow?.webContents.send('app:error', safeError(err));
   }
