@@ -31,7 +31,7 @@ tasksRouter.patch('/:id', async (c) => {
     error?: string
   }>()
 
-  const updates: Record<string, unknown> = {}
+  const updates: Partial<typeof tasks.$inferInsert> = {}
   if (body.status !== undefined) {
     updates.status = body.status
     if (body.status === 'running') updates.startedAt = new Date()

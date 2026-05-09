@@ -10,9 +10,9 @@ export const tasks = pgTable('tasks', {
   progress:    integer('progress').default(0),
   logTail:     text('log_tail').array().default([]),
   error:       text('error'),
-  createdAt:   timestamp('created_at').defaultNow().notNull(),
-  startedAt:   timestamp('started_at'),
-  completedAt: timestamp('completed_at'),
+  createdAt:   timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  startedAt:   timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
 })
 
 export const installedGames = pgTable('installed_games', {
@@ -28,7 +28,7 @@ export const installedGames = pgTable('installed_games', {
   registeredWithSteam: boolean('registered_with_steam').default(false),
   headerImageUrl:      text('header_image_url'),
   executablePath:      text('executable_path'),
-  syncedAt:            timestamp('synced_at').defaultNow(),
+  syncedAt:            timestamp('synced_at', { withTimezone: true }).defaultNow(),
 })
 
 export const savedLibrary = pgTable('saved_library', {
