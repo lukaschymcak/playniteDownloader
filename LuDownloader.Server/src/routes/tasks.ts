@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db/client.js'
 import { tasks } from '../db/schema.js'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 import { apiKeyAuth } from '../middleware/auth.js'
 
 export function registerTasksRoutes(app: Hono): void {
@@ -50,9 +50,9 @@ export function registerTasksRoutes(app: Hono): void {
     const id = c.req.param('id')
     const [task] = await db
       .delete(tasks)
-      .where(and(eq(tasks.id, id), eq(tasks.status, 'pending')))
+      .where(and(eq(tasks.id, id), ne(tasks.status, 'running')))
       .returning()
-    if (!task) return c.json({ error: 'Task not found or not cancellable' }, 404)
+    if (!task) return c.json({ error: 'Task not found or currently running' }, 404)
     return c.json({ ok: true })
   })
 }

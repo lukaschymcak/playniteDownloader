@@ -138,7 +138,7 @@ export default function TasksView(): JSX.Element {
             }}
           >
             <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>{relativeTime(task.createdAt)}</span>
-            {task.status === 'pending' && (
+            {task.status !== 'running' && (
               <button
                 onClick={() => {
                   void cancel(task.id)
@@ -153,7 +153,7 @@ export default function TasksView(): JSX.Element {
                   fontSize: '0.75rem',
                 }}
               >
-                Cancel
+                {task.status === 'pending' ? 'Cancel' : 'Delete'}
               </button>
             )}
           </div>

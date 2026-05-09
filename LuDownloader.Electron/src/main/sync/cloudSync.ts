@@ -84,19 +84,18 @@ export class CloudSyncAgent {
   private async runTask(task: Task): Promise<void> {
     switch (task.type) {
       case 'download': {
+        const payload = task.payload as Partial<DownloadStartRequest> & { appId?: string; gameName?: string; headerImageUrl?: string }
+        if (!payload.gameData) {
+          await this.addTaskPayloadToLibrary(payload)
+          break
+        }
         if (!this.window) throw new Error('No window available for download task')
-        const payload = task.payload as DownloadStartRequest
-        await startDownload(payload, this.window)
+        await startDownload(payload as DownloadStartRequest, this.window)
         break
       }
       case 'add_to_library': {
         const payload = task.payload as { appId: string; gameName?: string; headerImageUrl?: string }
-        if (!payload.appId) throw new Error('Missing appId for add_to_library task')
-        await addSavedLibrary({
-          appId: payload.appId,
-          gameName: payload.gameName || payload.appId,
-          headerImageUrl: payload.headerImageUrl,
-        })
+        await this.addTaskPayloadToLibrary(payload)
         break
       }
       case 'add_to_steam': {
@@ -118,6 +117,15 @@ export class CloudSyncAgent {
       default:
         throw new Error(`Unknown task type: ${task.type}`)
     }
+  }
+
+  private async addTaskPayloadToLibrary(payload: { appId?: string; gameName?: string; headerImageUrl?: string }): Promise<void> {
+    if (!payload.appId) throw new Error('Missing appId for add-to-library task')
+    await addSavedLibrary({
+      appId: payload.appId,
+      gameName: payload.gameName || payload.appId,
+      headerImageUrl: payload.headerImageUrl,
+    })
   }
 
   private async getConfig(): Promise<Config | null> {
