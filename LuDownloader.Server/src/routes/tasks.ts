@@ -3,7 +3,7 @@ import { db } from '../db/client.js'
 import { tasks } from '../db/schema.js'
 import { and, eq } from 'drizzle-orm'
 
-export const tasksRouter = new Hono()
+export const tasksRouter = new Hono({ strict: false })
 
 tasksRouter.get('/', async (c) => {
   const status = c.req.query('status')

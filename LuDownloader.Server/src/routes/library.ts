@@ -4,7 +4,7 @@ import { installedGames, savedLibrary } from '../db/schema.js'
 import { notInArray } from 'drizzle-orm'
 import type { InstalledGame, SavedLibraryGame } from '../types.js'
 
-export const libraryRouter = new Hono()
+export const libraryRouter = new Hono({ strict: false })
 
 libraryRouter.get('/', async (c) => {
   const [installed, saved] = await Promise.all([

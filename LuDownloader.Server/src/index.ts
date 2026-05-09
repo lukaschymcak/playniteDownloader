@@ -28,7 +28,8 @@ app.use('/assets/*', serveStatic({ root: './pwa/dist' }))
 
 // SPA fallback — only fires when no route matched
 app.notFound(async (c) => {
-  if (c.req.path.startsWith('/api/')) {
+  const pathname = new URL(c.req.url).pathname
+  if (pathname.startsWith('/api/')) {
     return c.json({ error: 'Not found' }, 404)
   }
   try {

@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 
 const MORRENUS_BASE = 'https://manifest.morrenus.xyz/api/v1'
 
-export const searchRouter = new Hono()
+export const searchRouter = new Hono({ strict: false })
 
 searchRouter.get('/', async (c) => {
   const q = c.req.query('q')
