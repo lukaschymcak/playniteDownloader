@@ -60,6 +60,18 @@ export interface PwaSettings {
 
 const SETTINGS_KEY = 'ludownloader-settings'
 
+export function normalizeServerUrl(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    return new URL(withProtocol).origin
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
+}
+
 export function loadPwaSettings(): PwaSettings | null {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
@@ -71,7 +83,10 @@ export function loadPwaSettings(): PwaSettings | null {
 }
 
 export function savePwaSettings(settings: PwaSettings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+    ...settings,
+    serverUrl: normalizeServerUrl(settings.serverUrl),
+  }))
 }
 
 // === Internal request handler ===
@@ -82,7 +97,7 @@ function getConfig(): { serverUrl: string; headers: Record<string, string> } {
     throw new Error('Server URL and API key are not configured. Go to Settings.')
   }
   return {
-    serverUrl: s.serverUrl.replace(/\/$/, ''),
+    serverUrl: normalizeServerUrl(s.serverUrl),
     headers: { 'X-Api-Key': s.apiKey, 'Content-Type': 'application/json' },
   }
 }
@@ -91,12 +106,19 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const { serverUrl, headers } = getConfig()
   const reqHeaders: Record<string, string> = { 'X-Api-Key': headers['X-Api-Key'] }
   if (body !== undefined) reqHeaders['Content-Type'] = 'application/json'
-  const response = await fetch(`${serverUrl}${path}`, {
+
+  const requestUrl = `${serverUrl}${path}`
+  const response = await fetch(requestUrl, {
     method,
     headers: reqHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   const text = await response.text()
+  const contentType = response.headers.get('content-type') ?? ''
+
+  if (contentType.includes('text/html')) {
+    throw new Error(`Got HTML from ${requestUrl}. Use only the deployment origin as Server URL, for example https://your-app.railway.app, and make sure the server rebuild is deployed.`)
+  }
   if (!response.ok) {
     throw new Error(`API error ${response.status}: ${text}`)
   }
@@ -125,7 +147,7 @@ export const api = {
       id: string,
       patch: { status?: string; progress?: number; logTail?: string[]; error?: string },
     ) => request<Task>('PATCH', `/api/tasks/${id}`, patch),
-    delete: (id: string) => request<{ ok: boolean }>('DELETE', `/api/tasks/${id}`),
+    delete: (id: string) => request<{ ok: true }>('DELETE', `/api/tasks/${id}`),
   },
 
   search: (query: string) =>

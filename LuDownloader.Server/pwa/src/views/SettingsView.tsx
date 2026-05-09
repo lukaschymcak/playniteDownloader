@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { loadPwaSettings, savePwaSettings, api } from '../api'
+import { loadPwaSettings, normalizeServerUrl, savePwaSettings, api } from '../api'
 import type { PwaSettings } from '../api'
 
 const empty: PwaSettings = { serverUrl: '', apiKey: '' }
@@ -11,27 +11,31 @@ export default function SettingsView(): JSX.Element {
 
   useEffect(() => {
     const s = loadPwaSettings()
-    if (s) setSettings(s)
+    if (s) setSettings({ ...s, serverUrl: normalizeServerUrl(s.serverUrl) })
   }, [])
 
   const set = (key: keyof PwaSettings, value: string): void =>
     setSettings((prev) => ({ ...prev, [key]: value }))
 
   const save = (): void => {
-    savePwaSettings(settings)
+    const normalized = { ...settings, serverUrl: normalizeServerUrl(settings.serverUrl) }
+    savePwaSettings(normalized)
+    setSettings(normalized)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
   const testConnection = async (): Promise<void> => {
-    setTestResult('Testing…')
+    setTestResult('Testing...')
     try {
-      // Temporarily save to make api.ts pick up the values
-      savePwaSettings(settings)
+      // Temporarily save to make api.ts pick up the values.
+      const normalized = { ...settings, serverUrl: normalizeServerUrl(settings.serverUrl) }
+      savePwaSettings(normalized)
+      setSettings(normalized)
       const result = await api.health()
-      setTestResult(result.ok ? '✓ Connected' : '✗ Unexpected response')
+      setTestResult(result.ok ? 'Connected' : 'Unexpected response')
     } catch (err) {
-      setTestResult(`✗ ${err instanceof Error ? err.message : String(err)}`)
+      setTestResult(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -61,7 +65,7 @@ export default function SettingsView(): JSX.Element {
         <button style={btnStyle('#3b82f6')} onClick={save}>{saved ? 'Saved!' : 'Save'}</button>
         <button style={btnStyle('#374151')} onClick={() => void testConnection()}>Test</button>
       </div>
-      {testResult && <p style={{ color: testResult.startsWith('✓') ? '#4ade80' : '#f87171', marginTop: '0.75rem' }}>{testResult}</p>}
+      {testResult && <p style={{ color: testResult === 'Connected' ? '#4ade80' : '#f87171', marginTop: '0.75rem' }}>{testResult}</p>}
     </div>
   )
 }
