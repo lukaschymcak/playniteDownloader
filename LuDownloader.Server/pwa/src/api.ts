@@ -39,9 +39,11 @@ export interface MorrenusSearchResult {
   gameId: string
   gameName: string
   headerImageUrl?: string
+  relevanceScore?: number
   type?: 'game' | 'dlc'
   shortDescription?: string
   releaseYear?: number
+  dlcCount?: number
 }
 
 export interface MorrenusSearchResponse {
@@ -49,6 +51,7 @@ export interface MorrenusSearchResponse {
   results: MorrenusSearchResult[]
   total: number
   label: string
+  baseGame?: MorrenusSearchResult
 }
 
 export interface PwaSettings {
