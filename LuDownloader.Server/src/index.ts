@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import fsp from 'node:fs/promises'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
@@ -22,8 +23,18 @@ app.route('/api/library', libraryRouter)
 app.route('/api/tasks', tasksRouter)
 app.route('/api/search', searchRouter)
 
-// Serve PWA from pwa/dist (built separately)
-app.use('/*', serveStatic({ root: './pwa/dist' }))
+// Static assets (Vite outputs to assets/)
+app.use('/assets/*', serveStatic({ root: './pwa/dist' }))
+
+// SPA fallback — serve index.html for all non-API routes
+app.get('*', async (c) => {
+  try {
+    const html = await fsp.readFile('./pwa/dist/index.html', 'utf-8')
+    return c.html(html)
+  } catch {
+    return c.text('PWA not built', 404)
+  }
+})
 
 async function main(): Promise<void> {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required')
