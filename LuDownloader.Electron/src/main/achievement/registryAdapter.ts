@@ -19,6 +19,19 @@ export class WinRegAdapter implements RegistryAdapter {
       .filter((item) => item.length > 0);
   }
 
+  async listValueNames(keyPath: string): Promise<string[]> {
+    const key = this.makeKey(keyPath);
+    return new Promise((resolve) => {
+      key.values((err: Error | null, items: Array<{ name: string }>) => {
+        if (err) {
+          resolve([]);
+          return;
+        }
+        resolve(items.map((i) => i.name));
+      });
+    });
+  }
+
   async getValue(keyPath: string, valueName: string): Promise<string | number | null> {
     const key = this.makeKey(keyPath);
     const item = await new Promise<{ value: string } | null>((resolve) => {

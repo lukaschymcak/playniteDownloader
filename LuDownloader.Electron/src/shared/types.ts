@@ -19,24 +19,26 @@ export interface AppSettings {
   achievementFirstRunDismissed: boolean;
 }
 
-export enum SourceId {
-  /** Sentinel for "no source" / aggregate state parity with `EmulatorSource.None`. */
-  None = 'None',
-  Goldberg = 'Goldberg',
-  GSE = 'GSE',
-  Empress = 'Empress',
-  Codex = 'Codex',
-  Rune = 'Rune',
-  OnlineFix = 'OnlineFix',
-  SmartSteamEmu = 'SmartSteamEmu',
-  Skidrow = 'Skidrow',
-  Darksiders = 'Darksiders',
-  Ali213 = 'Ali213',
-  Hoodlum = 'Hoodlum',
-  CreamApi = 'CreamApi',
-  GreenLuma = 'GreenLuma',
-  Reloaded = 'Reloaded'
-}
+/** Emulator / save source id (string literals for JSON + node strip-types tests). */
+export const SourceId = {
+  None: 'None',
+  Goldberg: 'Goldberg',
+  GSE: 'GSE',
+  Empress: 'Empress',
+  Codex: 'Codex',
+  Rune: 'Rune',
+  OnlineFix: 'OnlineFix',
+  SmartSteamEmu: 'SmartSteamEmu',
+  Skidrow: 'Skidrow',
+  Darksiders: 'Darksiders',
+  Ali213: 'Ali213',
+  Hoodlum: 'Hoodlum',
+  CreamApi: 'CreamApi',
+  GreenLuma: 'GreenLuma',
+  Reloaded: 'Reloaded'
+} as const;
+
+export type SourceId = (typeof SourceId)[keyof typeof SourceId];
 
 /** Bitmask parity with `LuiAchieve.EmulatorSource` ([Flags]). */
 export type EmulatorSourceMask = number;

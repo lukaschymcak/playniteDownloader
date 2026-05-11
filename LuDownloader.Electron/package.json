@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit && electron-vite build",
-    "test": "node --experimental-strip-types --test src/main/achievement/cacheService.test.ts src/main/achievement/profileService.test.ts",
+    "test": "node --experimental-strip-types --test \"src/main/achievement/**/*.test.ts\"",
     "package": "npm run build && electron-builder --win portable",
     "dist": "npm run build && electron-builder --win portable nsis"
   },
