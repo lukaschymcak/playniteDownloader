@@ -33,7 +33,10 @@ export const defaultSettings: AppSettings = {
     SourceId.Reloaded
   ],
   achievementSourceRoots: {},
-  hoodlumSavePath: ''
+  hoodlumSavePath: '',
+  achievementUserGameLibraryRoots: [],
+  achievementScanOfficialSteamLibraries: true,
+  achievementFirstRunDismissed: false
 };
 
 export function settingsPath(): string {
@@ -62,7 +65,25 @@ export async function loadSettings(): Promise<AppSettings> {
       defaultSettings.achievementEnabledSources
     ),
     achievementSourceRoots: pickSourceRoots(loaded, 'achievementSourceRoots', 'AchievementSourceRoots'),
-    hoodlumSavePath: pickString(loaded, 'hoodlumSavePath', 'HoodlumSavePath')
+    hoodlumSavePath: pickString(loaded, 'hoodlumSavePath', 'HoodlumSavePath'),
+    achievementUserGameLibraryRoots: pickStringArray(
+      loaded,
+      'achievementUserGameLibraryRoots',
+      'AchievementUserGameLibraryRoots',
+      defaultSettings.achievementUserGameLibraryRoots
+    ),
+    achievementScanOfficialSteamLibraries: pickBoolean(
+      loaded,
+      'achievementScanOfficialSteamLibraries',
+      'AchievementScanOfficialSteamLibraries',
+      defaultSettings.achievementScanOfficialSteamLibraries
+    ),
+    achievementFirstRunDismissed: pickBoolean(
+      loaded,
+      'achievementFirstRunDismissed',
+      'AchievementFirstRunDismissed',
+      defaultSettings.achievementFirstRunDismissed
+    )
   };
   return {
     ...defaultSettings,
@@ -89,7 +110,10 @@ export async function saveSettings(settings: AppSettings): Promise<AppSettings> 
     CloudApiKey: merged.cloudApiKey,
     AchievementEnabledSources: merged.achievementEnabledSources,
     AchievementSourceRoots: merged.achievementSourceRoots,
-    HoodlumSavePath: merged.hoodlumSavePath
+    HoodlumSavePath: merged.hoodlumSavePath,
+    AchievementUserGameLibraryRoots: merged.achievementUserGameLibraryRoots,
+    AchievementScanOfficialSteamLibraries: merged.achievementScanOfficialSteamLibraries,
+    AchievementFirstRunDismissed: merged.achievementFirstRunDismissed
   });
   return merged;
 }
@@ -100,6 +124,34 @@ function pickString(source: Record<string, unknown>, camel: string, pascal: stri
 
 function pickNumber(source: Record<string, unknown>, camel: string, pascal: string, fallback: number): number {
   return Number(source[camel] ?? source[pascal] ?? fallback);
+}
+
+function pickBoolean(
+  source: Record<string, unknown>,
+  camel: string,
+  pascal: string,
+  fallback: boolean
+): boolean {
+  const raw = source[camel] ?? source[pascal];
+  if (raw === true || raw === false) return raw;
+  if (raw === 1 || raw === 0) return raw === 1;
+  if (typeof raw === 'string') {
+    const s = raw.trim().toLowerCase();
+    if (s === 'true' || s === '1') return true;
+    if (s === 'false' || s === '0') return false;
+  }
+  return fallback;
+}
+
+function pickStringArray(
+  source: Record<string, unknown>,
+  camel: string,
+  pascal: string,
+  fallback: string[]
+): string[] {
+  const raw = source[camel] ?? source[pascal];
+  if (!Array.isArray(raw)) return [...fallback];
+  return raw.map((item) => String(item).trim()).filter((item) => item.length > 0);
 }
 
 function pickSourceList(
@@ -113,7 +165,7 @@ function pickSourceList(
   const allowed = new Set(Object.values(SourceId));
   const values = raw
     .map((item) => String(item))
-    .filter((item): item is SourceId => allowed.has(item as SourceId));
+    .filter((item): item is SourceId => allowed.has(item as SourceId) && item !== SourceId.None);
   return values.length > 0 ? values : fallback;
 }
 
@@ -127,7 +179,7 @@ function pickSourceRoots(
   const allowed = new Set(Object.values(SourceId));
   const result: Partial<Record<SourceId, string[]>> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (!allowed.has(key as SourceId) || !Array.isArray(value)) continue;
+    if (key === SourceId.None || !allowed.has(key as SourceId) || !Array.isArray(value)) continue;
     const paths = value.map((item) => String(item)).filter((item) => item.trim().length > 0);
     if (paths.length > 0) {
       result[key as SourceId] = paths;

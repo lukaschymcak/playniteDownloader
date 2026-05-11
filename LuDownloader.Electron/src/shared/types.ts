@@ -14,6 +14,9 @@ export interface AppSettings {
   achievementEnabledSources: SourceId[];
   achievementSourceRoots: Partial<Record<SourceId, string[]>>;
   hoodlumSavePath: string;
+  achievementUserGameLibraryRoots: string[];
+  achievementScanOfficialSteamLibraries: boolean;
+  achievementFirstRunDismissed: boolean;
 }
 
 export enum SourceId {

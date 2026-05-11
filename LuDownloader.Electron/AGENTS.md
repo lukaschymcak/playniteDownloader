@@ -65,9 +65,19 @@ Functional modules under `src/main/ipc/`:
 - `steam.ts`: Steam path/library parsing, Lua copy, `.acf` creation, Add to Steam.
 - `manifest.ts`: cache management, ManifestChecker integration, update status logic.
 - `games.ts`: installed/saved records, reconciliation, safe uninstall path checks.
+- `goldberg.ts`: Goldberg emulator setup, config patching, and DLL replacement.
 - `steamless.ts`: Steamless tool execution.
 - `igdb.ts`: optional metadata fetch using stored credentials.
 - `logger.ts`, `jsonStore.ts`: shared file/log helpers.
+
+### Achievement Discovery (`src/main/achievement`)
+
+- `discoveryService.ts`: scans local files and registry for achievement data across multiple sources (Goldberg, CODEX, Empress, etc.).
+- `registryAdapter.ts`: abstraction for Windows registry access.
+
+### Cloud Sync (`src/main/sync`)
+
+- `cloudSync.ts`: optionally pushes library state and polls for remote tasks (download, update checks, etc.) if configured.
 
 ### Preload (`src/preload`)
 
@@ -134,6 +144,20 @@ Functional modules under `src/main/ipc/`:
 - `ManifestChecker.exe` invoked with AppIDs.
 - Status computed per app by comparing saved depot manifest GIDs vs checker output.
 - Unknown/error states become `cannot_determine` with message.
+
+### Goldberg Emulator Setup
+
+- `goldberg.run` patches `configs.user.ini` with user account/SteamID.
+- Runs `generate_emu_config.exe` to produce emulator files.
+- Backs up original Steam DLLs and replaces them with Goldberg versions.
+- Optionally copies `GSE Saves` folder to `%APPDATA%`.
+
+### Achievement Discovery
+
+- Scans multiple "sources" (emulators/cracks) for `achievements.json`, `achievements.ini`, etc.
+- Resolves AppIDs from folder structures.
+- Supports GreenLuma registry scanning.
+- Used to identify which games in the library have local achievement data.
 
 ### Cloud sync agent
 

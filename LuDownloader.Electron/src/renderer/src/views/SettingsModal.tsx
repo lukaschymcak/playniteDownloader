@@ -6,9 +6,12 @@ const empty: AppSettings = {
   apiKey: '', downloadPath: '', maxDownloads: 20, steamUsername: '', steamWebApiKey: '',
   igdbClientId: '', igdbClientSecret: '', goldbergFilesPath: '', goldbergAccountName: '', goldbergSteamId: '',
   cloudServerUrl: '', cloudApiKey: '',
-  achievementEnabledSources: Object.values(SourceId),
+  achievementEnabledSources: Object.values(SourceId).filter((s) => s !== SourceId.None),
   achievementSourceRoots: {},
-  hoodlumSavePath: ''
+  hoodlumSavePath: '',
+  achievementUserGameLibraryRoots: [],
+  achievementScanOfficialSteamLibraries: true,
+  achievementFirstRunDismissed: false
 };
 
 export function SettingsModal({ onClose, embedded = false }: { onClose: () => void; embedded?: boolean }): JSX.Element {

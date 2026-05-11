@@ -30,7 +30,10 @@ const baseSettings: AppSettings = {
   cloudApiKey: '',
   achievementEnabledSources: Object.values(SourceId).filter((s) => s !== SourceId.None),
   achievementSourceRoots: {},
-  hoodlumSavePath: ''
+  hoodlumSavePath: '',
+  achievementUserGameLibraryRoots: [],
+  achievementScanOfficialSteamLibraries: true,
+  achievementFirstRunDismissed: false
 };
 
 test('dedupeNormalizedPaths normalizes and dedupes case-insensitively', () => {
