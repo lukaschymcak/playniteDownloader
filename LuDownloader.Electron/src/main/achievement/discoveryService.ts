@@ -34,6 +34,7 @@ const FILE_SOURCES: readonly SourceId[] = [
 const GREENLUMA_BASE_KEYS = ['SOFTWARE\\GLR\\AppID', 'SOFTWARE\\GL2020\\AppID'] as const;
 
 const DEFAULT_ROOTS: Readonly<Record<SourceId, string[]>> = {
+  [SourceId.None]: [],
   [SourceId.Goldberg]: [expandEnv('%APPDATA%\\Goldberg SteamEmu Saves')],
   [SourceId.GSE]: [expandEnv('%APPDATA%\\GSE Saves')],
   [SourceId.Empress]: [expandEnv('%APPDATA%\\EMPRESS'), expandEnv('%PUBLIC%\\Documents\\EMPRESS')],
@@ -190,14 +191,19 @@ function pathsEqual(a: string, b: string): boolean {
 }
 
 function getEnabledSources(settings: AppSettings): Set<SourceId> {
-  const list = settings.achievementEnabledSources ?? Object.values(SourceId);
+  const list = settings.achievementEnabledSources ?? Object.values(SourceId).filter((s) => s !== SourceId.None);
   const enabled = new Set<SourceId>();
   for (const item of list) {
+    if (item === SourceId.None) {
+      continue;
+    }
     if ((Object.values(SourceId) as string[]).includes(item)) {
       enabled.add(item);
     }
   }
-  return enabled.size > 0 ? enabled : new Set(Object.values(SourceId));
+  return enabled.size > 0
+    ? enabled
+    : new Set(Object.values(SourceId).filter((s) => s !== SourceId.None));
 }
 
 function buildScanPatterns(settings: AppSettings, enabled: Set<SourceId>): ScanPattern[] {

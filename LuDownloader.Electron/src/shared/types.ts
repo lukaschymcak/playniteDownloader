@@ -17,6 +17,8 @@ export interface AppSettings {
 }
 
 export enum SourceId {
+  /** Sentinel for "no source" / aggregate state parity with `EmulatorSource.None`. */
+  None = 'None',
   Goldberg = 'Goldberg',
   GSE = 'GSE',
   Empress = 'Empress',
@@ -31,6 +33,86 @@ export enum SourceId {
   CreamApi = 'CreamApi',
   GreenLuma = 'GreenLuma',
   Reloaded = 'Reloaded'
+}
+
+/** Bitmask parity with `LuiAchieve.EmulatorSource` ([Flags]). */
+export type EmulatorSourceMask = number;
+
+export const EmulatorSource = {
+  None: 0,
+  Goldberg: 1 << 0,
+  GSE: 1 << 1,
+  Codex: 1 << 2,
+  Rune: 1 << 3,
+  Empress: 1 << 4,
+  OnlineFix: 1 << 5,
+  SmartSteamEmu: 1 << 6,
+  Skidrow: 1 << 7,
+  Darksiders: 1 << 8,
+  Ali213: 1 << 9,
+  Hoodlum: 1 << 10,
+  CreamApi: 1 << 11,
+  GreenLuma: 1 << 12,
+  Reloaded: 1 << 13,
+  All: (1 << 14) - 1
+} as const;
+
+export interface RawAchievement {
+  achieved: boolean;
+  unlockTime: number;
+  curProgress: number;
+  maxProgress: number;
+}
+
+export interface Achievement {
+  apiName: string;
+  gameName: string;
+  displayName: string;
+  description: string;
+  hidden: boolean;
+  iconPath?: string | null;
+  iconGrayPath?: string | null;
+  iconUrl?: string | null;
+  iconGrayUrl?: string | null;
+  achieved: boolean;
+  unlockTime: number;
+  curProgress: number;
+  maxProgress: number;
+  globalPercentage: number;
+}
+
+export interface GameAchievements {
+  appId: string;
+  gameName: string;
+  storeHeaderImageUrl?: string | null;
+  installDir?: string | null;
+  hasUsableInstallDirectory: boolean;
+  source: EmulatorSourceMask;
+  list: Achievement[];
+  unlockedCount: number;
+  totalCount: number;
+  percentage: number;
+  hasPlatinum: boolean;
+}
+
+export interface ScanResult {
+  appId: string;
+  source: EmulatorSourceMask;
+  filePath: string;
+}
+
+export interface AchievementDiff {
+  achievement: Achievement;
+  isNewUnlock: boolean;
+  isProgressMilestone: boolean;
+  oldProgress: number;
+  newProgress: number;
+}
+
+export interface UserProfile {
+  name: string;
+  avatarPath?: string | null;
+  featuredTrophiesByGame: Record<string, string[]>;
 }
 
 export type DiscoveryKind = 'file' | 'registry';

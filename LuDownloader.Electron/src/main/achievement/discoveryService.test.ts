@@ -28,7 +28,7 @@ const baseSettings: AppSettings = {
   goldbergSteamId: '',
   cloudServerUrl: '',
   cloudApiKey: '',
-  achievementEnabledSources: Object.values(SourceId),
+  achievementEnabledSources: Object.values(SourceId).filter((s) => s !== SourceId.None),
   achievementSourceRoots: {},
   hoodlumSavePath: ''
 };
