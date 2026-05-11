@@ -3,17 +3,23 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { SourceId, type AppSettings } from '../../shared/types';
+import {
+  EmulatorSource,
+  SourceId,
+  type AppSettings
+} from '../../shared/types.ts';
 import {
   buildSourceRoots,
+  collectExtraDiscoveryRoots,
   dedupeNormalizedPaths,
   isNumericAppId,
   isStrictlyInside,
   normalizeWindowsPath,
   resolveAppIdFromPath,
   scanAllSources,
+  toScanResults,
   type RegistryAdapter
-} from './discoveryService';
+} from './discoveryService.ts';
 
 const baseSettings: AppSettings = {
   apiKey: '',
@@ -65,6 +71,52 @@ test('resolveAppIdFromPath finds nearest numeric ancestor under root', () => {
   assert.equal(resolveAppIdFromPath(full, root), '12345');
 });
 
+test('resolveAppIdFromPath finds numeric ancestor below nested path', () => {
+  const root = 'C:\\EmuRoot';
+  const full = 'C:\\EmuRoot\\99999\\nested\\deep\\achievements.ini';
+  assert.equal(resolveAppIdFromPath(full, root), '99999');
+});
+
+test('resolveAppIdFromPath returns null when no numeric segment under root', () => {
+  const root = 'C:\\EmuRoot';
+  const full = 'C:\\EmuRoot\\notid\\file.json';
+  assert.equal(resolveAppIdFromPath(full, root), null);
+});
+
+test('buildSourceRoots appends extraScanRoots to file sources only', () => {
+  const settings: AppSettings = {
+    ...baseSettings,
+    achievementSourceRoots: {},
+    hoodlumSavePath: ''
+  };
+  const extra = 'D:\\SteamLib';
+  const roots = buildSourceRoots(settings, [extra]);
+  assert.ok(roots[SourceId.Goldberg].some((p) => p.toLowerCase().replace(/\//g, '\\') === extra.toLowerCase()));
+  assert.equal(roots[SourceId.GreenLuma].some((p) => p.includes('SteamLib')), false);
+});
+
+test('toScanResults maps SourceId to EmulatorSource bitmask', () => {
+  const rows = toScanResults([
+    { appId: '1', source: SourceId.Goldberg, kind: 'file', location: 'C:\\a.json' },
+    { appId: '2', source: SourceId.GreenLuma, kind: 'registry', location: 'HKCU|x' }
+  ]);
+  assert.equal(rows[0]!.appId, '1');
+  assert.equal(rows[0]!.source, EmulatorSource.Goldberg);
+  assert.equal(rows[0]!.filePath, 'C:\\a.json');
+  assert.equal(rows[1]!.source, EmulatorSource.GreenLuma);
+  assert.equal(rows[1]!.filePath, 'HKCU|x');
+});
+
+test('collectExtraDiscoveryRoots returns user paths when official scan disabled', async () => {
+  const settings: AppSettings = {
+    ...baseSettings,
+    achievementUserGameLibraryRoots: ['C:\\MyLib'],
+    achievementScanOfficialSteamLibraries: false
+  };
+  const roots = await collectExtraDiscoveryRoots(settings);
+  assert.ok(roots.some((p) => p.toLowerCase().includes('mylib')));
+});
+
 test('buildSourceRoots merges defaults and custom roots', () => {
   const settings: AppSettings = {
     ...baseSettings,
@@ -76,6 +128,28 @@ test('buildSourceRoots merges defaults and custom roots', () => {
   const roots = buildSourceRoots(settings);
   assert.ok(roots[SourceId.Goldberg].some((p) => p.toLowerCase().includes('customgoldberg')));
   assert.ok(roots[SourceId.Hoodlum].some((p) => p.toLowerCase().includes('hoodlumsaves')));
+});
+
+test('scanAllSources uses achievementUserGameLibraryRoots as extra scan roots', async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'lud-extra-'));
+  try {
+    const extraRoot = path.join(tempRoot, 'extra');
+    await fs.mkdir(path.join(extraRoot, '111', 'child'), { recursive: true });
+    await fs.writeFile(path.join(extraRoot, '111', 'achievements.json'), '{}', 'utf8');
+
+    const settings: AppSettings = {
+      ...baseSettings,
+      achievementEnabledSources: [SourceId.Goldberg],
+      achievementScanOfficialSteamLibraries: false,
+      achievementUserGameLibraryRoots: [extraRoot],
+      achievementSourceRoots: {}
+    };
+
+    const results = await scanAllSources(settings);
+    assert.ok(results.some((r) => r.source === SourceId.Goldberg && r.appId === '111'));
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test('scanAllSources scans file sources and greenluma registry adapter', async () => {
@@ -102,6 +176,9 @@ test('scanAllSources scans file sources and greenluma registry adapter', async (
         if (valueName !== 'SkipStatsAndAchievements') return null;
         if (keyPath.includes('\\570')) return 0;
         return null;
+      },
+      async listValueNames(): Promise<string[]> {
+        return [];
       }
     };
 

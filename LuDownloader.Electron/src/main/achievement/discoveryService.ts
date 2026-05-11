@@ -1,11 +1,20 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { warn } from '../ipc/logger';
-import { SourceId, type AppSettings, type DiscoveryRecord, type FileChangeEvent, type ResolvedChange } from '../../shared/types';
+import {
+  EmulatorSource,
+  SourceId,
+  type AppSettings,
+  type DiscoveryRecord,
+  type FileChangeEvent,
+  type ResolvedChange,
+  type ScanResult,
+  type EmulatorSourceMask
+} from '../../shared/types.ts';
 
 export interface RegistryAdapter {
   listSubKeys(baseKey: string): Promise<string[]>;
   getValue(keyPath: string, valueName: string): Promise<string | number | null>;
+  listValueNames(keyPath: string): Promise<string[]>;
 }
 
 interface ScanPattern {
@@ -33,6 +42,12 @@ const FILE_SOURCES: readonly SourceId[] = [
 
 const GREENLUMA_BASE_KEYS = ['SOFTWARE\\GLR\\AppID', 'SOFTWARE\\GL2020\\AppID'] as const;
 
+const FILE_SOURCE_SET = new Set<string>(FILE_SOURCES as unknown as string[]);
+
+function isFileDiscoverySource(source: SourceId): boolean {
+  return FILE_SOURCE_SET.has(source);
+}
+
 const DEFAULT_ROOTS: Readonly<Record<SourceId, string[]>> = {
   [SourceId.None]: [],
   [SourceId.Goldberg]: [expandEnv('%APPDATA%\\Goldberg SteamEmu Saves')],
@@ -51,14 +66,29 @@ const DEFAULT_ROOTS: Readonly<Record<SourceId, string[]>> = {
   [SourceId.Reloaded]: [expandEnv('%PROGRAMDATA%\\Steam')]
 };
 
+export async function collectExtraDiscoveryRoots(settings: AppSettings): Promise<string[]> {
+  const userRoots = dedupeNormalizedPaths(settings.achievementUserGameLibraryRoots ?? []);
+  if (!settings.achievementScanOfficialSteamLibraries) {
+    return userRoots;
+  }
+  try {
+    const { getSteamLibraries } = await import('../ipc/steam.ts');
+    const fromSteam = await getSteamLibraries();
+    return dedupeNormalizedPaths([...userRoots, ...fromSteam]);
+  } catch {
+    return userRoots;
+  }
+}
+
 export async function scanAllSources(
   settings: AppSettings,
   registryAdapter?: RegistryAdapter
 ): Promise<DiscoveryRecord[]> {
   const records: DiscoveryRecord[] = [];
   const enabled = getEnabledSources(settings);
+  const extraScanRoots = await collectExtraDiscoveryRoots(settings);
 
-  for (const pattern of buildScanPatterns(settings, enabled)) {
+  for (const pattern of buildScanPatterns(settings, enabled, extraScanRoots)) {
     const found = await scanPattern(pattern);
     records.push(...found);
   }
@@ -108,9 +138,10 @@ export async function resolveChangedPath(
   };
 }
 
-export function buildSourceRoots(settings: AppSettings): Record<SourceId, string[]> {
+export function buildSourceRoots(settings: AppSettings, extraScanRoots: string[] = []): Record<SourceId, string[]> {
   const custom = settings.achievementSourceRoots ?? {};
   const result = {} as Record<SourceId, string[]>;
+  const extras = dedupeNormalizedPaths(extraScanRoots);
 
   for (const source of Object.values(SourceId)) {
     const base = source === SourceId.Hoodlum
@@ -121,10 +152,58 @@ export function buildSourceRoots(settings: AppSettings): Record<SourceId, string
     if (source === SourceId.Hoodlum && settings.hoodlumSavePath.trim().length > 0) {
       combined.push(settings.hoodlumSavePath);
     }
+    if (extras.length > 0 && isFileDiscoverySource(source)) {
+      combined.push(...extras);
+    }
     result[source] = dedupeNormalizedPaths(combined);
   }
 
   return result;
+}
+
+export function toScanResults(records: DiscoveryRecord[]): ScanResult[] {
+  return records.map((r) => ({
+    appId: r.appId,
+    source: sourceIdToEmulatorMask(r.source),
+    filePath: r.location
+  }));
+}
+
+function sourceIdToEmulatorMask(id: SourceId): EmulatorSourceMask {
+  switch (id) {
+    case SourceId.None:
+      return EmulatorSource.None;
+    case SourceId.Goldberg:
+      return EmulatorSource.Goldberg;
+    case SourceId.GSE:
+      return EmulatorSource.GSE;
+    case SourceId.Codex:
+      return EmulatorSource.Codex;
+    case SourceId.Rune:
+      return EmulatorSource.Rune;
+    case SourceId.Empress:
+      return EmulatorSource.Empress;
+    case SourceId.OnlineFix:
+      return EmulatorSource.OnlineFix;
+    case SourceId.SmartSteamEmu:
+      return EmulatorSource.SmartSteamEmu;
+    case SourceId.Skidrow:
+      return EmulatorSource.Skidrow;
+    case SourceId.Darksiders:
+      return EmulatorSource.Darksiders;
+    case SourceId.Ali213:
+      return EmulatorSource.Ali213;
+    case SourceId.Hoodlum:
+      return EmulatorSource.Hoodlum;
+    case SourceId.CreamApi:
+      return EmulatorSource.CreamApi;
+    case SourceId.GreenLuma:
+      return EmulatorSource.GreenLuma;
+    case SourceId.Reloaded:
+      return EmulatorSource.Reloaded;
+    default:
+      return EmulatorSource.None;
+  }
 }
 
 export function resolveAppIdFromPath(fullPath: string, watchRoot: string): string | null {
@@ -206,8 +285,12 @@ function getEnabledSources(settings: AppSettings): Set<SourceId> {
     : new Set(Object.values(SourceId).filter((s) => s !== SourceId.None));
 }
 
-function buildScanPatterns(settings: AppSettings, enabled: Set<SourceId>): ScanPattern[] {
-  const roots = buildSourceRoots(settings);
+function buildScanPatterns(
+  settings: AppSettings,
+  enabled: Set<SourceId>,
+  extraScanRoots: string[]
+): ScanPattern[] {
+  const roots = buildSourceRoots(settings, extraScanRoots);
   const patterns: ScanPattern[] = [];
 
   const add = (source: SourceId, fileName: string, includeSubdirectories = false): void => {
@@ -363,9 +446,14 @@ async function exists(filePath: string): Promise<boolean> {
 }
 
 async function logUnresolved(source: SourceId, fullPath: string, rootPath: string, reason: string): Promise<void> {
-  await warn(
-    `[Discovery] unresolved change ignored source=${source} path="${fullPath}" root="${rootPath}" reason=${reason}`
-  );
+  try {
+    const { warn } = await import('../ipc/logger.ts');
+    await warn(
+      `[Discovery] unresolved change ignored source=${source} path="${fullPath}" root="${rootPath}" reason=${reason}`
+    );
+  } catch {
+    /* Logger pulls Electron; ignore when unavailable (e.g. node:test). */
+  }
 }
 
 function dedupeDiscoveryRecords(records: DiscoveryRecord[]): DiscoveryRecord[] {
