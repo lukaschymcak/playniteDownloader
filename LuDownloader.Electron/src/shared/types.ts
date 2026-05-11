@@ -145,6 +145,15 @@ export interface ResolvedChange {
   timestamp: number;
 }
 
+export interface AchievementGameContext {
+  appId: string;
+  installPath: string | null;
+  libraryRoot: string | null;
+  installDir: string | null;
+  gameName: string | null;
+  hasUsableInstallDirectory: boolean;
+}
+
 export interface InstalledGame {
   appId: string;
   gameName: string;

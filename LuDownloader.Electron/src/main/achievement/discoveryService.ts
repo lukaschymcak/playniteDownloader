@@ -152,6 +152,7 @@ export function buildSourceRoots(settings: AppSettings, extraScanRoots: string[]
     if (source === SourceId.Hoodlum && settings.hoodlumSavePath.trim().length > 0) {
       combined.push(settings.hoodlumSavePath);
     }
+    // Same extras as other FILE_SOURCES so hlm.ini under user/Steam library trees is discoverable.
     if (extras.length > 0 && isFileDiscoverySource(source)) {
       combined.push(...extras);
     }

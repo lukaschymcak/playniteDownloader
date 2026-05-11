@@ -197,6 +197,43 @@ export async function linkFolder(appId: string, folderPath: string, gameName?: s
   return saveInstalled(game);
 }
 
+export type SteamInstallResolution = Pick<
+  InstalledGame,
+  'appId' | 'gameName' | 'installPath' | 'libraryPath' | 'installDir'
+>;
+
+export async function resolveSteamInstallByAppId(appId: string): Promise<SteamInstallResolution | null> {
+  if (!/^\d+$/.test(appId)) {
+    return null;
+  }
+
+  for (const lib of await getSteamLibraries()) {
+    try {
+      const steamapps = path.join(lib, 'steamapps');
+      const acfPath = path.join(steamapps, `appmanifest_${appId}.acf`);
+      if (!existsSync(acfPath)) {
+        continue;
+      }
+      const content = await fs.readFile(acfPath, 'utf8');
+      const installDir = parseAcfValue(content, 'installdir') || `App_${appId}`;
+      const installPath = path.join(steamapps, 'common', installDir);
+      if (!existsSync(installPath)) {
+        continue;
+      }
+      return {
+        appId,
+        gameName: parseAcfValue(content, 'name') || `App_${appId}`,
+        installDir,
+        installPath,
+        libraryPath: lib
+      };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 async function discoverSteamInstalls(): Promise<Map<string, InstalledGame>> {
   const result = new Map<string, InstalledGame>();
   for (const lib of await getSteamLibraries()) {

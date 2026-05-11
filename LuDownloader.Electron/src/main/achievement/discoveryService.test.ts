@@ -92,6 +92,7 @@ test('buildSourceRoots appends extraScanRoots to file sources only', () => {
   const extra = 'D:\\SteamLib';
   const roots = buildSourceRoots(settings, [extra]);
   assert.ok(roots[SourceId.Goldberg].some((p) => p.toLowerCase().replace(/\//g, '\\') === extra.toLowerCase()));
+  assert.ok(roots[SourceId.Hoodlum].some((p) => p.toLowerCase().replace(/\//g, '\\') === extra.toLowerCase()));
   assert.equal(roots[SourceId.GreenLuma].some((p) => p.includes('SteamLib')), false);
 });
 
