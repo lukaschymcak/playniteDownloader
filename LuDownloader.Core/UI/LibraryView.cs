@@ -22,14 +22,14 @@ namespace BlankPlugin
         private static readonly ICoreLogger logger = CoreLogManager.GetLogger();
 
         /// <summary>Steam header 460×215; fixed box matches Search tab header width (184) for readable art.</summary>
-        private const int LibraryThumbWidthDip = 184;
+        private const int LibraryThumbWidthDip = 200;
 
         private const int LibraryThumbHeightDip = (int)(LibraryThumbWidthDip * 215.0 / 460.0 + 0.5);
 
         /// <summary>Decode at ~3× DIP size for HiDPI Steam headers.</summary>
         private const int LibrarySteamDecodeScale = 3;
 
-        private const int LibraryCardTitleFontSize = 15;
+        private const int LibraryCardTitleFontSize = 16;
 
         private const int LibraryCardStatusFontSize = 11;
 
@@ -41,9 +41,9 @@ namespace BlankPlugin
 
         private const int LibraryCardButtonFontSize = 12;
 
-        private static readonly Thickness LibraryCardInfoMargin = new Thickness(14, 12, 10, 12);
+        private static readonly Thickness LibraryCardInfoMargin = new Thickness(18, 14, 14, 14);
 
-        private static readonly Thickness LibraryCardBottomMargin = new Thickness(0, 0, 0, 8);
+        private static readonly Thickness LibraryCardBottomMargin = new Thickness(0, 0, 0, 12);
 
         private sealed class LibraryRow
         {
@@ -83,6 +83,14 @@ namespace BlankPlugin
         private StackPanel _libraryList;
         private TextBlock _librarySummaryLabel;
         private TextBox _libraryFilterBox;
+        private TextBlock _libraryTitleMetaLabel;
+        private Border _updateBanner;
+        private TextBlock _updateBannerText;
+        private Button _filterAllButton;
+        private Button _filterInstalledButton;
+        private Button _filterSavedButton;
+        private Button _filterUpdatesButton;
+        private string _libraryStateFilter = "all";
 
         public LibraryView(AppSettings settings, InstalledGamesManager installedGamesManager, LibraryGamesManager libraryGames, IDialogService dialogService, UpdateChecker updateChecker, IAppHost appHost)
         {
@@ -94,13 +102,366 @@ namespace BlankPlugin
             _updateChecker = updateChecker;
             _client = new MorrenusClient(() => _settings.ApiKey);
 
-            Content = BuildLayout();
+            Content = BuildRedesignedLayout();
+            if (_updateChecker != null)
+                _updateChecker.StatusChanged += OnUpdateStatusChanged;
 
             RefreshLibraryList();
             ThreadPool.QueueUserWorkItem(_ => RefreshApiStatus());
         }
 
+        private void OnUpdateStatusChanged()
+        {
+            Dispatch(RefreshLibraryList);
+        }
+
         // ── Layout ───────────────────────────────────────────────────────────────
+
+        private UIElement BuildRedesignedLayout()
+        {
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var topbar = new Grid { Margin = new Thickness(0, 0, 0, 16) };
+            topbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            topbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var titleStack = new StackPanel();
+            titleStack.Children.Add(new TextBlock
+            {
+                Text = "Library",
+                FontSize = 18,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = Theme.Fg0
+            });
+            _libraryTitleMetaLabel = new TextBlock
+            {
+                Text = "Loading library...",
+                FontSize = 12,
+                Foreground = Theme.Fg3,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            titleStack.Children.Add(_libraryTitleMetaLabel);
+            topbar.Children.Add(titleStack);
+
+            var statusBar = BuildRedesignedApiStatusBar();
+            Grid.SetColumn(statusBar, 1);
+            topbar.Children.Add(statusBar);
+            root.Children.Add(topbar);
+
+            _updateBannerText = new TextBlock
+            {
+                FontSize = 12,
+                Foreground = Theme.Fg1,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _updateBanner = new Border
+            {
+                Background = Theme.WarnSoft,
+                BorderBrush = Theme.WarnLine,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 0, 16),
+                Padding = new Thickness(14, 10, 14, 10),
+                Child = _updateBannerText,
+                Visibility = Visibility.Collapsed
+            };
+            Grid.SetRow(_updateBanner, 1);
+            root.Children.Add(_updateBanner);
+
+            var filterRow = new Grid { Margin = new Thickness(0, 0, 0, 18) };
+            filterRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            filterRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            filterRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var segment = new StackPanel { Orientation = Orientation.Horizontal };
+            _filterAllButton = CreateSegmentButton("All", "all");
+            _filterInstalledButton = CreateSegmentButton("Installed", "installed");
+            _filterSavedButton = CreateSegmentButton("Saved", "saved");
+            _filterUpdatesButton = CreateSegmentButton("Updates", "updates");
+            segment.Children.Add(_filterAllButton);
+            segment.Children.Add(_filterInstalledButton);
+            segment.Children.Add(_filterSavedButton);
+            segment.Children.Add(_filterUpdatesButton);
+            filterRow.Children.Add(new Border
+            {
+                Background = Theme.Bg2,
+                BorderBrush = Theme.Line,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(3),
+                Child = segment
+            });
+
+            _libraryFilterBox = new TextBox
+            {
+                Width = 240,
+                Height = 32,
+                Margin = new Thickness(16, 0, 0, 0),
+                Padding = new Thickness(12, 5, 12, 4),
+                Background = Theme.Bg4,
+                Foreground = Theme.Fg0,
+                BorderBrush = Theme.Line,
+                BorderThickness = new Thickness(1),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                ToolTip = "Filter library by name or AppID"
+            };
+            _libraryFilterBox.TextChanged += (s, e) => RefreshLibraryList();
+            Grid.SetColumn(_libraryFilterBox, 2);
+            filterRow.Children.Add(_libraryFilterBox);
+            Grid.SetRow(filterRow, 2);
+            root.Children.Add(filterRow);
+
+            _libraryList = new StackPanel();
+            var scroll = new ScrollViewer
+            {
+                Content = _libraryList,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                BorderThickness = new Thickness(0),
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            Grid.SetRow(scroll, 3);
+            root.Children.Add(scroll);
+
+            var bottomBar = new DockPanel { LastChildFill = false };
+            AddDockedFooterButton(bottomBar, "Install from ZIP", "default", 126, OnInstallFromZipClicked);
+            AddDockedFooterButton(bottomBar, "Refresh", "ghost", 82, (s, e) => RefreshLibraryList());
+            AddDockedFooterButton(bottomBar, "Check Updates", "ghost", 118, (s, e) =>
+            {
+                RefreshLibraryList();
+                _ = _updateChecker?.RunAsync();
+            });
+            AddDockedFooterButton(bottomBar, "Reconcile", "ghost", 96, (s, e) =>
+            {
+                try
+                {
+                    var r = _appHost?.ReconcileInstalledState();
+                    if (r != null)
+                        logger.Info("Manual reconcile: added=" + r.Added + ", updated=" + r.Updated + ", removed=" + r.Removed);
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("Manual reconcile failed: " + ex.Message);
+                }
+                RefreshLibraryList();
+            });
+
+            _librarySummaryLabel = new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Theme.Fg2,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 16, 0)
+            };
+            DockPanel.SetDock(_librarySummaryLabel, Dock.Left);
+            bottomBar.Children.Add(_librarySummaryLabel);
+
+            Grid.SetRow(bottomBar, 4);
+            root.Children.Add(bottomBar);
+
+            var border = new Border
+            {
+                Padding = new Thickness(24, 18, 24, 14),
+                Child = root,
+                Background = Theme.Bg1
+            };
+            TextElement.SetForeground(border, Brushes.WhiteSmoke);
+            return border;
+        }
+
+        private UIElement BuildRedesignedApiStatusBar()
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            _apiStatusDot = new TextBlock
+            {
+                Text = "●",
+                Foreground = Theme.Fg3,
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 7, 0)
+            };
+            _statusLabel = new TextBlock
+            {
+                Text = "Checking API...",
+                Foreground = Theme.Fg1,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _usageLabel = new TextBlock
+            {
+                Text = "",
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Theme.Fg1,
+                FontSize = 12,
+                Margin = new Thickness(12, 0, 0, 0)
+            };
+
+            panel.Children.Add(_apiStatusDot);
+            panel.Children.Add(_statusLabel);
+            panel.Children.Add(_usageLabel);
+            return new Border
+            {
+                Background = Theme.Bg2,
+                BorderBrush = Theme.Line,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(999),
+                Padding = new Thickness(10, 5, 12, 5),
+                Child = panel
+            };
+        }
+
+        private Button CreateSegmentButton(string label, string filter)
+        {
+            var button = new Button
+            {
+                Content = label,
+                Height = 26,
+                MinWidth = 72,
+                Padding = new Thickness(10, 0, 10, 0),
+                FontSize = 12,
+                FontWeight = FontWeights.Medium,
+                BorderThickness = new Thickness(0),
+                Background = Brushes.Transparent,
+                Foreground = Theme.Fg2
+            };
+            button.Click += (s, e) =>
+            {
+                _libraryStateFilter = filter;
+                RefreshLibraryList();
+            };
+            return button;
+        }
+
+        private void AddDockedFooterButton(DockPanel panel, string text, string kind, double width, RoutedEventHandler click)
+        {
+            var button = CreateActionButton(text, kind, width);
+            button.Click += click;
+            DockPanel.SetDock(button, Dock.Right);
+            panel.Children.Add(button);
+        }
+
+        private Button CreateActionButton(string text, string kind, double width)
+        {
+            var button = new Button
+            {
+                Content = text,
+                Width = width,
+                Height = LibraryCardButtonHeight,
+                Margin = new Thickness(8, 0, 0, 0),
+                Padding = new Thickness(12, 0, 12, 0),
+                FontSize = LibraryCardButtonFontSize,
+                FontWeight = FontWeights.Medium
+            };
+            ApplyButtonTone(button, kind);
+            return button;
+        }
+
+        private static void ApplyButtonTone(Button button, string kind)
+        {
+            button.BorderThickness = new Thickness(1);
+            button.BorderBrush = Theme.Line;
+            button.Background = Theme.Bg2;
+            button.Foreground = Theme.Fg1;
+
+            if (kind == "primary")
+            {
+                button.Background = Theme.Accent;
+                button.BorderBrush = Theme.Accent;
+                button.Foreground = new SolidColorBrush(Color.FromRgb(10, 12, 16));
+                button.FontWeight = FontWeights.SemiBold;
+            }
+            else if (kind == "warn")
+            {
+                button.Background = Theme.Warn;
+                button.BorderBrush = Theme.Warn;
+                button.Foreground = new SolidColorBrush(Color.FromRgb(27, 18, 6));
+                button.FontWeight = FontWeights.SemiBold;
+            }
+            else if (kind == "ghost")
+            {
+                button.Background = Brushes.Transparent;
+                button.BorderBrush = Brushes.Transparent;
+            }
+            else if (kind == "danger")
+            {
+                button.Foreground = Theme.Danger;
+            }
+        }
+
+        private void UpdateSegmentButton(Button button, string label, int count, string filter)
+        {
+            if (button == null)
+                return;
+
+            button.Content = label + " · " + count;
+            if (_libraryStateFilter == filter)
+            {
+                button.Background = Theme.Bg3;
+                button.Foreground = Theme.Fg0;
+            }
+            else
+            {
+                button.Background = Brushes.Transparent;
+                button.Foreground = Theme.Fg2;
+            }
+        }
+
+        private static Border CreateStatusBadge(string text, Brush foreground, Brush background, Brush border)
+        {
+            return new Border
+            {
+                Background = background,
+                BorderBrush = border,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(999),
+                Padding = new Thickness(8, 2, 8, 3),
+                Child = new TextBlock
+                {
+                    Text = text,
+                    Foreground = foreground,
+                    FontSize = LibraryCardStatusFontSize,
+                    FontWeight = FontWeights.SemiBold
+                }
+            };
+        }
+
+        private static TextBlock CreateMetaText(string text, Brush foreground)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                Foreground = foreground,
+                FontSize = LibraryCardMetaFontSize,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Typography.SetNumeralAlignment(block, FontNumeralAlignment.Tabular);
+            return block;
+        }
+
+        private static bool IsUpdateAvailable(InstalledGame game, UpdateChecker checker)
+        {
+            if (game?.ManifestGIDs == null || game.ManifestGIDs.Count == 0)
+                return false;
+
+            return checker?.GetStatus(game.AppId) == "update_available";
+        }
+
+        private static bool IsUpToDate(InstalledGame game, UpdateChecker checker)
+        {
+            if (game?.ManifestGIDs == null || game.ManifestGIDs.Count == 0)
+                return false;
+
+            return checker?.GetStatus(game.AppId) == "up_to_date";
+        }
 
         private UIElement BuildLayout()
         {
@@ -172,6 +533,20 @@ namespace BlankPlugin
             refreshBtn.Click += (s, e) => RefreshLibraryList();
             DockPanel.SetDock(refreshBtn, Dock.Right);
             bottomBar.Children.Add(refreshBtn);
+
+            var checkUpdatesBtn = new Button
+            {
+                Content = "Check Updates",
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            checkUpdatesBtn.Click += (s, e) =>
+            {
+                RefreshLibraryList();
+                _ = _updateChecker?.RunAsync();
+            };
+            DockPanel.SetDock(checkUpdatesBtn, Dock.Right);
+            bottomBar.Children.Add(checkUpdatesBtn);
 
             var reconcileBtn = new Button
             {
@@ -310,9 +685,6 @@ namespace BlankPlugin
             var totalSize = installedList.Sum(g => g.SizeOnDisk);
             var installedCount = installedByAppId.Count;
             var savedOnlyCount = merged.Count - installedCount;
-            _librarySummaryLabel.Text = installedCount + " installed \u00b7 " + savedOnlyCount + " saved  |  " +
-                SteamLibraryHelper.FormatSize(totalSize);
-
             var appIds = merged
                 .Select(row => row.Installed != null ? row.Installed.AppId : (row.Bookmark != null ? row.Bookmark.AppId : null))
                 .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -320,8 +692,26 @@ namespace BlankPlugin
                 .ToList();
             _luaByAppId = BuildLuaStateMap(appIds);
 
+            var updateCount = merged.Count(row => row.Installed != null && IsUpdateAvailable(row.Installed, _updateChecker));
+            _librarySummaryLabel.Text = installedCount + " installed · " + savedOnlyCount + " saved · " +
+                SteamLibraryHelper.FormatSize(totalSize) + " on disk";
+            if (_libraryTitleMetaLabel != null)
+                _libraryTitleMetaLabel.Text = installedCount + " installed · " + savedOnlyCount + " saved";
+            if (_updateBanner != null && _updateBannerText != null)
+            {
+                _updateBanner.Visibility = updateCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+                _updateBannerText.Text = updateCount + (updateCount == 1
+                    ? " update available. Run a manifest re-fetch to apply."
+                    : " updates available. Run a manifest re-fetch to apply.");
+            }
+            UpdateSegmentButton(_filterAllButton, "All", merged.Count, "all");
+            UpdateSegmentButton(_filterInstalledButton, "Installed", installedCount, "installed");
+            UpdateSegmentButton(_filterSavedButton, "Saved", savedOnlyCount, "saved");
+            UpdateSegmentButton(_filterUpdatesButton, "Updates", updateCount, "updates");
+
             var filtered = merged
                 .Where(row => MatchesLibraryFilter(row, filter))
+                .Where(MatchesLibraryStateFilter)
                 .OrderBy(row => row.SortName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
@@ -329,25 +719,21 @@ namespace BlankPlugin
 
             if (filtered.Count == 0)
             {
-                _libraryList.Children.Add(new TextBlock
-                {
-                    Text = string.IsNullOrEmpty(filter)
-                        ? "No games in Library. Install a game or use Search \u2192 + Add to Library."
-                        : "No games match the filter.",
-                    Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
-                    FontStyle = FontStyles.Italic,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 24, 0, 0)
-                });
+                _libraryList.Children.Add(CreateEmptyState(string.IsNullOrEmpty(filter)
+                    ? "No games in Library"
+                    : "No games match this filter",
+                    string.IsNullOrEmpty(filter)
+                        ? "Install a game or use Search to add a new game to your library."
+                        : "Clear the filter, or pick a different library state."));
                 return;
             }
 
             foreach (var row in filtered)
             {
                 if (row.Installed != null)
-                    _libraryList.Children.Add(CreateLibraryGameEntry(row.Installed));
+                    _libraryList.Children.Add(CreateRedesignedInstalledEntry(row.Installed));
                 else if (row.Bookmark != null)
-                    _libraryList.Children.Add(CreateBookmarkLibraryEntry(row.Bookmark));
+                    _libraryList.Children.Add(CreateRedesignedBookmarkEntry(row.Bookmark));
             }
         }
 
@@ -369,6 +755,369 @@ namespace BlankPlugin
                 if (id.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) return true;
             }
             return false;
+        }
+
+        private bool MatchesLibraryStateFilter(LibraryRow row)
+        {
+            if (_libraryStateFilter == "installed")
+                return row.Installed != null;
+            if (_libraryStateFilter == "saved")
+                return row.Installed == null && row.Bookmark != null;
+            if (_libraryStateFilter == "updates")
+                return row.Installed != null && IsUpdateAvailable(row.Installed, _updateChecker);
+
+            return true;
+        }
+
+        private static UIElement CreateEmptyState(string title, string body)
+        {
+            var stack = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 60, 0, 0)
+            };
+            stack.Children.Add(new Border
+            {
+                Width = 56,
+                Height = 56,
+                Background = Theme.Bg2,
+                BorderBrush = Theme.Line,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = "Library",
+                    Foreground = Theme.Fg3,
+                    FontSize = 10,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = title,
+                Foreground = Theme.Fg0,
+                FontSize = 15,
+                FontWeight = FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 12, 0, 6)
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = body,
+                Foreground = Theme.Fg2,
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Width = 340,
+                TextAlignment = TextAlignment.Center
+            });
+            return stack;
+        }
+
+        private Border CreateRedesignedInstalledEntry(InstalledGame game)
+        {
+            var canReliablyCheckUpdates = game.ManifestGIDs != null && game.ManifestGIDs.Count > 0;
+            var updateStatus = canReliablyCheckUpdates ? _updateChecker?.GetStatus(game.AppId) : null;
+            var updateAvailable = updateStatus == "update_available";
+            var upToDate = updateStatus == "up_to_date";
+            var accent = updateAvailable ? Theme.Warn : (upToDate ? Theme.Good : Theme.Good);
+
+            var card = CreateCardShell(accent);
+            var grid = CreateCardGrid();
+            var info = CreateInstalledInfo(game, updateAvailable, upToDate);
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(14, 0, 18, 0)
+            };
+
+            AddCover(grid, game.AppId, game.HeaderImageUrl, LibraryHeaderPersistTarget.Installed);
+            Grid.SetColumn(info, 1);
+            grid.Children.Add(info);
+
+            Action closeMenu = () =>
+            {
+                info.Visibility = Visibility.Visible;
+                actions.Children.Clear();
+                Grid.SetColumn(actions, 2);
+                Grid.SetColumnSpan(actions, 1);
+                AddInstalledPrimaryActions(actions, game, updateAvailable, info);
+            };
+
+            Action openMenu = () =>
+            {
+                info.Visibility = Visibility.Collapsed;
+                actions.Children.Clear();
+                Grid.SetColumn(actions, 1);
+                Grid.SetColumnSpan(actions, 2);
+                actions.Children.Add(CreateActionButton("Create manifest", "ghost", 126));
+                ((Button)actions.Children[actions.Children.Count - 1]).Click += (s, e) => CreateSteamManifestForInstalled(game.AppId, game.GameName ?? game.AppId);
+                actions.Children.Add(CreateActionButton("Install folder", "ghost", 112));
+                ((Button)actions.Children[actions.Children.Count - 1]).Click += (s, e) => LinkInstalledGameToInstallFolder(game, game.GameName ?? game.AppId);
+                actions.Children.Add(CreateActionButton("Fetch GIDs", "ghost", 96));
+                ((Button)actions.Children[actions.Children.Count - 1]).Click += (s, e) => FetchManifestGidsForApp(game.AppId, game.GameName ?? game.AppId);
+                var close = CreateActionButton("Close", "ghost", 68);
+                close.Click += (s, e) => closeMenu();
+                actions.Children.Add(close);
+            };
+
+            AddInstalledPrimaryActions(actions, game, updateAvailable, info, openMenu);
+            Grid.SetColumn(actions, 2);
+            grid.Children.Add(actions);
+
+            card.Child = grid;
+            card.MouseLeftButtonDown += (s, e) =>
+            {
+                if (e.ClickCount == 2 && Directory.Exists(game.InstallPath))
+                    System.Diagnostics.Process.Start("explorer.exe", game.InstallPath);
+            };
+            return card;
+        }
+
+        private Border CreateRedesignedBookmarkEntry(SavedLibraryGame bookmark)
+        {
+            var displayName = string.IsNullOrWhiteSpace(bookmark.GameName) ? bookmark.AppId : bookmark.GameName;
+            var card = CreateCardShell(Theme.Info);
+            var grid = CreateCardGrid();
+            var info = CreateBookmarkInfo(bookmark, displayName);
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(14, 0, 18, 0)
+            };
+
+            AddCover(grid, bookmark.AppId, bookmark.HeaderImageUrl, LibraryHeaderPersistTarget.Bookmark);
+            Grid.SetColumn(info, 1);
+            grid.Children.Add(info);
+
+            Action closeMenu = () =>
+            {
+                info.Visibility = Visibility.Visible;
+                actions.Children.Clear();
+                Grid.SetColumn(actions, 2);
+                Grid.SetColumnSpan(actions, 1);
+                AddBookmarkPrimaryActions(actions, bookmark, displayName);
+            };
+
+            Action openMenu = () =>
+            {
+                info.Visibility = Visibility.Collapsed;
+                actions.Children.Clear();
+                Grid.SetColumn(actions, 1);
+                Grid.SetColumnSpan(actions, 2);
+                actions.Children.Add(CreateActionButton("Create manifest", "ghost", 126));
+                ((Button)actions.Children[actions.Children.Count - 1]).Click += (s, e) => CreateSteamManifestForInstalled(bookmark.AppId, displayName);
+                actions.Children.Add(CreateActionButton("Install folder", "ghost", 112));
+                ((Button)actions.Children[actions.Children.Count - 1]).Click += (s, e) => LinkBookmarkToInstallFolder(bookmark, displayName);
+                var close = CreateActionButton("Close", "ghost", 68);
+                close.Click += (s, e) => closeMenu();
+                actions.Children.Add(close);
+            };
+
+            AddBookmarkPrimaryActions(actions, bookmark, displayName, openMenu);
+            Grid.SetColumn(actions, 2);
+            grid.Children.Add(actions);
+
+            card.Child = grid;
+            return card;
+        }
+
+        private Border CreateCardShell(Brush accent)
+        {
+            var card = new Border
+            {
+                BorderBrush = Theme.Line,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Margin = LibraryCardBottomMargin,
+                Background = Theme.Bg2,
+                Cursor = System.Windows.Input.Cursors.Hand,
+                ClipToBounds = true
+            };
+
+            var stripe = new Border
+            {
+                Width = 3,
+                Background = accent,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            card.Loaded += (s, e) =>
+            {
+                var parent = card.Child as Grid;
+                if (parent != null && !parent.Children.Contains(stripe))
+                    parent.Children.Add(stripe);
+            };
+            return card;
+        }
+
+        private static Grid CreateCardGrid()
+        {
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(LibraryThumbWidthDip) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            return grid;
+        }
+
+        private void AddCover(Grid grid, string appId, string headerUrl, LibraryHeaderPersistTarget target)
+        {
+            var thumbContainer = new Border
+            {
+                Width = LibraryThumbWidthDip,
+                Height = LibraryThumbHeightDip,
+                Background = Theme.Bg0,
+                BorderBrush = Theme.LineSoft,
+                BorderThickness = new Thickness(0, 0, 1, 0),
+                ClipToBounds = true
+            };
+
+            var image = new Image
+            {
+                Stretch = Stretch.UniformToFill,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            thumbContainer.Child = image;
+            LoadLibraryCardHeaderAsync(appId, headerUrl, image, target);
+
+            Grid.SetColumn(thumbContainer, 0);
+            grid.Children.Add(thumbContainer);
+        }
+
+        private StackPanel CreateInstalledInfo(InstalledGame game, bool updateAvailable, bool upToDate)
+        {
+            var info = new StackPanel
+            {
+                Margin = LibraryCardInfoMargin,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+            titleRow.Children.Add(new TextBlock
+            {
+                Text = game.GameName,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = LibraryCardTitleFontSize,
+                Foreground = Theme.Fg0,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 360,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            if (updateAvailable)
+                titleRow.Children.Add(WithLeftMargin(CreateStatusBadge("UPDATE AVAILABLE", Theme.Warn, Theme.WarnSoft, Theme.WarnLine), 12));
+            else if (upToDate)
+                titleRow.Children.Add(WithLeftMargin(CreateStatusBadge("UP TO DATE", Theme.Good, Theme.GoodSoft, Theme.GoodLine), 12));
+            else
+                titleRow.Children.Add(WithLeftMargin(CreateStatusBadge("INSTALLED", Theme.Good, Theme.GoodSoft, Theme.GoodLine), 12));
+            info.Children.Add(titleRow);
+
+            info.Children.Add(CreateMetaText(
+                SteamLibraryHelper.FormatSize(game.SizeOnDisk) + " · Installed " + game.InstalledDate.ToString("yyyy-MM-dd") + " · App " + game.AppId,
+                Theme.Fg2));
+            info.Children.Add(new TextBlock
+            {
+                Text = game.InstallPath,
+                Foreground = Theme.Fg3,
+                FontSize = LibraryCardPathFontSize,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            return info;
+        }
+
+        private StackPanel CreateBookmarkInfo(SavedLibraryGame bookmark, string displayName)
+        {
+            var info = new StackPanel
+            {
+                Margin = LibraryCardInfoMargin,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+            titleRow.Children.Add(new TextBlock
+            {
+                Text = displayName,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = LibraryCardTitleFontSize,
+                Foreground = Theme.Fg0,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 360,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            titleRow.Children.Add(WithLeftMargin(CreateStatusBadge("SAVED", Theme.Info, Theme.InfoSoft, Theme.InfoLine), 12));
+            info.Children.Add(titleRow);
+            info.Children.Add(CreateMetaText("App " + bookmark.AppId + " · Not installed yet", Theme.Fg2));
+            return info;
+        }
+
+        private static UIElement WithLeftMargin(UIElement element, double left)
+        {
+            element.SetValue(FrameworkElement.MarginProperty, new Thickness(left, 0, 0, 0));
+            return element;
+        }
+
+        private void AddInstalledPrimaryActions(StackPanel actions, InstalledGame game, bool updateAvailable, UIElement info, Action openMenu = null)
+        {
+            if (updateAvailable)
+            {
+                var updateBtn = CreateActionButton("Update", "warn", 82);
+                updateBtn.Click += (s, e) =>
+                {
+                    var window = _dialogService.CreateWindow(
+                        "Update Game - " + game.GameName,
+                        new UpdateGameDialog(game, _settings, _installedGamesManager, _dialogService, _updateChecker),
+                        _dialogService.GetMainWindow());
+                    window.Width = 480;
+                    window.Height = 300;
+                    window.ShowDialog();
+                    Dispatch(() => RefreshLibraryList());
+                };
+                actions.Children.Add(updateBtn);
+            }
+
+            var openBtn = CreateActionButton("Open", "ghost", 68);
+            openBtn.Click += (s, e) =>
+            {
+                if (Directory.Exists(game.InstallPath))
+                    System.Diagnostics.Process.Start("explorer.exe", game.InstallPath);
+            };
+            actions.Children.Add(openBtn);
+
+            var addToSteamBtn = CreateActionButton("Add to Steam", "default", 114);
+            ConfigureAddToSteamButton(addToSteamBtn, game.AppId, game.GameName ?? game.AppId);
+            actions.Children.Add(addToSteamBtn);
+
+            var uninstallBtn = CreateActionButton("Uninstall", "danger", 92);
+            uninstallBtn.Click += (s, e) => UninstallGame(game);
+            actions.Children.Add(uninstallBtn);
+
+            var more = CreateActionButton("⋮", "ghost", 40);
+            more.ToolTip = "More actions";
+            more.Click += (s, e) => openMenu?.Invoke();
+            actions.Children.Add(more);
+        }
+
+        private void AddBookmarkPrimaryActions(StackPanel actions, SavedLibraryGame bookmark, string displayName, Action openMenu = null)
+        {
+            var downloadBtn = CreateActionButton("Download", "primary", 96);
+            downloadBtn.Click += (s, e) =>
+            {
+                if (_appHost != null)
+                    _appHost.OpenDownloadForAppId(bookmark.AppId, displayName, bookmark.HeaderImageUrl);
+            };
+            actions.Children.Add(downloadBtn);
+
+            var removeBtn = CreateActionButton("Remove", "danger", 82);
+            removeBtn.Click += (s, e) => RemoveBookmark(bookmark, displayName);
+            actions.Children.Add(removeBtn);
+
+            var more = CreateActionButton("⋮", "ghost", 40);
+            more.ToolTip = "More actions";
+            more.Click += (s, e) => openMenu?.Invoke();
+            actions.Children.Add(more);
         }
 
         private Border CreateLibraryGameEntry(InstalledGame game)
@@ -889,7 +1638,7 @@ namespace BlankPlugin
                     if (!runner.IsReady)
                     {
                         Dispatch(() => _dialogService?.ShowMessage(
-                            "ManifestChecker.exe is not available in plugin deps.",
+                            "ManifestChecker.exe is not available in app deps.",
                             "Fetch manifest GIDs",
                             MessageBoxButton.OK,
                             MessageBoxImage.Warning));

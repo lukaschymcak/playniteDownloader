@@ -67,7 +67,7 @@ namespace BlankPlugin
                 if (string.IsNullOrEmpty(_dotnetPath))
                     msg = "dotnet runtime not found. Install .NET 9 runtime and ensure 'dotnet' is on PATH.";
                 else if (!File.Exists(_depotDownloaderDll))
-                    msg = "DepotDownloader.dll not found in plugin deps folder.";
+                    msg = "DepotDownloader.dll not found in app deps folder.";
                 else
                     msg = "DepotDownloader dependencies are missing. Copy the full 'dotnet publish' " +
                           "output (not just DepotDownloader.dll) into the plugin's deps\\ folder.";

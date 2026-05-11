@@ -6,6 +6,35 @@ import { depPath, manifestCacheDir } from './paths';
 import { listInstalled, saveInstalled } from './games';
 import { safeError, warn } from './logger';
 
+function isUsableBuildId(value?: string): boolean {
+  const raw = String(value || '').trim();
+  if (!/^\d+$/.test(raw)) return false;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 1;
+}
+
+function resolvePreferredBuildId(game: InstalledGame, rows: ManifestCheckResult[]): string | undefined {
+  const selected = game.selectedDepots?.length ? game.selectedDepots : Object.keys(game.manifestGIDs || {});
+
+  for (const depotId of selected) {
+    const expectedManifest = game.manifestGIDs?.[depotId];
+    const row = rows.find((r) => r.depotId === depotId && (!expectedManifest || r.manifestGid === expectedManifest));
+    if (row && isUsableBuildId(row.depotBuildId)) {
+      return String(row.depotBuildId).trim();
+    }
+  }
+
+  for (const depotId of selected) {
+    const row = rows.find((r) => r.depotId === depotId);
+    if (row && isUsableBuildId(row.buildId)) {
+      return String(row.buildId).trim();
+    }
+  }
+
+  const fallback = rows.find((row) => isUsableBuildId(row.buildId))?.buildId;
+  return fallback ? String(fallback).trim() : undefined;
+}
+
 export async function runManifestChecker(appIds: string[], timeoutMs = 30000): Promise<ManifestCheckResult[]> {
   const ids = appIds.map((id) => id.trim()).filter(Boolean);
   if (!ids.length) return [];
@@ -87,7 +116,7 @@ export async function checkUpdates(appIds?: string[]): Promise<UpdateStatus[]> {
           break;
         }
       }
-      const firstBuild = rows.find((row) => row.buildId)?.buildId;
+      const firstBuild = resolvePreferredBuildId(game, rows);
       if (firstBuild && firstBuild !== game.steamBuildId) {
         await saveInstalled({ ...game, steamBuildId: firstBuild });
       }
@@ -148,7 +177,7 @@ export async function fetchManifestGids(appIds: string[]): Promise<UpdateStatus[
         }
       }
 
-      const firstBuild = rows.find((row) => row.buildId)?.buildId;
+      const firstBuild = resolvePreferredBuildId(game, rows);
       await saveInstalled({
         ...game,
         manifestGIDs,

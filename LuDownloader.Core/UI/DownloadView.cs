@@ -1052,7 +1052,7 @@ namespace BlankPlugin
         }
 
         /// <summary>
-        /// Builds the depot checklist. For a plugin-installed game, depot ids in <paramref name="installedDepotIds"/>
+        /// Builds the depot checklist. For a LuDownloader-installed game, depot ids in <paramref name="installedDepotIds"/>
         /// render as read-only rows so they are not offered as download targets; other depots get checkboxes.
         /// Fresh-install flow: all depots are checkboxes; Windows-tagged depots checked by default.
         /// </summary>

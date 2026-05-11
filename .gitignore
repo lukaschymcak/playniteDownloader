@@ -17,6 +17,20 @@ BlankPlugin/source/.vs/
 BlankPlugin/source/bin/.claude/
 BlankPlugin/source/.claude/
 
-# Node.js
-LuDownloader.Server/pwa/node_modules/
-LuDownloader.Server/pwa/dist/
+# Node.js / Electron
+node_modules/
+dist/
+out/
+.electron-builder/
+LuDownloader.Electron/ACC/
+
+# Codex
+.codex/
+
+# Temporary / Generated
+*.zip
+handoff_extract/
+ok-now-the-glimmering-badger.md
+
+# Achievement Plugin
+AchievementPlugin/

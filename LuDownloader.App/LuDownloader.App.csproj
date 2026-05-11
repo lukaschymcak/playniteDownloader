@@ -18,74 +18,74 @@
     <ProjectReference Include="..\LuDownloader.Core\LuDownloader.Core.csproj" />
   </ItemGroup>
 
-  <!-- deps referenced from BlankPlugin/source/deps so no duplication -->
+  <!-- deps referenced from the app-owned root deps folder so the standalone app is independent of the legacy Playnite project -->
   <!-- All items use Link so they appear as deps\<name> in output -->
   <ItemGroup>
-    <Content Include="..\BlankPlugin\source\deps\DepotDownloader.dll">
+    <Content Include="..\deps\DepotDownloader.dll">
       <Link>deps\DepotDownloader.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\DepotDownloader.deps.json">
+    <Content Include="..\deps\DepotDownloader.deps.json">
       <Link>deps\DepotDownloader.deps.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\DepotDownloader.runtimeconfig.json">
+    <Content Include="..\deps\DepotDownloader.runtimeconfig.json">
       <Link>deps\DepotDownloader.runtimeconfig.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\SteamKit2.dll">
+    <Content Include="..\deps\SteamKit2.dll">
       <Link>deps\SteamKit2.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\protobuf-net.dll">
+    <Content Include="..\deps\protobuf-net.dll">
       <Link>deps\protobuf-net.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\protobuf-net.Core.dll">
+    <Content Include="..\deps\protobuf-net.Core.dll">
       <Link>deps\protobuf-net.Core.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\QRCoder.dll">
+    <Content Include="..\deps\QRCoder.dll">
       <Link>deps\QRCoder.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\System.IO.Hashing.dll">
+    <Content Include="..\deps\System.IO.Hashing.dll">
       <Link>deps\System.IO.Hashing.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\ZstdSharp.dll">
+    <Content Include="..\deps\ZstdSharp.dll">
       <Link>deps\ZstdSharp.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\ManifestChecker.exe">
+    <Content Include="..\deps\ManifestChecker.exe">
       <Link>deps\ManifestChecker.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\ManifestChecker.runtimeconfig.json">
+    <Content Include="..\deps\ManifestChecker.runtimeconfig.json">
       <Link>deps\ManifestChecker.runtimeconfig.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\Steamless\Steamless.CLI.dll">
+    <Content Include="..\deps\Steamless\Steamless.CLI.dll">
       <Link>deps\Steamless\Steamless.CLI.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\Steamless\Steamless.CLI.deps.json">
+    <Content Include="..\deps\Steamless\Steamless.CLI.deps.json">
       <Link>deps\Steamless\Steamless.CLI.deps.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\Steamless\Steamless.CLI.dll.config">
+    <Content Include="..\deps\Steamless\Steamless.CLI.dll.config">
       <Link>deps\Steamless\Steamless.CLI.dll.config</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\Steamless\Steamless.CLI.runtimeconfig.json">
+    <Content Include="..\deps\Steamless\Steamless.CLI.runtimeconfig.json">
       <Link>deps\Steamless\Steamless.CLI.runtimeconfig.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\Steamless\Steamless.API.dll">
+    <Content Include="..\deps\Steamless\Steamless.API.dll">
       <Link>deps\Steamless\Steamless.API.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BlankPlugin\source\deps\Steamless\Plugins\**\*.*">
+    <Content Include="..\deps\Steamless\Plugins\**\*.*">
       <Link>deps\Steamless\Plugins\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -94,14 +94,14 @@
   <PropertyGroup>
     <ManifestCheckerRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\ManifestChecker'))</ManifestCheckerRoot>
   </PropertyGroup>
-  <Target Name="PublishManifestChecker" BeforeTargets="CopyManifestChecker">
+  <Target Name="PublishManifestChecker" BeforeTargets="CopyManifestChecker" Condition="'$(SolutionPath)' == ''">
     <Exec Command="dotnet publish &quot;$(ManifestCheckerRoot)\ManifestChecker.csproj&quot; -c $(Configuration) -r win-x64 --nologo -v quiet" />
   </Target>
   <Target Name="CopyManifestChecker" AfterTargets="Build">
     <PropertyGroup>
       <_ManifestCheckerRidDir>$(ManifestCheckerRoot)\bin\$(Configuration)\net9.0\win-x64</_ManifestCheckerRidDir>
     </PropertyGroup>
-    <Copy SourceFiles="$(_ManifestCheckerRidDir)\publish\ManifestChecker.exe" DestinationFolder="$(OutDir)deps\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(_ManifestCheckerRidDir)\publish\ManifestChecker.exe" DestinationFolder="$(OutDir)deps\" SkipUnchangedFiles="true" Condition="Exists('$(_ManifestCheckerRidDir)\publish\ManifestChecker.exe')" />
     <Copy SourceFiles="$(_ManifestCheckerRidDir)\ManifestChecker.runtimeconfig.json" DestinationFolder="$(OutDir)deps\" SkipUnchangedFiles="true" Condition="Exists('$(_ManifestCheckerRidDir)\ManifestChecker.runtimeconfig.json')" />
   </Target>
 </Project>

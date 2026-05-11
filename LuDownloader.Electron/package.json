@@ -1,0 +1,37 @@
+{
+  "name": "ludownloader-electron",
+  "version": "0.1.0",
+  "description": "LuDownloader standalone Electron app",
+  "main": "out/main/index.js",
+  "author": "LuDownloader",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "tsc --noEmit && electron-vite build",
+    "package": "npm run build && electron-builder --win portable",
+    "dist": "npm run build && electron-builder --win portable nsis"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "adm-zip": "^0.5.16",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "winreg": "^1.2.5"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/winreg": "^1.2.36",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

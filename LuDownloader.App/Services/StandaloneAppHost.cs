@@ -18,6 +18,7 @@ namespace LuDownloader.App.Services
         public string UserDataPath { get; }
 
         public BlankPlugin.InstalledGamesManager InstalledGames => _installedGames;
+        public bool ShowUpdateNotifications => false;
 
         public StandaloneAppHost(string dataPath, StandaloneDialogService dialogs, BlankPlugin.AppSettings settings)
         {

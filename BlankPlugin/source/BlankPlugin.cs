@@ -24,6 +24,7 @@ namespace BlankPlugin
         internal string PluginUserDataPath => GetPluginUserDataPath();
 
         public string UserDataPath => GetPluginUserDataPath();
+        public bool ShowUpdateNotifications => true;
 
         private PlayniteDialogService _dialogService;
         private UpdateChecker _updateChecker;

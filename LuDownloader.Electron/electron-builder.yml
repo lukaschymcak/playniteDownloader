@@ -1,0 +1,27 @@
+appId: com.ludownloader.app
+productName: LuDownloader
+directories:
+  output: dist
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: resources/
+    to: .
+    filter:
+      - '**/*'
+asar: true
+asarUnpack:
+  - '**/*.exe'
+  - '**/*.dll'
+  - '**/*.json'
+win:
+  target:
+    - portable
+    - nsis
+  sign: null
+  certificateFile: null
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

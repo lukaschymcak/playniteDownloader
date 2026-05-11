@@ -147,7 +147,7 @@ for (int i = 0; i < appIds.Count; i += batchSize)
 
         var depots = kv["depots"];
         if (depots == KeyValue.Invalid) continue;
-        var buildId = depots["branches"]?["public"]?["buildid"]?.Value;
+        var buildId = ResolveBuildId(kv, depots);
 
         foreach (var depot in depots.Children)
         {
@@ -163,7 +163,8 @@ for (int i = 0; i < appIds.Count; i += batchSize)
             var gid = pub["gid"]?.Value;
             if (!string.IsNullOrEmpty(gid) && gid != "0")
             {
-                results.Add(new { appId = appIdStr, depotId = depot.Name, manifestGid = gid, buildId = buildId });
+                var depotBuildId = pub["buildid"]?.Value;
+                results.Add(new { appId = appIdStr, depotId = depot.Name, manifestGid = gid, buildId = buildId, depotBuildId = depotBuildId });
             }
         }
     }
@@ -195,4 +196,31 @@ Environment.Exit(0);
 static List<string> ArgsToAppIds(string[] args)
 {
     return args.Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
+}
+
+static string? ResolveBuildId(KeyValue appKv, KeyValue depotsKv)
+{
+    // Primary path used by most apps.
+    var buildId = depotsKv["branches"]?["public"]?["buildid"]?.Value;
+    if (!string.IsNullOrWhiteSpace(buildId) && buildId != "0")
+        return buildId;
+
+    // Fallback: first non-zero buildid from any named branch.
+    var branches = depotsKv["branches"];
+    if (branches != KeyValue.Invalid)
+    {
+        foreach (var branch in branches.Children)
+        {
+            var candidate = branch["buildid"]?.Value;
+            if (!string.IsNullOrWhiteSpace(candidate) && candidate != "0")
+                return candidate;
+        }
+    }
+
+    // Fallback sometimes exposed in common.
+    var commonBuild = appKv["common"]?["buildid"]?.Value;
+    if (!string.IsNullOrWhiteSpace(commonBuild) && commonBuild != "0")
+        return commonBuild;
+
+    return null;
 }

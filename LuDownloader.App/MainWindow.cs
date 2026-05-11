@@ -48,6 +48,13 @@ namespace LuDownloader.App
             outer.Children.Add(menuBar);
             outer.Children.Add(_mainView);
             Content = outer;
+
+            Loaded += (s, e) => _ = _updateChecker.RunAsync();
+        }
+
+        public void CancelActiveOperations()
+        {
+            _updateChecker?.Cancel();
         }
     }
 }

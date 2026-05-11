@@ -7,6 +7,7 @@ namespace LuDownloader.App
     public partial class App : Application
     {
         private Settings.StandaloneSettings _settings;
+        private MainWindow _mainWindow;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -23,15 +24,16 @@ namespace LuDownloader.App
             var dialogService = new Services.StandaloneDialogService();
             var appHost = new Services.StandaloneAppHost(userDataPath, dialogService, _settings);
 
-            var mainWindow = new MainWindow(_settings, dialogService, appHost);
-            appHost.SetMainWindow(mainWindow);
-            dialogService.SetMainWindow(mainWindow);
-            Application.Current.MainWindow = mainWindow;
-            mainWindow.Show();
+            _mainWindow = new MainWindow(_settings, dialogService, appHost);
+            appHost.SetMainWindow(_mainWindow);
+            dialogService.SetMainWindow(_mainWindow);
+            Application.Current.MainWindow = _mainWindow;
+            _mainWindow.Show();
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
+            _mainWindow?.CancelActiveOperations();
             _settings?.Save();
             base.OnExit(e);
         }

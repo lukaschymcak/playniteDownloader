@@ -3,7 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { is } from '@electron-toolkit/utils';
 import { IPC } from '../shared/ipc';
-import type { DownloadStartRequest, GameData, InstalledGame, SavedLibraryGame, UpdateStatus } from '../shared/types';
+import type { DownloadCancelMode, DownloadStartRequest, GameData, InstalledGame, SavedLibraryGame, UpdateStatus } from '../shared/types';
 import { loadSettings, saveSettings } from './ipc/settings';
 import { userDataRoot, findDotnet } from './ipc/paths';
 import { info, safeError } from './ipc/logger';
@@ -16,12 +16,13 @@ import {
   reconcileInstalled,
   removeInstalled,
   removeSavedLibrary,
-  saveInstalled
+  saveInstalled,
+  setGoldbergState
 } from './ipc/games';
 import { checkHealth, downloadManifest, getUserStats, searchGames } from './ipc/morrenus';
 import { processZip } from './ipc/zip';
 import { checkUpdates, deleteCachedManifest, fetchManifestGids, getCachedManifestPath, listCachedManifests, runManifestChecker } from './ipc/manifest';
-import { authenticateSteam, cancelDownload, startDownload } from './ipc/depot';
+import { authenticateSteam, cancelDownload, startDownload, togglePauseDownload } from './ipc/depot';
 import {
   addToSteam,
   getSteamLibraries,
@@ -30,6 +31,7 @@ import {
   writeAcf
 } from './ipc/steam';
 import { runSteamless } from './ipc/steamless';
+import { formatGoldbergError, runGoldberg } from './ipc/goldberg';
 import { igdbSearch } from './ipc/igdb';
 import { CloudSyncAgent } from './sync/cloudSync';
 
@@ -103,6 +105,11 @@ function registerIpc(): void {
     await sendLibraryChanged();
     return game;
   });
+  ipcMain.handle(IPC.gamesSetGoldbergState, async (_e, appId: string, state: 'required' | 'applied' | 'not_needed') => {
+    const game = await setGoldbergState(appId, state);
+    await sendLibraryChanged();
+    return game;
+  });
 
   ipcMain.handle(IPC.libraryList, () => listSavedLibrary());
   ipcMain.handle(IPC.libraryRows, () => buildLibraryRows(updateStatuses));
@@ -149,7 +156,9 @@ function registerIpc(): void {
     await startDownload(request, BrowserWindow.fromWebContents(event.sender) || mainWindow!);
     await sendLibraryChanged();
   });
-  ipcMain.handle(IPC.downloadCancel, (_e, channelId: string) => cancelDownload(channelId));
+  ipcMain.handle(IPC.downloadCancel, (_e, channelId: string, mode: DownloadCancelMode = 'keep') => cancelDownload(channelId, mode));
+  ipcMain.handle(IPC.downloadPause, (_e, channelId: string) => togglePauseDownload(channelId, true));
+  ipcMain.handle(IPC.downloadResume, (_e, channelId: string) => togglePauseDownload(channelId, false));
   ipcMain.handle(IPC.depotAuthenticate, (event, username: string, password: string, channelId: string) =>
     authenticateSteam(username, password, channelId, BrowserWindow.fromWebContents(event.sender) || mainWindow!));
 
@@ -163,6 +172,26 @@ function registerIpc(): void {
   ipcMain.handle(IPC.steamOpenFolder, (_e, target: string) => openPath(target));
   ipcMain.handle(IPC.steamlessRun, (event, gameDir: string, channelId: string) =>
     runSteamless(gameDir, channelId, BrowserWindow.fromWebContents(event.sender) || mainWindow!));
+  ipcMain.handle(
+    IPC.goldbergRun,
+    async (
+      event,
+      gameDir: string,
+      appId: string,
+      channelId: string,
+      mode: 'full' | 'achievements_only' = 'full',
+      copyFiles = true,
+      arch: 'auto' | 'x32' | 'x64' = 'auto'
+    ) => {
+    const window = BrowserWindow.fromWebContents(event.sender) || mainWindow!;
+    try {
+      await runGoldberg(gameDir, appId, channelId, window, mode, copyFiles, arch);
+      await sendLibraryChanged();
+    } catch (err) {
+      window.webContents.send(channelId, { log: formatGoldbergError(err) });
+      throw err;
+    }
+  });
 
   ipcMain.handle(IPC.igdbSearch, async (_e, query: string) => igdbSearch(query, await loadSettings()));
   ipcMain.handle(IPC.igdbMetadata, async (_e, query: string) => igdbSearch(query, await loadSettings()));

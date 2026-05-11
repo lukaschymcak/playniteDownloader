@@ -1,14 +1,16 @@
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { shell } from 'electron';
+import AdmZip from 'adm-zip';
 import WinReg from 'winreg';
 import type { GameData, InstalledGame } from '../../shared/types';
 import { manifestCacheDir } from './paths';
-import { getDirectorySize, safeError } from './logger';
+import { getDirectorySize, info, safeError } from './logger';
 import { extractSingleLua, getSingleLuaFileName, processZip } from './zip';
 import { listInstalled, saveInstalled } from './games';
-import { ensureManifestGids } from './manifest';
+import { ensureManifestGids, fetchManifestGids } from './manifest';
 
 export function parseAcfValue(content: string, key: string): string {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -50,7 +52,9 @@ export async function writeAcf(gameData: GameData, steamLibraryPath: string): Pr
   const acfPath = path.join(steamLibraryPath, 'steamapps', `appmanifest_${gameData.appId}.acf`);
   await fs.mkdir(path.dirname(acfPath), { recursive: true });
   const sizeOnDisk = await getDirectorySize(path.join(steamLibraryPath, 'steamapps', 'common', installDir));
-  await fs.writeFile(acfPath, buildAcf(gameData, installDir, sizeOnDisk), 'utf8');
+  const previousBuild = await readExistingBuildInfo(acfPath);
+  const buildId = normalizeBuildId(gameData.buildId, previousBuild.buildId, previousBuild.targetBuildId);
+  await fs.writeFile(acfPath, buildAcf(gameData, installDir, sizeOnDisk, buildId), 'utf8');
   return acfPath;
 }
 
@@ -152,7 +156,12 @@ export async function addToSteam(appId: string): Promise<InstalledGame> {
     throw new Error('Installed game record was not found.');
   }
 
-  const zipPath = await resolveManifestZip(game);
+  // Refresh manifest/build metadata first so ACF is written in a stable installed state.
+  await fetchManifestGids([appId]).catch(() => undefined);
+  const refreshedInstalled = await listInstalled();
+  const refreshed = refreshedInstalled.find((entry) => entry.appId === appId) || game;
+
+  const zipPath = await resolveManifestZip(refreshed);
   if (!zipPath) {
     throw new Error('Manifest ZIP was not found for this game.');
   }
@@ -160,39 +169,59 @@ export async function addToSteam(appId: string): Promise<InstalledGame> {
   const zipGameData = await processZip(zipPath);
   await copyLuaToSteamConfig(zipPath);
 
-  const manifestGIDs = await ensureManifestGids(game, zipGameData);
-  const selectedDepots = game.selectedDepots?.length ? game.selectedDepots : Object.keys(manifestGIDs);
+  const manifestGIDs = await ensureManifestGids(refreshed, zipGameData);
+  const selectedDepots = (refreshed.selectedDepots?.length ? refreshed.selectedDepots : Object.keys(manifestGIDs))
+    .filter((depotId) => Boolean(manifestGIDs[depotId]));
   if (!selectedDepots.length) {
     throw new Error('No depot manifests are available for this game.');
   }
+  const missingSelected = selectedDepots.filter((depotId) => !manifestGIDs[depotId]);
+  if (missingSelected.length > 0) {
+    throw new Error(`Selected depots are missing manifest GIDs: ${missingSelected.join(', ')}`);
+  }
 
-  const libraryPath = game.libraryPath || resolveSteamLibraryRoot(game.installPath);
+  const libraryPath = refreshed.libraryPath || resolveSteamLibraryRoot(refreshed.installPath);
   if (!libraryPath) {
     throw new Error('Steam library path could not be resolved for this install.');
   }
 
+  const buildResolution = await resolveStableBuildId(refreshed, zipGameData);
+  const buildId = buildResolution.buildId;
+
   const gameData: GameData = {
-    appId: game.appId,
-    gameName: game.gameName || zipGameData.gameName || game.appId,
-    installDir: game.installDir,
-    buildId: game.steamBuildId || zipGameData.buildId,
+    appId: refreshed.appId,
+    gameName: refreshed.gameName || zipGameData.gameName || refreshed.appId,
+    installDir: refreshed.installDir,
+    buildId,
     depots: zipGameData.depots || {},
     dlcs: zipGameData.dlcs || {},
     manifests: manifestGIDs,
     selectedDepots,
     manifestZipPath: zipPath,
-    headerImageUrl: game.headerImageUrl
+    headerImageUrl: refreshed.headerImageUrl
   };
   await writeAcf(gameData, libraryPath);
+  const depotcache = await syncDepotcache(libraryPath, zipPath, gameData.selectedDepots, gameData.manifests);
+
+  await info(
+    [
+      `Steam registration completed for app ${refreshed.appId}.`,
+      `selectedDepots=[${selectedDepots.join(', ')}]`,
+      `manifests=[${selectedDepots.map((id) => `${id}:${manifestGIDs[id]}`).join(', ')}]`,
+      `buildId=${buildId}`,
+      `buildSource=${buildResolution.source}`,
+      `depotcache expected=${depotcache.expected} synced=${depotcache.synced} missing=${depotcache.missing.length}`
+    ].join(' ')
+  );
 
   const saved = await saveInstalled({
-    ...game,
+    ...refreshed,
     libraryPath,
     manifestZipPath: zipPath,
     manifestGIDs,
     selectedDepots,
-    steamBuildId: game.steamBuildId || zipGameData.buildId,
-    registeredWithSteam: Boolean(await findAcfPath({ ...game, libraryPath }))
+    steamBuildId: buildId,
+    registeredWithSteam: Boolean(await findAcfPath({ ...refreshed, libraryPath }))
   });
   return saved;
 }
@@ -207,9 +236,8 @@ function getInstallFolderName(data: GameData): string {
   return safe || `App_${data.appId}`;
 }
 
-function buildAcf(data: GameData, installDir: string, sizeOnDisk: number): string {
+function buildAcf(data: GameData, installDir: string, sizeOnDisk: number, buildId: string): string {
   const nowUnix = Math.floor(Date.now() / 1000).toString();
-  const buildId = data.buildId || '0';
   const lines = [
     '"AppState"',
     '{',
@@ -250,4 +278,130 @@ function buildAcf(data: GameData, installDir: string, sizeOnDisk: number): strin
 
 function escapeVdf(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function normalizeBuildId(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const v = String(value || '').trim();
+    if (isUsableBuildId(v)) {
+      return v;
+    }
+  }
+  const diag = values.map((v, idx) => `s${idx + 1}=${String(v || '').trim() || '<empty>'}`).join(', ');
+  throw new Error(`Cannot write ACF without a non-zero buildid. Sources: ${diag}`);
+}
+
+async function resolveStableBuildId(
+  game: InstalledGame,
+  zipGameData: GameData
+): Promise<{ buildId: string; source: 'acf-buildid' | 'acf-targetbuildid' | 'installed-steamBuildId' | 'zip-buildId' }> {
+  const acfPath = await findAcfPath(game);
+  if (acfPath && existsSync(acfPath)) {
+    const content = await fs.readFile(acfPath, 'utf8');
+    const fromAcf = parseAcfValue(content, 'buildid').trim();
+    if (isUsableBuildId(fromAcf)) {
+      return { buildId: fromAcf, source: 'acf-buildid' };
+    }
+    const targetFromAcf = parseAcfValue(content, 'TargetBuildID').trim();
+    if (isUsableBuildId(targetFromAcf)) {
+      return { buildId: targetFromAcf, source: 'acf-targetbuildid' };
+    }
+  }
+  if (isUsableBuildId(String(game.steamBuildId || '').trim())) {
+    return { buildId: String(game.steamBuildId).trim(), source: 'installed-steamBuildId' };
+  }
+  if (isUsableBuildId(String(zipGameData.buildId || '').trim())) {
+    return { buildId: String(zipGameData.buildId).trim(), source: 'zip-buildId' };
+  }
+  const diag = [
+    `steamBuildId=${String(game.steamBuildId || '').trim() || '<empty>'}`,
+    `zipBuildId=${String(zipGameData.buildId || '').trim() || '<empty>'}`,
+    `acfPath=${acfPath || '<none>'}`
+  ].join(', ');
+  throw new Error(`Could not resolve a non-zero buildid for ACF. Sources: ${diag}`);
+}
+
+async function readExistingBuildInfo(acfPath: string): Promise<{ buildId?: string; targetBuildId?: string }> {
+  if (!existsSync(acfPath)) return {};
+  try {
+    const content = await fs.readFile(acfPath, 'utf8');
+    const buildId = parseAcfValue(content, 'buildid').trim() || undefined;
+    const targetBuildId = parseAcfValue(content, 'TargetBuildID').trim() || undefined;
+    return { buildId, targetBuildId };
+  } catch {
+    return {};
+  }
+}
+
+function isUsableBuildId(value: string): boolean {
+  if (!/^\d+$/.test(value)) return false;
+  const n = Number.parseInt(value, 10);
+  // Treat 0 and 1 as invalid placeholders for our writer flow.
+  return Number.isFinite(n) && n > 1;
+}
+
+async function syncDepotcache(
+  libraryPath: string,
+  zipPath: string,
+  selectedDepots: string[],
+  manifests: Record<string, string>
+): Promise<{ expected: number; synced: number; missing: string[] }> {
+  const depotcacheDir = path.join(libraryPath, 'steamapps', 'depotcache');
+  await fs.mkdir(depotcacheDir, { recursive: true });
+
+  const tempManifestRoot = path.join(os.tmpdir(), 'ludownloader_manifests');
+  const zip = new AdmZip(zipPath);
+  const entries = zip.getEntries();
+
+  let synced = 0;
+  const missing: string[] = [];
+
+  for (const depotId of selectedDepots) {
+    const manifestGid = manifests[depotId];
+    if (!manifestGid) {
+      missing.push(`${depotId}:<missing-gid>`);
+      continue;
+    }
+    const fileName = `${depotId}_${manifestGid}.manifest`;
+    const target = path.join(depotcacheDir, fileName);
+    const tempSource = path.join(tempManifestRoot, fileName);
+
+    if (existsSync(tempSource)) {
+      await fs.copyFile(tempSource, target);
+      synced += 1;
+      continue;
+    }
+
+    const zipEntry = entries.find((entry) => !entry.isDirectory && path.basename(entry.entryName) === fileName);
+    if (zipEntry) {
+      await fs.writeFile(target, zipEntry.getData());
+      synced += 1;
+      continue;
+    }
+
+    missing.push(`${depotId}:${manifestGid}`);
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Depotcache sync failed. Missing manifest artifact(s): ${missing.join(', ')}. ` +
+      'Re-download manifest cache and retry Add to Steam / Rerun Manifest.'
+    );
+  }
+
+  await cleanupTempManifestFiles(selectedDepots, manifests, tempManifestRoot);
+  return { expected: selectedDepots.length, synced, missing };
+}
+
+async function cleanupTempManifestFiles(
+  selectedDepots: string[],
+  manifests: Record<string, string>,
+  tempManifestRoot: string
+): Promise<void> {
+  await Promise.all(selectedDepots.map(async (depotId) => {
+    const manifestGid = manifests[depotId];
+    if (!manifestGid) return;
+    const filePath = path.join(tempManifestRoot, `${depotId}_${manifestGid}.manifest`);
+    await fs.unlink(filePath).catch(() => undefined);
+  }));
 }

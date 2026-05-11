@@ -11,6 +11,51 @@ export interface AppSettings {
   goldbergSteamId: string;
   cloudServerUrl: string;
   cloudApiKey: string;
+  achievementEnabledSources: SourceId[];
+  achievementSourceRoots: Partial<Record<SourceId, string[]>>;
+  hoodlumSavePath: string;
+}
+
+export enum SourceId {
+  Goldberg = 'Goldberg',
+  GSE = 'GSE',
+  Empress = 'Empress',
+  Codex = 'Codex',
+  Rune = 'Rune',
+  OnlineFix = 'OnlineFix',
+  SmartSteamEmu = 'SmartSteamEmu',
+  Skidrow = 'Skidrow',
+  Darksiders = 'Darksiders',
+  Ali213 = 'Ali213',
+  Hoodlum = 'Hoodlum',
+  CreamApi = 'CreamApi',
+  GreenLuma = 'GreenLuma',
+  Reloaded = 'Reloaded'
+}
+
+export type DiscoveryKind = 'file' | 'registry';
+
+export interface DiscoveryRecord {
+  appId: string;
+  source: SourceId;
+  kind: DiscoveryKind;
+  location: string;
+}
+
+export interface FileChangeEvent {
+  source: SourceId;
+  rootPath: string;
+  fullPath: string;
+  eventType: 'add' | 'change' | 'unlink' | 'rename';
+  timestamp?: number;
+}
+
+export interface ResolvedChange {
+  appId: string;
+  source: SourceId;
+  location: string;
+  eventType: FileChangeEvent['eventType'];
+  timestamp: number;
 }
 
 export interface InstalledGame {
@@ -26,6 +71,7 @@ export interface InstalledGame {
   drmStripped: boolean;
   registeredWithSteam: boolean;
   gseSavesCopied: boolean;
+  goldbergState?: 'required' | 'applied' | 'not_needed';
   headerImageUrl?: string;
   steamBuildId?: string;
   manifestZipPath?: string;
@@ -89,6 +135,7 @@ export interface ManifestCheckResult {
   depotId: string;
   manifestGid: string;
   buildId?: string;
+  depotBuildId?: string;
 }
 
 export interface UpdateStatus {
@@ -111,6 +158,7 @@ export interface LibraryRow {
   path?: string;
   headerImageUrl?: string;
   executablePath?: string;
+  goldbergState?: 'required' | 'applied' | 'not_needed';
 }
 
 export interface ManifestCacheEntry {
@@ -125,18 +173,61 @@ export interface DownloadStartRequest {
   gameData: GameData;
   selectedDepots: string[];
   libraryPath: string;
+  outputPath?: string;
   steamUsername?: string;
   maxDownloads: number;
   channelId: string;
 }
+
+export type DownloadCancelMode = 'keep' | 'delete';
+export type DownloadHealthState = 'stable' | 'retrying' | 'warning' | 'degraded';
 
 export interface ProgressEvent {
   pct?: number;
   log?: string;
   received?: number;
   total?: number;
+  status?: string;
   done?: boolean;
   error?: string;
+  canceled?: boolean;
+  terminalReason?: 'completed' | 'failed' | 'canceled';
+  diskBps?: number | null;
+  healthState?: DownloadHealthState;
+  retryCountRecent?: number;
+  lastHealthMessage?: string;
+}
+
+export type DownloadPhase = 'setup' | 'downloading' | 'complete' | 'failed' | 'canceled';
+
+export interface DownloadSample {
+  t: number;
+  pct: number;
+}
+
+export interface DownloadSession {
+  channelId: string;
+  appId: string;
+  gameName: string;
+  headerImageUrl?: string;
+  targetPct: number;
+  displayPct: number;
+  status: string;
+  indeterminate: boolean;
+  speedBps: number | null;
+  diskBps?: number | null;
+  etaSec: number | null;
+  healthState?: DownloadHealthState;
+  retryCountRecent?: number;
+  lastHealthMessage?: string;
+  totalBytes: number;
+  startedAt: number;
+  updatedAt: number;
+  done: boolean;
+  error?: string;
+  phase: DownloadPhase;
+  logs: string[];
+  samples: DownloadSample[];
 }
 
 export interface ReconcileResult {

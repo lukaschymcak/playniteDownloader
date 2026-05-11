@@ -32,6 +32,21 @@ namespace LuDownloader.App.Settings
             return s;
         }
 
+        public StandaloneSettings CloneForEdit()
+        {
+            var clone = new StandaloneSettings();
+            CopyValuesTo(clone);
+            return clone;
+        }
+
+        public void CommitFrom(BlankPlugin.AppSettings source)
+        {
+            if (source == null)
+                return;
+
+            source.CopyValuesTo(this);
+        }
+
         public void Save()
         {
             if (!string.IsNullOrEmpty(_filePath))

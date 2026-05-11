@@ -71,5 +71,22 @@ namespace BlankPlugin
             get => _goldbergSteamId;
             set => SetValue(ref _goldbergSteamId, value ?? string.Empty);
         }
+
+        public void CopyValuesTo(AppSettings target)
+        {
+            if (target == null)
+                return;
+
+            target.ApiKey = ApiKey;
+            target.DownloadPath = DownloadPath;
+            target.MaxDownloads = MaxDownloads;
+            target.SteamUsername = SteamUsername;
+            target.SteamWebApiKey = SteamWebApiKey;
+            target.IgdbClientId = IgdbClientId;
+            target.IgdbClientSecret = IgdbClientSecret;
+            target.GoldbergFilesPath = GoldbergFilesPath;
+            target.GoldbergAccountName = GoldbergAccountName;
+            target.GoldbergSteamId = GoldbergSteamId;
+        }
     }
 }

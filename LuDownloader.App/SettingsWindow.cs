@@ -8,6 +8,8 @@ namespace LuDownloader.App
     {
         public SettingsWindow(Settings.StandaloneSettings settings, Window owner)
         {
+            var editableSettings = settings.CloneForEdit();
+
             Title = "Settings";
             Width = 520;
             SizeToContent = SizeToContent.Height;
@@ -16,7 +18,7 @@ namespace LuDownloader.App
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             Background = new SolidColorBrush(Color.FromRgb(30, 30, 35));
 
-            var view = new BlankPlugin.AppSettingsView(settings);
+            var view = new BlankPlugin.AppSettingsView(editableSettings);
 
             var saveBtn = new Button
             {
@@ -25,7 +27,12 @@ namespace LuDownloader.App
                 Margin = new Thickness(8),
                 HorizontalAlignment = HorizontalAlignment.Right
             };
-            saveBtn.Click += (s, e) => { settings.Save(); Close(); };
+            saveBtn.Click += (s, e) =>
+            {
+                settings.CommitFrom(editableSettings);
+                settings.Save();
+                Close();
+            };
 
             var cancelBtn = new Button
             {

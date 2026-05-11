@@ -47,7 +47,7 @@ namespace BlankPlugin
             CancellationToken cancellationToken = default)
         {
             if (!IsReady)
-                return (null, "ManifestChecker.exe not found in plugin deps folder.");
+                return (null, "ManifestChecker.exe not found in app deps folder.");
 
             if (cancellationToken.IsCancellationRequested)
                 return (null, "ManifestChecker cancelled.");

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace BlankPlugin
 {
     /// <summary>
-    /// Orchestrates update checking for all plugin-installed games.
+    /// Orchestrates update checking for all LuDownloader-installed games.
     /// Runs ManifestChecker.exe to fetch current Steam manifest GIDs,
     /// compares them against saved GIDs in InstalledGame records,
     /// and fires status change events for the UI.
@@ -27,6 +27,8 @@ namespace BlankPlugin
 
         private readonly SemaphoreSlim _runLock = new SemaphoreSlim(1, 1);
         private CancellationTokenSource _cts;
+
+        public event Action StatusChanged;
 
         public UpdateChecker(
             ManifestCheckerRunner runner,
@@ -80,6 +82,7 @@ namespace BlankPlugin
                     {
                         _statusCache[game.AppId] = "checking";
                     }
+                    OnStatusChanged();
 
                     if (token.IsCancellationRequested) return;
 
@@ -92,14 +95,17 @@ namespace BlankPlugin
                     if (results == null)
                     {
                         logger.Warn("UpdateChecker: ManifestCheckerRunner failed: " + error);
-
-                        _appHost.ShowNotification("LuDownloader: Update check failed — " + error, isError: true);
+                        if (_appHost?.ShowUpdateNotifications == true)
+                        {
+                            _appHost.ShowNotification("LuDownloader: Update check failed — " + error, isError: true);
+                        }
 
                         // Mark all as cannot_determine
                         foreach (var game in checkable)
                         {
                             _statusCache[game.AppId] = "cannot_determine";
                         }
+                        OnStatusChanged();
                         return;
                     }
 
@@ -158,10 +164,14 @@ namespace BlankPlugin
                         if (status == "update_available")
                             updatesAvailable.Add(game.GameName);
                     }
+                    OnStatusChanged();
 
-                    // Push a single grouped Playnite notification if any updates were found
+                    // Host notifications are optional; standalone app refreshes the Library view silently.
                     if (updatesAvailable.Count > 0 && !token.IsCancellationRequested)
                     {
+                        if (_appHost?.ShowUpdateNotifications != true)
+                            return;
+
                         string message;
                         if (updatesAvailable.Count == 1)
                             message = "Update available for " + updatesAvailable[0];
@@ -198,7 +208,13 @@ namespace BlankPlugin
             {
                 _statusCache[appId] = "up_to_date";
                 logger.Info("UpdateChecker: Marked " + appId + " as up_to_date after successful update.");
+                OnStatusChanged();
             }
+        }
+
+        private void OnStatusChanged()
+        {
+            try { StatusChanged?.Invoke(); } catch { }
         }
 
     }

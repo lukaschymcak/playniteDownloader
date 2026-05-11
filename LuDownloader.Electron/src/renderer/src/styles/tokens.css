@@ -1,0 +1,22 @@
+:root {
+  --accent: #47D5C8;
+  --accent-soft: rgba(71, 213, 200, 0.14);
+  --accent-ring: rgba(71, 213, 200, 0.34);
+  --bg-0: #090B0E;
+  --bg-1: #101216;
+  --bg-2: #171A20;
+  --bg-3: #1D222A;
+  --bg-4: #242A33;
+  --line: #29303A;
+  --line-soft: #1B2028;
+  --fg-0: #F2F4F8;
+  --fg-1: #C7CCD4;
+  --fg-2: #8C93A0;
+  --fg-3: #5C6470;
+  --good: #5BD68F;
+  --warn: #F5B454;
+  --danger: #F26B6B;
+  --info: #6FA8FF;
+  --radius: 8px;
+  --radius-sm: 6px;
+}

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings } from '../../../shared/types';
+import { SourceId, type AppSettings } from '../../../shared/types';
 import { Icon } from '../icons';
 
 const empty: AppSettings = {
   apiKey: '', downloadPath: '', maxDownloads: 20, steamUsername: '', steamWebApiKey: '',
   igdbClientId: '', igdbClientSecret: '', goldbergFilesPath: '', goldbergAccountName: '', goldbergSteamId: '',
-  cloudServerUrl: '', cloudApiKey: ''
+  cloudServerUrl: '', cloudApiKey: '',
+  achievementEnabledSources: Object.values(SourceId),
+  achievementSourceRoots: {},
+  hoodlumSavePath: ''
 };
 
 export function SettingsModal({ onClose, embedded = false }: { onClose: () => void; embedded?: boolean }): JSX.Element {
