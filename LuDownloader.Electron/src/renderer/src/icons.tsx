@@ -3,7 +3,8 @@ import type { SVGProps } from 'react';
 type IconName =
   | 'library' | 'search' | 'layers' | 'settings' | 'download' | 'play' | 'folder'
   | 'refresh' | 'plus' | 'more' | 'trash' | 'close' | 'minus' | 'square'
-  | 'zip' | 'upload' | 'box' | 'check' | 'arrow' | 'steam' | 'warn';
+  | 'zip' | 'upload' | 'box' | 'check' | 'arrow' | 'steam' | 'warn'
+  | 'trophy' | 'pin' | 'edit' | 'back' | 'star' | 'filter';
 
 interface IconProps extends SVGProps<SVGSVGElement> {
   name: IconName;
@@ -33,7 +34,14 @@ export function Icon({ name, size = 16, strokeW = 1.7, ...rest }: IconProps): JS
     check: <><polyline points="20 6 9 17 4 12"/></>,
     arrow: <><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></>,
     steam: <><circle cx="12" cy="12" r="9"/><path d="M3.5 14l5 2.2c.5-.7 1.4-1.2 2.4-1.2 1.6 0 3 1.3 3 3 0 .1 0 .3-.1.4l3.6-2.6c2-1.5 1.7-4.6-.6-5.6-1.7-.7-3.6 0-4.5 1.5l-2.7-.4c-1 .9-2.4 1.2-3.6.7L3.5 14z"/></>,
-    warn: <><path d="M12 3l10 18H2L12 3z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="18" r="1"/></>
+    warn: <><path d="M12 3l10 18H2L12 3z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="18" r="1"/></>,
+    trophy: <><path d="M8 21h8M12 17v4M17 3H7L5 8c0 3.87 3.13 7 7 7s7-3.13 7-7L17 3z"/><path d="M5 8H3a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M19 8h2a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></>,
+    pin: <><path d="M12 2l2.5 6H20l-5 3.5 1.9 6.5L12 14l-4.9 4 1.9-6.5L4 8h5.5L12 2z"/></>,
+    edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    back: <><polyline points="15 18 9 12 15 6"/></>,
+    star: <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
+    filter: <><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </>
   };
 
   return (

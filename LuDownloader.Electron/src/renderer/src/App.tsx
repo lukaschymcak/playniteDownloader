@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DownloadSession, LibraryRow, MorrenusUserStats } from '../../shared/types';
+import type { DownloadSession, GameAchievements, LibraryRow, MorrenusUserStats, UserProfile } from '../../shared/types';
 import { Icon } from './icons';
 import { LibraryView } from './views/LibraryView';
 import { SearchView } from './views/SearchView';
 import { ManifestsView } from './views/ManifestsView';
 import { DownloadView } from './views/DownloadView';
 import { SettingsModal } from './views/SettingsModal';
+import { AchievementsView } from './views/AchievementsView';
+import { useAchievements } from './hooks/useAchievements';
+import { computePlayerStats } from './lib/achievementStats';
 
-type View = 'library' | 'search' | 'manifests' | 'download' | 'settings';
+type View = 'library' | 'search' | 'manifests' | 'download' | 'settings' | 'achievements';
 type DownloadTarget =
   | { mode: 'new'; seed: { appId: string; name: string; headerImageUrl?: string } | null }
   | { mode: 'session'; channelId: string };
+
+const DEFAULT_PROFILE: UserProfile = { name: 'Player', avatarPath: null, featuredTrophiesByGame: {} };
 
 export function App(): JSX.Element {
   const [view, setView] = useState<View>('library');
@@ -19,6 +24,10 @@ export function App(): JSX.Element {
   const [downloadTarget, setDownloadTarget] = useState<DownloadTarget>({ mode: 'new', seed: null });
   const [morrenusOnline, setMorrenusOnline] = useState<boolean | null>(null);
   const [sessions, setSessions] = useState<Record<string, DownloadSession>>({});
+  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const { games: achGames, loading: achLoading, refresh: refreshAch } = useAchievements();
+  const achMap = useMemo(() => new Map(achGames.map((g) => [g.appId, g])), [achGames]);
+  const playerStats = useMemo(() => computePlayerStats(achGames), [achGames]);
 
   const refreshRows = async (): Promise<void> => setRows(await window.api.library.rows() as LibraryRow[]);
 
@@ -27,6 +36,7 @@ export function App(): JSX.Element {
     void window.api.morrenus.getUserStats().then((s) => setStats(s as MorrenusUserStats));
     void window.api.morrenus.health().then((ok) => setMorrenusOnline(ok as boolean));
     void window.api.updates.check().then(refreshRows);
+    void window.api.profile.load().then((p) => setProfile(p as UserProfile));
 
     const offLibrary = window.api.on('library:changed', (data) => setRows(data as LibraryRow[]));
     const offUpdates = window.api.on('updates:changed', () => void refreshRows());
@@ -142,11 +152,17 @@ export function App(): JSX.Element {
     };
   }, []);
 
+  const saveProfile = async (p: UserProfile): Promise<void> => {
+    const saved = await window.api.profile.save(p);
+    setProfile(saved as UserProfile);
+  };
+
   const title = useMemo(() => {
     if (view === 'library') return 'Library';
     if (view === 'search') return 'Search';
     if (view === 'manifests') return 'Manifests';
     if (view === 'settings') return 'Settings';
+    if (view === 'achievements') return 'Achievements';
     return 'Download';
   }, [view]);
 
@@ -155,8 +171,9 @@ export function App(): JSX.Element {
     if (view === 'search') return 'Find, save, and download Steam titles';
     if (view === 'manifests') return 'Cached manifest ZIPs';
     if (view === 'settings') return 'Credentials, paths, and tools';
+    if (view === 'achievements') return `${achGames.length} games tracked · Lv. ${playerStats.level}`;
     return 'Resolve manifests and install depots';
-  }, [rows, view]);
+  }, [rows, view, achGames, playerStats]);
 
   const openNewDownload = (game: { appId: string; name: string; headerImageUrl?: string }): void => {
     setDownloadTarget({ mode: 'new', seed: game });
@@ -193,6 +210,7 @@ export function App(): JSX.Element {
           <NavButton view="library" active={view === 'library'} label="Library" count={rows.length} onClick={setView} icon="library" />
           <NavButton view="search" active={view === 'search'} label="Search" onClick={setView} icon="search" />
           <NavButton view="manifests" active={view === 'manifests'} label="Manifests" onClick={setView} icon="layers" />
+          <NavButton view="achievements" active={view === 'achievements'} label="Achievements" onClick={setView} icon="trophy" />
           <div className="side-label system-label">SYSTEM</div>
           <NavButton view="settings" active={view === 'settings'} label="Settings" onClick={setView} icon="settings" />
 
@@ -247,7 +265,7 @@ export function App(): JSX.Element {
           </div>
 
           <section className="content">
-            {view === 'library' && <LibraryView rows={rows} refreshRows={refreshRows} openDownload={openNewDownload} />}
+            {view === 'library' && <LibraryView rows={rows} refreshRows={refreshRows} openDownload={openNewDownload} achievementsMap={achMap} />}
             {view === 'search' && <SearchView openDownload={openNewDownload} refreshRows={refreshRows} />}
             {view === 'manifests' && <ManifestsView />}
             {view === 'download' && (
@@ -260,6 +278,16 @@ export function App(): JSX.Element {
               />
             )}
             {view === 'settings' && <SettingsModal onClose={() => setView('library')} embedded />}
+            {view === 'achievements' && (
+              <AchievementsView
+                games={achGames}
+                profile={profile}
+                stats={playerStats}
+                loading={achLoading}
+                onRefresh={refreshAch}
+                onSaveProfile={saveProfile}
+              />
+            )}
           </section>
         </main>
       </div>
@@ -327,7 +355,7 @@ function NavButton(props: {
   view: View;
   active: boolean;
   label: string;
-  icon: 'library' | 'search' | 'layers' | 'settings';
+  icon: 'library' | 'search' | 'layers' | 'settings' | 'trophy';
   count?: number;
   onClick: (view: View) => void;
 }): JSX.Element {

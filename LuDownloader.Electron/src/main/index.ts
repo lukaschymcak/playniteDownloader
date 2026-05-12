@@ -41,6 +41,8 @@ import {
 import { runSteamless } from './ipc/steamless';
 import { formatGoldbergError, runGoldberg } from './ipc/goldberg';
 import { igdbSearch } from './ipc/igdb';
+import { listAllGameAchievements, clearAchievementCache, clearAchievementSnapshots, pickAvatarFile } from './ipc/achievements';
+import { loadProfile, saveProfile } from './ipc/profile';
 import { CloudSyncAgent } from './sync/cloudSync';
 import {
   ACHIEVEMENTS_DIFF_CHANNEL,
@@ -245,6 +247,13 @@ function registerIpc(): void {
   ipcMain.handle(IPC.systemShowItem, (_e, target: string) => showItemInFolder(target));
   ipcMain.handle(IPC.systemDotnet, () => findDotnet());
   ipcMain.handle(IPC.systemDiskFree, (_e, target: string) => getDiskFreeSpace(target));
+  ipcMain.handle(IPC.achievementsListGames, () => listAllGameAchievements());
+  ipcMain.handle(IPC.achievementsClearCache, () => clearAchievementCache());
+  ipcMain.handle(IPC.achievementsClearSnapshots, () => clearAchievementSnapshots());
+  ipcMain.handle(IPC.profilePickAvatar, () => pickAvatarFile(mainWindow!));
+  ipcMain.handle(IPC.profileLoad, () => loadProfile());
+  ipcMain.handle(IPC.profileSave, (_e, profile) => saveProfile(profile as import('../shared/types').UserProfile));
+
   ipcMain.handle(IPC.windowMinimize, (event) => BrowserWindow.fromWebContents(event.sender)?.minimize());
   ipcMain.handle(IPC.windowMaximize, (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);

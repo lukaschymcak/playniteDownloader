@@ -4,10 +4,12 @@ import type {
   AppSettings,
   DownloadCancelMode,
   DownloadStartRequest,
+  GameAchievements,
   GameData,
   InstalledGame,
   ManifestCacheEntry,
-  SavedLibraryGame
+  SavedLibraryGame,
+  UserProfile
 } from '../shared/types';
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args) as Promise<T>;
@@ -95,6 +97,16 @@ const lu = {
     minimize: () => invoke<void>(IPC.windowMinimize),
     maximize: () => invoke<void>(IPC.windowMaximize),
     close: () => invoke<void>(IPC.windowClose)
+  },
+  achievements: {
+    listGames: () => invoke<GameAchievements[]>(IPC.achievementsListGames),
+    clearCache: () => invoke<void>(IPC.achievementsClearCache),
+    clearSnapshots: () => invoke<void>(IPC.achievementsClearSnapshots)
+  },
+  profile: {
+    load: () => invoke<UserProfile>(IPC.profileLoad),
+    save: (profile: UserProfile) => invoke<UserProfile>(IPC.profileSave, profile),
+    pickAvatar: () => invoke<string | null>(IPC.profilePickAvatar)
   },
   on: (channel: string, cb: (data: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, data: unknown) => cb(data);

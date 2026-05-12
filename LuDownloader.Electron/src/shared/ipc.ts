@@ -43,7 +43,13 @@ export const IPC = {
   systemDiskFree: 'system:disk-free',
   windowMinimize: 'window:minimize',
   windowMaximize: 'window:maximize',
-  windowClose: 'window:close'
+  windowClose: 'window:close',
+  achievementsListGames: 'achievements:list-games',
+  achievementsClearCache: 'achievements:clear-cache',
+  achievementsClearSnapshots: 'achievements:clear-snapshots',
+  profileLoad: 'profile:load',
+  profileSave: 'profile:save',
+  profilePickAvatar: 'profile:pick-avatar'
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

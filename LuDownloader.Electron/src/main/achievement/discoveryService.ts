@@ -79,7 +79,11 @@ export async function collectExtraDiscoveryRoots(settings: AppSettings): Promise
   try {
     const { getSteamLibraries } = await import('../ipc/steam.ts');
     const fromSteam = await getSteamLibraries();
-    return dedupeNormalizedPaths([...userRoots, ...fromSteam]);
+    const { existsSync } = await import('node:fs');
+    const commonRoots = fromSteam
+      .map((lib) => path.join(lib, 'steamapps', 'common'))
+      .filter((p) => existsSync(p));
+    return dedupeNormalizedPaths([...userRoots, ...commonRoots]);
   } catch {
     return userRoots;
   }
@@ -130,7 +134,6 @@ export async function resolveChangedPath(
 
   const appId = resolveAppIdFromPath(full, root);
   if (!appId) {
-    await logUnresolved(changeEvent.source, full, root, 'missing_numeric_appid');
     return null;
   }
 

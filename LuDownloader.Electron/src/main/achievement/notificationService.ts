@@ -69,13 +69,14 @@ class NotificationPresenter {
     const win = await this.ensureWindow();
     if (!win || win.isDestroyed()) return;
     const settings = await this.loadSettings();
-    const height = item.progressMax > 0 ? 110 : 100;
+    const height = item.progressMax > 0 ? 110 : 90;
     win.setSize(440, height);
     const pos = this.computePosition(settings, win);
     win.setPosition(pos.x, pos.y);
     win.webContents.send('notification:show', { ...item, notificationPosition: settings.notificationPosition });
     win.show();
-    // wait for CSS slide-in before starting display timer
+    const { info } = await import('../ipc/logger');
+    await info(`[Notification] shown apiName=${item.achievement.apiName}`);
     await delay(ANIMATE_IN_MS);
     await delay(settings.notificationDurationSeconds * 1000);
     win.webContents.send('notification:hide');
@@ -83,6 +84,10 @@ class NotificationPresenter {
     if (!win.isDestroyed()) {
       win.hide();
     }
+  }
+
+  async warmUp(): Promise<void> {
+    await this.ensureWindow();
   }
 
   destroy(): void {
@@ -179,6 +184,8 @@ export function enqueueNotificationDiff(diff: AchievementDiff): void {
     const settings = await loadSettingsRef();
     if (!settings.notificationEnabled) return;
     if (!diff.isNewUnlock && !diff.isProgressMilestone) return;
+    const { info } = await import('../ipc/logger');
+    await info(`[Notification] enqueue apiName=${diff.achievement.apiName} type=${diff.isNewUnlock ? 'unlock' : 'progress'}`);
     queue.enqueue(diffToItem(diff));
   })();
 }
@@ -187,6 +194,7 @@ export function startNotificationService(loadSettingsFn: () => Promise<AppSettin
   loadSettingsRef = loadSettingsFn;
   presenter = new NotificationPresenter(loadSettingsFn);
   queue = new NotificationQueue(presenter);
+  void presenter.warmUp();
 }
 
 export function stopNotificationService(): void {

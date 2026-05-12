@@ -11,10 +11,26 @@ interface NotificationPayload {
   notificationPosition?: string;
 }
 
-function getRarity(pct: number): 'very-rare' | 'rare' | 'normal' {
+type Rarity = 'very-rare' | 'rare' | 'normal';
+
+function getRarity(pct: number): Rarity {
   if (pct > 0 && pct < 15) return 'very-rare';
   if (pct >= 15 && pct < 30) return 'rare';
   return 'normal';
+}
+
+function rarityLabel(rarity: Rarity, pct: number): string {
+  const pctStr = pct > 0 ? ` — ${pct.toFixed(1)}%` : '';
+  if (rarity === 'very-rare') return `Very Rare${pctStr}`;
+  if (rarity === 'rare') return `Rare${pctStr}`;
+  return pct > 0 ? `Common${pctStr}` : 'Common';
+}
+
+function headerText(type: NotificationPayload['type'], rarity: Rarity): string {
+  if (type === 'progress') return 'Achievement Progress';
+  if (rarity === 'very-rare') return 'Very Rare Achievement Unlocked!';
+  if (rarity === 'rare') return 'Rare Achievement Unlocked!';
+  return 'Achievement Unlocked!';
 }
 
 function App(): JSX.Element {
@@ -50,46 +66,42 @@ function App(): JSX.Element {
 
   const rarity = getRarity(item.achievement.globalPercentage);
   const slideDir = (item.notificationPosition ?? 'bottom-right').includes('left') ? 'left' : 'right';
-  const headerText =
-    item.type === 'progress'
-      ? 'Achievement Progress'
-      : rarity === 'very-rare'
-        ? 'Very Rare Achievement Unlocked!'
-        : rarity === 'rare'
-          ? 'Rare Achievement Unlocked!'
-          : 'Achievement Unlocked!';
-
   const iconSrc = item.achievement.iconPath ?? item.achievement.iconUrl ?? '';
   const showImg = iconSrc.length > 0 && !imgBroken;
+  const hasProgress = item.progressMax > 0;
 
   return (
-    <div
-      className={`notification-card slide-${phase}-${slideDir}`}
-      style={{ '--border-color': `var(--rarity-${rarity})` } as CSSProperties}
-    >
-      <div className="icon-slot">
-        {showImg ? (
-          <img src={iconSrc} width={64} height={64} alt="" onError={() => setImgBroken(true)} />
-        ) : (
-          <div className="icon-placeholder" />
-        )}
-      </div>
-      <div>
-        <div className="header">{headerText}</div>
-        <div className="display-name">{item.achievement.displayName}</div>
-        <div className="description">{item.achievement.description}</div>
-        <div className="game-name">{item.achievement.gameName}</div>
-        {item.achievement.globalPercentage > 0 && (
-          <div className="rarity-badge">{item.achievement.globalPercentage.toFixed(1)}% unlocked</div>
-        )}
-        {item.progressMax > 0 && (
-          <div className="progress-bar-track">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${(item.progressCurrent / item.progressMax) * 100}%` }}
-            />
-          </div>
-        )}
+    <div className={`notification-wrapper slide-${phase}-${slideDir}`}>
+      <div className={`notification-card rarity-${rarity}`}>
+        <div className="icon-slot">
+          {showImg ? (
+            <img src={iconSrc} width={52} height={52} alt="" onError={() => setImgBroken(true)} />
+          ) : (
+            <div className="icon-placeholder" />
+          )}
+        </div>
+        <div className="content">
+          <div className="header">{headerText(item.type, rarity)}</div>
+          <div className="display-name">{item.achievement.displayName}</div>
+          {item.achievement.description && (
+            <div className="description">{item.achievement.description}</div>
+          )}
+          {item.achievement.gameName && (
+            <div className="game-name">{item.achievement.gameName}</div>
+          )}
+          <div className="rarity-badge">{rarityLabel(rarity, item.achievement.globalPercentage)}</div>
+          {hasProgress && (
+            <div className="progress-row">
+              <div className="progress-bar-track">
+                <div
+                  className="progress-bar-fill"
+                  style={{ width: `${(item.progressCurrent / item.progressMax) * 100}%` } as CSSProperties}
+                />
+              </div>
+              <div className="progress-text">{item.progressCurrent} / {item.progressMax}</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

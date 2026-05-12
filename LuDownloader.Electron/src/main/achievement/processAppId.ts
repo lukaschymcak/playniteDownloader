@@ -17,6 +17,10 @@ import type {
 } from '../../shared/types.ts';
 import { EmulatorSource, SourceId, type EmulatorSourceMask } from '../../shared/types.ts';
 
+function isUrl(value: string): boolean {
+  return value.startsWith('http://') || value.startsWith('https://');
+}
+
 function discoverySourceMask(rows: DiscoveryRecord[]): EmulatorSourceMask {
   let m = EmulatorSource.None;
   for (const r of rows) {
@@ -68,20 +72,18 @@ function buildAchievementList(
       maxProgress: 0
     };
 
-    const iconFile = def?.icon ? iconStorageName(def.icon) : '';
-    const grayFile = def?.icongray ? iconStorageName(def.icongray) : '';
+    const iconFile = def?.icon && !isUrl(def.icon) ? iconStorageName(def.icon) : '';
+    const grayFile = def?.icongray && !isUrl(def.icongray) ? iconStorageName(def.icongray) : '';
     const iconPath = iconFile && cache.iconExists(appId, iconFile) ? cache.getIconPath(appId, iconFile) : null;
     const iconGrayPath =
       grayFile && cache.iconExists(appId, grayFile) ? cache.getIconPath(appId, grayFile) : null;
 
-    const iconUrl =
-      !iconPath && def?.icon
-        ? `https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/${appId}/${iconStorageName(def.icon)}`
-        : null;
-    const iconGrayUrl =
-      !iconGrayPath && def?.icongray
-        ? `https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/${appId}/${iconStorageName(def.icongray)}`
-        : null;
+    const iconUrl = !iconPath && def?.icon
+      ? (isUrl(def.icon) ? def.icon : `https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/${appId}/${iconStorageName(def.icon)}`)
+      : null;
+    const iconGrayUrl = !iconGrayPath && def?.icongray
+      ? (isUrl(def.icongray) ? def.icongray : `https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps/${appId}/${iconStorageName(def.icongray)}`)
+      : null;
 
     list.push({
       apiName,
@@ -150,7 +152,7 @@ export async function processAppId(
 
   return {
     appId,
-    gameName: enrichment.gameName ?? ctx.gameName ?? appId,
+    gameName: enrichment.gameName ?? ctx.gameName ?? `Unknown Game (${appId})`,
     storeHeaderImageUrl,
     installDir: ctx.installDir ?? null,
     hasUsableInstallDirectory: ctx.hasUsableInstallDirectory,

@@ -1,4 +1,4 @@
-import { watch, existsSync, type FSWatcher } from 'node:fs';
+﻿import { watch, existsSync, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import type { AchievementDiff, AppSettings, DiscoveryRecord, FileChangeEvent, GameAchievements, InstalledGame, SourceId } from '../../shared/types.ts';
 import {
@@ -83,8 +83,9 @@ function watcherKey(source: SourceId, root: string): string {
   return `${source}\u0000${root.toLowerCase()}`;
 }
 
-function debounceKey(source: SourceId, appId: string): string {
-  return `${source}\u0000${appId}`;
+// All sources collapse to one debounce chain per appId.
+function debounceKey(_source: SourceId, appId: string): string {
+  return appId;
 }
 
 export function setAchievementWatcherDirsForTests(dirs: { cacheDir: string; snapshotDir: string } | null): void {
@@ -163,6 +164,15 @@ async function logWatcherError(err: unknown): Promise<void> {
   }
 }
 
+async function logInfo(message: string): Promise<void> {
+  try {
+    const { info } = await import('../ipc/logger.ts');
+    await info(message);
+  } catch {
+    /* ignore */
+  }
+}
+
 async function rebuildWatchers(): Promise<void> {
   closeAllWatchers();
   const settings = await loadSettingsImpl();
@@ -211,6 +221,14 @@ async function handleFsWatchCallback(
   if (!rel) {
     return;
   }
+  const basename = path.basename(rel);
+  if (/\.(tmp|temp)$/i.test(basename) || basename === '.writable') {
+    return;
+  }
+  // Steam-internal files; never contain emulator achievement data.
+  if (/^(localconfig\.vdf|config|remotecache\.vdf)$/i.test(basename)) {
+    return;
+  }
   const fullPath = path.resolve(root, rel);
   const settings = await loadSettingsImpl();
   const change: FileChangeEvent = {
@@ -224,6 +242,7 @@ async function handleFsWatchCallback(
   if (!resolved) {
     return;
   }
+  void logInfo(`[Watcher] change detected appId=${resolved.appId} source=${source} file="${basename}" — debouncing ${debounceMs}ms`);
   scheduleDebouncedProcessing(source, resolved.appId);
 }
 
@@ -256,13 +275,20 @@ async function processResolvedAppId(appId: string): Promise<void> {
   if (serviceStopped) {
     return;
   }
+  const t0 = Date.now();
+  void logInfo(`[Watcher] processing appId=${appId} start`);
   const settings: AppSettings = await loadSettingsImpl();
   const records = await pipeline.scanAllSources(settings);
   const rows = records.filter((r) => r.appId === appId);
+  if (rows.length === 0) {
+    void logInfo(`[Watcher] skipping appId=${appId} — no discovery rows found`);
+    return;
+  }
   const installedGames = await pipeline.listInstalled();
   const { cacheDir, snapshotDir } = await resolveAchievementDirs();
   const { CacheService } = await import('./cacheService.ts');
   const cache = new CacheService(cacheDir);
+  void logInfo(`[Watcher] calling processAppId appId=${appId} rows=${rows.length}`);
   const gameAchievements: GameAchievements = await pipeline.processAppId(
     appId,
     rows,
@@ -273,9 +299,21 @@ async function processResolvedAppId(appId: string): Promise<void> {
     installedGames,
     cache
   );
+  void logInfo(`[Watcher] processAppId done appId=${appId} elapsed=${Date.now() - t0}ms`);
   const diffs: AchievementDiff[] = await pipeline.diffAndUpdateSnapshot(snapshotDir, gameAchievements);
+  void logInfo(`[Watcher] diffs appId=${appId} count=${diffs.length} elapsed=${Date.now() - t0}ms`);
   eventSink?.(ACHIEVEMENTS_CHANGED_CHANNEL, gameAchievements);
   eventSink?.(ACHIEVEMENTS_DIFF_CHANNEL, { appId, diffs });
+  const dest = path.join(cacheDir, gameAchievements.appId, 'game_achievements.json');
+  const tmp = `${dest}.tmp`;
+  try {
+    const { mkdir, writeFile, rename } = await import('node:fs/promises');
+    await mkdir(path.dirname(dest), { recursive: true });
+    await writeFile(tmp, JSON.stringify(gameAchievements));
+    await rename(tmp, dest);
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export async function processAchievementWatchTestEvent(
@@ -287,6 +325,20 @@ export async function processAchievementWatchTestEvent(
   return handleFsWatchCallback(source, root, eventType, fileName);
 }
 
+async function initialSweep(): Promise<void> {
+  try {
+    const settings = await loadSettingsImpl();
+    const records = await pipeline.scanAllSources(settings);
+    const appIds = [...new Set(records.map((r) => r.appId))];
+    void logInfo(`[Watcher] initial sweep: ${appIds.length} apps discovered`);
+    for (const appId of appIds) {
+      enqueueAppProcessing(appId);
+    }
+  } catch (err) {
+    await logWatcherError(err);
+  }
+}
+
 export async function startAchievementWatchers(): Promise<void> {
   if (serviceStarted) {
     return;
@@ -294,6 +346,7 @@ export async function startAchievementWatchers(): Promise<void> {
   serviceStarted = true;
   serviceStopped = false;
   await rebuildWatchers();
+  void initialSweep();
 }
 
 export async function stopAchievementWatchers(): Promise<void> {

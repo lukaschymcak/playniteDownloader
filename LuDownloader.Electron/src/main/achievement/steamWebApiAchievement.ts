@@ -25,12 +25,12 @@ function schemaUrl(appId: string, apiKey: string): string {
   return u.toString();
 }
 
-function percentagesUrl(appId: string, apiKey: string): string {
-  const base = 'https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/';
-  const u = new URL(base);
-  u.searchParams.set('gameid', appId);
-  u.searchParams.set('key', apiKey);
-  return u.toString();
+function percentagesUrl(appId: string): string {
+  return `https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid=${encodeURIComponent(appId)}`;
+}
+
+function storeAppDetailsUrl(appId: string): string {
+  return `https://store.steampowered.com/api/appdetails?appids=${encodeURIComponent(appId)}&l=english`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -137,24 +137,19 @@ export async function fetchSteamAchievementSchema(
 
 export async function fetchSteamGlobalAchievementPercentages(
   appId: string,
-  apiKey: string,
+  _apiKey: string,
   fetchFn: typeof fetch = globalThis.fetch.bind(globalThis)
 ): Promise<Record<string, number> | null> {
-  const key = apiKey.trim();
   const aid = appId.trim();
-  if (!key || !aid) {
-    return null;
-  }
+  if (!aid) return null;
 
   let res: Response;
   try {
-    res = await fetchFn(percentagesUrl(aid, key), { method: 'GET' });
+    res = await fetchFn(percentagesUrl(aid), { method: 'GET' });
   } catch {
     return null;
   }
-  if (!res.ok) {
-    return null;
-  }
+  if (!res.ok) return null;
 
   let body: unknown;
   try {
@@ -163,4 +158,33 @@ export async function fetchSteamGlobalAchievementPercentages(
     return null;
   }
   return parsePercentagesResponseBody(body);
+}
+
+export async function fetchStoreGameName(
+  appId: string,
+  fetchFn: typeof fetch = globalThis.fetch.bind(globalThis)
+): Promise<string | null> {
+  const aid = appId.trim();
+  if (!aid) return null;
+
+  let res: Response;
+  try {
+    res = await fetchFn(storeAppDetailsUrl(aid), { method: 'GET' });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return null;
+  }
+
+  const root = body as Record<string, unknown>;
+  const entry = root[aid] as Record<string, unknown> | undefined;
+  if (!entry?.success) return null;
+  const data = entry.data as Record<string, unknown> | undefined;
+  return typeof data?.name === 'string' ? data.name : null;
 }

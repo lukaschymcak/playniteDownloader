@@ -6,11 +6,13 @@ import {
   PERCENTAGES_KEY,
   PERCENTAGES_TTL_SECONDS,
   SCHEMA_KEY,
-  SCHEMA_TTL_SECONDS
+  SCHEMA_TTL_SECONDS,
+  STORE_DISPLAY_NAME_KEY
 } from './cacheService.ts';
 import {
   fetchSteamAchievementSchema,
   fetchSteamGlobalAchievementPercentages,
+  fetchStoreGameName,
   type SteamSchemaFetchResult
 } from './steamWebApiAchievement.ts';
 
@@ -93,20 +95,14 @@ async function loadPercentages(
   cache: CacheService,
   fetchFn: typeof fetch
 ): Promise<Record<string, number>> {
-  const hasKey = apiKey.trim().length > 0;
-  if (hasKey) {
-    const fresh = await cache.get<Record<string, number>>(appId, PERCENTAGES_KEY, PERCENTAGES_TTL_SECONDS);
-    if (fresh) {
-      return fresh;
-    }
-    const live = await fetchSteamGlobalAchievementPercentages(appId, apiKey, fetchFn);
-    if (live !== null) {
-      await cache.set(appId, PERCENTAGES_KEY, live);
-      return live;
-    }
-    return {};
-  }
+  const fresh = await cache.get<Record<string, number>>(appId, PERCENTAGES_KEY, PERCENTAGES_TTL_SECONDS);
+  if (fresh) return fresh;
 
+  const live = await fetchSteamGlobalAchievementPercentages(appId, apiKey, fetchFn);
+  if (live !== null) {
+    await cache.set(appId, PERCENTAGES_KEY, live);
+    return live;
+  }
   const stale = await cache.get<Record<string, number>>(appId, PERCENTAGES_KEY);
   return stale ?? {};
 }
@@ -127,20 +123,31 @@ export async function loadAchievementEnrichment(
   ]);
 
   const achievements = schema?.achievements ?? [];
-  const gameName =
+  let gameName =
     schema && typeof schema.gameName === 'string' && schema.gameName.trim().length > 0
       ? schema.gameName.trim()
       : null;
 
-  if (trimmed.length > 0) {
-    for (const def of achievements) {
-      if (def.icon) {
-        await tryDownloadIcon(appId, def.icon, cache, fetchFn);
-      }
-      if (def.icongray) {
-        await tryDownloadIcon(appId, def.icongray, cache, fetchFn);
+  if (!gameName) {
+    const cached = await cache.get<{ name: string }>(appId, STORE_DISPLAY_NAME_KEY, 30 * 24 * 60 * 60);
+    if (cached?.name) {
+      gameName = cached.name;
+    } else {
+      const storeName = await fetchStoreGameName(appId, fetchFn);
+      if (storeName) {
+        gameName = storeName;
+        await cache.set(appId, STORE_DISPLAY_NAME_KEY, { name: storeName });
       }
     }
+  }
+
+  if (trimmed.length > 0) {
+    void (async () => {
+      for (const def of achievements) {
+        if (def.icon && !def.icon.startsWith('http')) await tryDownloadIcon(appId, def.icon, cache, fetchFn);
+        if (def.icongray && !def.icongray.startsWith('http')) await tryDownloadIcon(appId, def.icongray, cache, fetchFn);
+      }
+    })();
   }
 
   return {

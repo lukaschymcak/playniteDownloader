@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { GameData, InstalledGame, LibraryRow } from '../../../shared/types';
+import type { GameAchievements, GameData, InstalledGame, LibraryRow } from '../../../shared/types';
 import { Icon } from '../icons';
 
 type LibraryFilter = 'all' | 'outdated';
@@ -14,6 +14,7 @@ export function LibraryView(props: {
   rows: LibraryRow[];
   refreshRows: () => Promise<void>;
   openDownload: (game: { appId: string; name: string; headerImageUrl?: string }) => void;
+  achievementsMap?: Map<string, GameAchievements>;
 }): JSX.Element {
   const [filter, setFilter] = useState('');
   const [stateFilter, setStateFilter] = useState<LibraryFilter>('all');
@@ -68,7 +69,7 @@ export function LibraryView(props: {
 
       <div className="games-grid">
         {filtered.map((row) => (
-          <LibraryCard key={row.appId} game={row} openDownload={props.openDownload} refreshRows={props.refreshRows} />
+          <LibraryCard key={row.appId} game={row} openDownload={props.openDownload} refreshRows={props.refreshRows} achData={props.achievementsMap?.get(row.appId)} />
         ))}
         {filtered.length === 0 && <Empty title="No games match this filter" body="Clear the filter, or use Search to add a new game to your library." />}
       </div>
@@ -80,6 +81,7 @@ function LibraryCard(props: {
   game: LibraryRow;
   openDownload: (game: { appId: string; name: string; headerImageUrl?: string }) => void;
   refreshRows: () => Promise<void>;
+  achData?: GameAchievements;
 }): JSX.Element {
   const [inlineAction, setInlineAction] = useState<InlineAction>(null);
   const [error, setError] = useState('');
@@ -330,6 +332,12 @@ function LibraryCard(props: {
           {props.game.luaAdded && <span className="badge lua"><Icon name="box" size={15} strokeW={2} /> Lua Added</span>}
           {props.game.manifestAdded && <span className="badge manifest"><Icon name="zip" size={15} strokeW={2} /> Manifest Added</span>}
           {!installed && <span className="badge info">Saved</span>}
+          {props.achData && (
+            <span className="ach-library-chip">
+              <Icon name="trophy" size={10} />
+              {props.achData.hasPlatinum ? 'Platinum' : `${props.achData.unlockedCount}/${props.achData.totalCount}`}
+            </span>
+          )}
         </div>
         <div className="meta-row"><Icon name="steam" size={18} /><span>Steam App ID: {props.game.appId}</span><span className="dot-sep">-</span><span>{props.game.update === 'cannot_determine' ? 'Version unknown' : 'Latest manifest'}</span><span className="dot-sep">-</span><span>{installed ? 'Installed' : 'Not installed'}</span></div>
       </div>
