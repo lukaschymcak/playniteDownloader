@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GameAchievements } from '../../../shared/types';
+import { MOCK_GAMES } from '../lib/mockAchievements';
 
 export interface UseAchievementsResult {
   games: GameAchievements[];
@@ -15,7 +16,9 @@ export function useAchievements(): UseAchievementsResult {
     setLoading(true);
     try {
       const list = await window.api.achievements.listGames();
-      setMap(new Map(list.map((g) => [g.appId, g])));
+      const realIds = new Set(list.map((g) => g.appId));
+      const merged = [...MOCK_GAMES.filter((m) => !realIds.has(m.appId)), ...list];
+      setMap(new Map(merged.map((g) => [g.appId, g])));
     } finally {
       setLoading(false);
     }
