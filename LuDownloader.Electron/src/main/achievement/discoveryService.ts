@@ -170,7 +170,7 @@ export function toScanResults(records: DiscoveryRecord[]): ScanResult[] {
   }));
 }
 
-function sourceIdToEmulatorMask(id: SourceId): EmulatorSourceMask {
+export function sourceIdToEmulatorMask(id: SourceId): EmulatorSourceMask {
   switch (id) {
     case SourceId.None:
       return EmulatorSource.None;

@@ -14,6 +14,10 @@ export function manifestCacheDir(): string {
   return path.join(userDataRoot(), 'manifest_cache');
 }
 
+export function achievementCacheDir(): string {
+  return path.join(userDataRoot(), 'achievement_cache');
+}
+
 export function logPath(): string {
   return path.join(userDataRoot(), 'ludownloader.log');
 }
