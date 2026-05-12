@@ -11,7 +11,10 @@ const empty: AppSettings = {
   hoodlumSavePath: '',
   achievementUserGameLibraryRoots: [],
   achievementScanOfficialSteamLibraries: true,
-  achievementFirstRunDismissed: false
+  achievementFirstRunDismissed: false,
+  notificationEnabled: true,
+  notificationPosition: 'bottom-right',
+  notificationDurationSeconds: 5
 };
 
 export function SettingsModal({ onClose, embedded = false }: { onClose: () => void; embedded?: boolean }): JSX.Element {

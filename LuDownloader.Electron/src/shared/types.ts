@@ -1,3 +1,5 @@
+export type NotificationPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+
 export interface AppSettings {
   apiKey: string;
   downloadPath: string;
@@ -17,6 +19,9 @@ export interface AppSettings {
   achievementUserGameLibraryRoots: string[];
   achievementScanOfficialSteamLibraries: boolean;
   achievementFirstRunDismissed: boolean;
+  notificationEnabled: boolean;
+  notificationPosition: NotificationPosition;
+  notificationDurationSeconds: number;
 }
 
 /** Emulator / save source id (string literals for JSON + node strip-types tests). */

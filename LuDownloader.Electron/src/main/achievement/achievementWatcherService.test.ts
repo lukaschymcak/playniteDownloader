@@ -57,6 +57,9 @@ function baseTestSettings(overrides: Partial<AppSettings>): AppSettings {
     achievementUserGameLibraryRoots: [],
     achievementScanOfficialSteamLibraries: true,
     achievementFirstRunDismissed: false,
+    notificationEnabled: true,
+    notificationPosition: 'bottom-right',
+    notificationDurationSeconds: 5,
     ...overrides
   };
 }

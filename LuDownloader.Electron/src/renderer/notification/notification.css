@@ -1,0 +1,150 @@
+:root {
+  --rarity-normal: #66c0f4;
+  --rarity-rare: #ffd700;
+  --rarity-very-rare: #ffa500;
+}
+
+body,
+#root {
+  background: transparent;
+}
+
+.notification-card {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 440px;
+  border-radius: 4px;
+  background: #1a1c20;
+  border: 2px solid var(--border-color, #66c0f4);
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.notification-card.slide-in-right {
+  animation: slideInRight 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.notification-card.slide-out-right {
+  animation: slideOutRight 300ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+.notification-card.slide-in-left {
+  animation: slideInLeft 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.notification-card.slide-out-left {
+  animation: slideOutLeft 300ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(460px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(460px);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-460px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-460px);
+  }
+}
+
+.notification-card .icon-slot {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.notification-card .icon-slot img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  display: block;
+}
+
+.notification-card .icon-placeholder {
+  width: 64px;
+  height: 64px;
+  background: #3d4450;
+  border-radius: 4px;
+}
+
+.notification-card .header {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.notification-card .display-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notification-card .description {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+.notification-card .game-name {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-top: 4px;
+}
+
+.rarity-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.progress-bar-track {
+  margin-top: 8px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 4px;
+  background: var(--border-color, #66c0f4);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}

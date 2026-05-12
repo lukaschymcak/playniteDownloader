@@ -3,7 +3,15 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { is } from '@electron-toolkit/utils';
 import { IPC } from '../shared/ipc';
-import type { DownloadCancelMode, DownloadStartRequest, GameData, InstalledGame, SavedLibraryGame, UpdateStatus } from '../shared/types';
+import type {
+  AchievementDiff,
+  DownloadCancelMode,
+  DownloadStartRequest,
+  GameData,
+  InstalledGame,
+  SavedLibraryGame,
+  UpdateStatus
+} from '../shared/types';
 import { loadSettings, saveSettings } from './ipc/settings';
 import { userDataRoot, findDotnet } from './ipc/paths';
 import { info, safeError } from './ipc/logger';
@@ -35,11 +43,17 @@ import { formatGoldbergError, runGoldberg } from './ipc/goldberg';
 import { igdbSearch } from './ipc/igdb';
 import { CloudSyncAgent } from './sync/cloudSync';
 import {
+  ACHIEVEMENTS_DIFF_CHANNEL,
   restartAchievementWatchers,
   setAchievementEventSink,
   startAchievementWatchers,
   stopAchievementWatchers
 } from './achievement/achievementWatcherService';
+import {
+  enqueueNotificationDiff,
+  startNotificationService,
+  stopNotificationService
+} from './achievement/notificationService';
 
 let mainWindow: BrowserWindow | null = null;
 let updateStatuses: Record<string, UpdateStatus> = {};
@@ -85,7 +99,12 @@ app.whenReady().then(async () => {
   createWindow();
   setAchievementEventSink((channel, payload) => {
     mainWindow?.webContents.send(channel, payload);
+    if (channel === ACHIEVEMENTS_DIFF_CHANNEL) {
+      const { diffs } = payload as { appId: string; diffs: AchievementDiff[] };
+      for (const diff of diffs) enqueueNotificationDiff(diff);
+    }
   });
+  startNotificationService(() => loadSettings());
   void startAchievementWatchers().catch(() => undefined);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -93,6 +112,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
+  stopNotificationService();
   void stopAchievementWatchers();
   cloudSync.stop();
 });

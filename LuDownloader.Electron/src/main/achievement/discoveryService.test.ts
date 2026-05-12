@@ -39,7 +39,10 @@ const baseSettings: AppSettings = {
   hoodlumSavePath: '',
   achievementUserGameLibraryRoots: [],
   achievementScanOfficialSteamLibraries: true,
-  achievementFirstRunDismissed: false
+  achievementFirstRunDismissed: false,
+  notificationEnabled: true,
+  notificationPosition: 'bottom-right',
+  notificationDurationSeconds: 5
 };
 
 test('dedupeNormalizedPaths normalizes and dedupes case-insensitively', () => {

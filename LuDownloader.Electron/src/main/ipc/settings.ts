@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { SourceId, type AppSettings } from '../../shared/types';
+import { SourceId, type AppSettings, type NotificationPosition } from '../../shared/types';
 import { userDataRoot } from './paths';
 import { readJson, writeJson } from './jsonStore';
 
@@ -36,7 +36,10 @@ export const defaultSettings: AppSettings = {
   hoodlumSavePath: '',
   achievementUserGameLibraryRoots: [],
   achievementScanOfficialSteamLibraries: true,
-  achievementFirstRunDismissed: false
+  achievementFirstRunDismissed: false,
+  notificationEnabled: true,
+  notificationPosition: 'bottom-right' as const,
+  notificationDurationSeconds: 5
 };
 
 export function settingsPath(): string {
@@ -83,18 +86,33 @@ export async function loadSettings(): Promise<AppSettings> {
       'achievementFirstRunDismissed',
       'AchievementFirstRunDismissed',
       defaultSettings.achievementFirstRunDismissed
+    ),
+    notificationEnabled: pickBoolean(loaded, 'notificationEnabled', 'NotificationEnabled', defaultSettings.notificationEnabled),
+    notificationPosition: pickNotificationPosition(
+      loaded,
+      'notificationPosition',
+      'NotificationPosition',
+      defaultSettings.notificationPosition
+    ),
+    notificationDurationSeconds: pickNumber(
+      loaded,
+      'notificationDurationSeconds',
+      'NotificationDurationSeconds',
+      defaultSettings.notificationDurationSeconds
     )
   };
   return {
     ...defaultSettings,
     ...mapped,
-    maxDownloads: Math.max(1, Math.min(64, Number(mapped.maxDownloads || defaultSettings.maxDownloads)))
+    maxDownloads: Math.max(1, Math.min(64, Number(mapped.maxDownloads || defaultSettings.maxDownloads))),
+    notificationDurationSeconds: Math.max(1, Number(mapped.notificationDurationSeconds || defaultSettings.notificationDurationSeconds))
   };
 }
 
 export async function saveSettings(settings: AppSettings): Promise<AppSettings> {
   const merged = { ...defaultSettings, ...settings };
   merged.maxDownloads = Math.max(1, Math.min(64, Number(merged.maxDownloads || 20)));
+  merged.notificationDurationSeconds = Math.max(1, Number(merged.notificationDurationSeconds || defaultSettings.notificationDurationSeconds));
   await writeJson(settingsPath(), {
     ApiKey: merged.apiKey,
     DownloadPath: merged.downloadPath,
@@ -113,7 +131,10 @@ export async function saveSettings(settings: AppSettings): Promise<AppSettings> 
     HoodlumSavePath: merged.hoodlumSavePath,
     AchievementUserGameLibraryRoots: merged.achievementUserGameLibraryRoots,
     AchievementScanOfficialSteamLibraries: merged.achievementScanOfficialSteamLibraries,
-    AchievementFirstRunDismissed: merged.achievementFirstRunDismissed
+    AchievementFirstRunDismissed: merged.achievementFirstRunDismissed,
+    NotificationEnabled: merged.notificationEnabled,
+    NotificationPosition: merged.notificationPosition,
+    NotificationDurationSeconds: merged.notificationDurationSeconds
   });
   return merged;
 }
@@ -139,6 +160,27 @@ function pickBoolean(
     const s = raw.trim().toLowerCase();
     if (s === 'true' || s === '1') return true;
     if (s === 'false' || s === '0') return false;
+  }
+  return fallback;
+}
+
+const NOTIFICATION_POSITIONS: readonly NotificationPosition[] = [
+  'bottom-right',
+  'bottom-left',
+  'top-right',
+  'top-left'
+] as const;
+
+function pickNotificationPosition(
+  source: Record<string, unknown>,
+  camel: string,
+  pascal: string,
+  fallback: NotificationPosition
+): NotificationPosition {
+  const raw = String(source[camel] ?? source[pascal] ?? '').trim();
+  const allowed = new Set<string>(NOTIFICATION_POSITIONS);
+  if (allowed.has(raw)) {
+    return raw as NotificationPosition;
   }
   return fallback;
 }
