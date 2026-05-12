@@ -1,4 +1,5 @@
 import { sourceIdToEmulatorMask } from './discoveryService.ts';
+import { iconStorageName } from './cacheService.ts';
 import type { CacheService } from './cacheService.ts';
 import { loadAchievementEnrichment } from './achievementEnrichment.ts';
 import { buildAchievementGameContext } from './gameInstallContext.ts';
@@ -15,15 +16,6 @@ import type {
   RawAchievement
 } from '../../shared/types.ts';
 import { EmulatorSource, SourceId, type EmulatorSourceMask } from '../../shared/types.ts';
-
-function iconStorageName(hash: string): string {
-  const h = hash.trim();
-  if (!h) return '';
-  if (/\.(jpe?g|png)$/i.test(h)) {
-    return h.replace(/[^a-zA-Z0-9._-]/g, '_');
-  }
-  return `${h.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`;
-}
 
 function discoverySourceMask(rows: DiscoveryRecord[]): EmulatorSourceMask {
   let m = EmulatorSource.None;
@@ -167,6 +159,6 @@ export async function processAppId(
     unlockedCount,
     totalCount,
     percentage,
-    hasPlatinum: false
+    hasPlatinum: totalCount > 0 && unlockedCount === totalCount
   };
 }

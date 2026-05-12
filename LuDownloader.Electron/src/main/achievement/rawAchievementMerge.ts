@@ -32,49 +32,30 @@ function sourceMergeIndex(source: SourceId): number {
   return i < 0 ? SOURCE_MERGE_ORDER.length : i;
 }
 
-function sourceIdToMask(id: SourceId): EmulatorSourceMask {
-  switch (id) {
-    case SourceId.None:
-      return EmulatorSource.None;
-    case SourceId.Goldberg:
-      return EmulatorSource.Goldberg;
-    case SourceId.GSE:
-      return EmulatorSource.GSE;
-    case SourceId.Codex:
-      return EmulatorSource.Codex;
-    case SourceId.Rune:
-      return EmulatorSource.Rune;
-    case SourceId.Empress:
-      return EmulatorSource.Empress;
-    case SourceId.OnlineFix:
-      return EmulatorSource.OnlineFix;
-    case SourceId.SmartSteamEmu:
-      return EmulatorSource.SmartSteamEmu;
-    case SourceId.Skidrow:
-      return EmulatorSource.Skidrow;
-    case SourceId.Darksiders:
-      return EmulatorSource.Darksiders;
-    case SourceId.Ali213:
-      return EmulatorSource.Ali213;
-    case SourceId.Hoodlum:
-      return EmulatorSource.Hoodlum;
-    case SourceId.CreamApi:
-      return EmulatorSource.CreamApi;
-    case SourceId.GreenLuma:
-      return EmulatorSource.GreenLuma;
-    case SourceId.Reloaded:
-      return EmulatorSource.Reloaded;
-    default:
-      return EmulatorSource.None;
-  }
-}
+const SOURCE_MASK: Record<SourceId, EmulatorSourceMask> = {
+  [SourceId.None]:          EmulatorSource.None,
+  [SourceId.Goldberg]:      EmulatorSource.Goldberg,
+  [SourceId.GSE]:           EmulatorSource.GSE,
+  [SourceId.Codex]:         EmulatorSource.Codex,
+  [SourceId.Rune]:          EmulatorSource.Rune,
+  [SourceId.Empress]:       EmulatorSource.Empress,
+  [SourceId.OnlineFix]:     EmulatorSource.OnlineFix,
+  [SourceId.SmartSteamEmu]: EmulatorSource.SmartSteamEmu,
+  [SourceId.Skidrow]:       EmulatorSource.Skidrow,
+  [SourceId.Darksiders]:    EmulatorSource.Darksiders,
+  [SourceId.Ali213]:        EmulatorSource.Ali213,
+  [SourceId.Hoodlum]:       EmulatorSource.Hoodlum,
+  [SourceId.CreamApi]:      EmulatorSource.CreamApi,
+  [SourceId.GreenLuma]:     EmulatorSource.GreenLuma,
+  [SourceId.Reloaded]:      EmulatorSource.Reloaded,
+};
 
 export function mergeRawAchievements(
   rows: Array<{ source: SourceId; raw: Record<string, RawAchievement> }>
 ): { merged: Record<string, RawAchievement>; sourceMask: EmulatorSourceMask } {
   let sourceMask = EmulatorSource.None;
   for (const row of rows) {
-    sourceMask |= sourceIdToMask(row.source);
+    sourceMask |= SOURCE_MASK[row.source] ?? EmulatorSource.None;
   }
 
   const sorted = [...rows].sort((a, b) => {

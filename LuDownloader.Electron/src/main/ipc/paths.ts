@@ -18,6 +18,10 @@ export function achievementCacheDir(): string {
   return path.join(userDataRoot(), 'achievement_cache');
 }
 
+export function achievementSnapshotDir(): string {
+  return path.join(userDataRoot(), 'achievement_snapshots');
+}
+
 export function logPath(): string {
   return path.join(userDataRoot(), 'ludownloader.log');
 }

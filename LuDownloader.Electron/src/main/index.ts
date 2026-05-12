@@ -34,6 +34,12 @@ import { runSteamless } from './ipc/steamless';
 import { formatGoldbergError, runGoldberg } from './ipc/goldberg';
 import { igdbSearch } from './ipc/igdb';
 import { CloudSyncAgent } from './sync/cloudSync';
+import {
+  restartAchievementWatchers,
+  setAchievementEventSink,
+  startAchievementWatchers,
+  stopAchievementWatchers
+} from './achievement/achievementWatcherService';
 
 let mainWindow: BrowserWindow | null = null;
 let updateStatuses: Record<string, UpdateStatus> = {};
@@ -77,12 +83,19 @@ app.whenReady().then(async () => {
   await info(`LuDownloader Electron starting. Data root: ${userDataRoot()}`);
   registerIpc();
   createWindow();
+  setAchievementEventSink((channel, payload) => {
+    mainWindow?.webContents.send(channel, payload);
+  });
+  void startAchievementWatchers().catch(() => undefined);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on('before-quit', () => cloudSync.stop());
+app.on('before-quit', () => {
+  void stopAchievementWatchers();
+  cloudSync.stop();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -90,7 +103,11 @@ app.on('window-all-closed', () => {
 
 function registerIpc(): void {
   ipcMain.handle(IPC.settingsLoad, () => loadSettings());
-  ipcMain.handle(IPC.settingsSave, (_e, settings) => saveSettings(settings));
+  ipcMain.handle(IPC.settingsSave, async (_e, settings) => {
+    const saved = await saveSettings(settings);
+    await restartAchievementWatchers();
+    return saved;
+  });
 
   ipcMain.handle(IPC.gamesList, () => listInstalled());
   ipcMain.handle(IPC.gamesSave, (_e, game: InstalledGame) => saveInstalled(game));

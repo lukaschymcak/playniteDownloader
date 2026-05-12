@@ -114,6 +114,20 @@ export interface AchievementDiff {
   newProgress: number;
 }
 
+/** Minimal persisted achievement row for snapshot baselines (Step 8). */
+export interface SnapshotAchievementState {
+  achieved: boolean;
+  unlockTime: number;
+  curProgress: number;
+  maxProgress: number;
+}
+
+export interface GameAchievementSnapshot {
+  appId: string;
+  capturedAtUnix: number;
+  achievements: Record<string, SnapshotAchievementState>;
+}
+
 export interface UserProfile {
   name: string;
   avatarPath?: string | null;

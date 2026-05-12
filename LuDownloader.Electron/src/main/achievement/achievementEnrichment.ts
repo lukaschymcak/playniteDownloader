@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   CacheService,
+  iconStorageName,
   PERCENTAGES_KEY,
   PERCENTAGES_TTL_SECONDS,
   SCHEMA_KEY,
@@ -24,15 +25,6 @@ async function writeBinaryAtomic(filePath: string, data: Buffer): Promise<void> 
   const tmp = `${filePath}.tmp`;
   await fs.writeFile(tmp, data);
   await fs.rename(tmp, filePath);
-}
-
-function iconStorageName(hash: string): string {
-  const h = hash.trim();
-  if (!h) return '';
-  if (/\.(jpe?g|png)$/i.test(h)) {
-    return h.replace(/[^a-zA-Z0-9._-]/g, '_');
-  }
-  return `${h.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`;
 }
 
 function steamCdnIconUrl(appId: string, fileName: string): string {

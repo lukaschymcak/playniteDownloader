@@ -40,6 +40,11 @@ const FILE_SOURCES: readonly SourceId[] = [
   SourceId.Reloaded
 ];
 
+/** Emulator sources backed by disk files; GreenLuma stays registry-only so it is not fs-watched here. */
+export function achievementFileDiscoverySources(): readonly SourceId[] {
+  return FILE_SOURCES;
+}
+
 const GREENLUMA_BASE_KEYS = ['SOFTWARE\\GLR\\AppID', 'SOFTWARE\\GL2020\\AppID'] as const;
 
 const FILE_SOURCE_SET = new Set<string>(FILE_SOURCES as unknown as string[]);
@@ -270,7 +275,7 @@ function pathsEqual(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();
 }
 
-function getEnabledSources(settings: AppSettings): Set<SourceId> {
+export function getEnabledSources(settings: AppSettings): Set<SourceId> {
   const list = settings.achievementEnabledSources ?? Object.values(SourceId).filter((s) => s !== SourceId.None);
   const enabled = new Set<SourceId>();
   for (const item of list) {

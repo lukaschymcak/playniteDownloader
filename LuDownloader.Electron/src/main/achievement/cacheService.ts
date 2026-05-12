@@ -12,6 +12,13 @@ export const SCHEMA_KEY = 'schema';
 export const PERCENTAGES_KEY = 'percentages';
 export const STORE_DISPLAY_NAME_KEY = 'store_display_name';
 
+export function iconStorageName(hash: string): string {
+  const h = hash.trim();
+  if (!h) return '';
+  if (/\.(jpe?g|png)$/i.test(h)) return h.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `${h.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`;
+}
+
 /** Default schema freshness: 7 days (see `CacheService.SchemaTtl` in LuiAchieve). */
 export const SCHEMA_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -108,14 +115,10 @@ export class CacheService {
   }
 
   async clearAllCache(): Promise<void> {
-    try {
-      if (existsSync(this.cacheRoot)) {
-        await fs.rm(this.cacheRoot, { recursive: true, force: true });
-      }
-      await fs.mkdir(this.cacheRoot, { recursive: true });
-    } catch (err) {
-      throw err;
+    if (existsSync(this.cacheRoot)) {
+      await fs.rm(this.cacheRoot, { recursive: true, force: true });
     }
+    await fs.mkdir(this.cacheRoot, { recursive: true });
   }
 
   getIconPath(appId: string, iconFileName: string): string {
