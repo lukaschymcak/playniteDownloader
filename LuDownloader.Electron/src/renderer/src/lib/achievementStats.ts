@@ -3,8 +3,8 @@ import type { GameAchievements } from '../../../shared/types';
 export type TrophyGrade = 'gold' | 'silver' | 'bronze';
 
 export function gradeAchievement(globalPercentage: number): TrophyGrade {
-  if (globalPercentage > 0 && globalPercentage < 15) return 'gold';
-  if (globalPercentage >= 15 && globalPercentage < 30) return 'silver';
+  if (globalPercentage > 0 && globalPercentage < 20) return 'gold';
+  if (globalPercentage >= 20 && globalPercentage < 40) return 'silver';
   return 'bronze';
 }
 

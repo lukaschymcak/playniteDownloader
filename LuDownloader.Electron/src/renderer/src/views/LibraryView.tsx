@@ -333,8 +333,8 @@ function LibraryCard(props: {
           {props.game.manifestAdded && <span className="badge manifest"><Icon name="zip" size={15} strokeW={2} /> Manifest Added</span>}
           {!installed && <span className="badge info">Saved</span>}
           {props.achData && (
-            <span className="ach-library-chip">
-              <Icon name="trophy" size={10} />
+            <span className={`badge achievements${props.achData.hasPlatinum ? ' platinum' : ''}`}>
+              <Icon name="trophy" size={15} />
               {props.achData.hasPlatinum ? 'Platinum' : `${props.achData.unlockedCount}/${props.achData.totalCount}`}
             </span>
           )}

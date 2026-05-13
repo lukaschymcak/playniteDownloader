@@ -4,7 +4,8 @@ type IconName =
   | 'library' | 'search' | 'layers' | 'settings' | 'download' | 'play' | 'folder'
   | 'refresh' | 'plus' | 'more' | 'trash' | 'close' | 'minus' | 'square'
   | 'zip' | 'upload' | 'box' | 'check' | 'arrow' | 'steam' | 'warn'
-  | 'trophy' | 'pin' | 'edit' | 'back' | 'star' | 'filter';
+  | 'trophy' | 'pin' | 'edit' | 'back' | 'star' | 'filter' | 'lock'
+  | 'bronze' | 'silver' | 'gold' | 'platinum';
 
 interface IconProps extends SVGProps<SVGSVGElement> {
   name: IconName;
@@ -40,12 +41,17 @@ export function Icon({ name, size = 16, strokeW = 1.7, ...rest }: IconProps): JS
     edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
     back: <><polyline points="15 18 9 12 15 6"/></>,
     star: <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
-    filter: <><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-    </>
+    filter: <><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>,
+    lock: <><rect x="4.5" y="11" width="15" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></>,
+    bronze: <><path d="M8 21h8M12 17v4M17 3H7L5 8c0 3.87 3.13 7 7 7s7-3.13 7-7L17 3z"/><path d="M5 8H3a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M19 8h2a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></>,
+    silver: <><path d="M8 21h8M12 17v4M17 3H7L5 8c0 3.87 3.13 7 7 7s7-3.13 7-7L17 3z"/><path d="M5 8H3a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M19 8h2a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></>,
+    gold: <><path d="M8 21h8M12 17v4M17 3H7L5 8c0 3.87 3.13 7 7 7s7-3.13 7-7L17 3z"/><path d="M5 8H3a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M19 8h2a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></>,
+    platinum: <><path d="M8 21h8M12 17v4M17 3H7L5 8c0 3.87 3.13 7 7 7s7-3.13 7-7L17 3z"/><path d="M5 8H3a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4M19 8h2a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></>
   };
 
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      className={['bronze', 'silver', 'gold', 'platinum'].includes(name) ? `icon-${name}` : ''}
       strokeWidth={strokeW} strokeLinecap="round" strokeLinejoin="round" {...rest}>
       {paths[name]}
     </svg>

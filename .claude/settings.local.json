@@ -14,7 +14,23 @@
       "Bash(dir)",
       "Bash(npx tsc *)",
       "Bash(find C:\\\\\\\\SW\\\\\\\\playniteDownloader -type d -name \"pwa\")",
-      "Bash(not exist *)"
+      "Bash(not exist *)",
+      "Bash(node --test --test-reporter=spec src/main/achievement/cacheService.test.ts src/main/achievement/rawAchievementMerge.test.ts src/main/achievement/processAppId.test.ts src/main/achievement/achievementEnrichment.test.ts src/main/achievement/achievementWatcherService.test.ts)",
+      "PowerShell(Get-Process *)",
+      "Bash(npm run *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(node -e \"const p = require\\('path'\\); const os = require\\('os'\\); const {app} = require\\('electron'\\); console.log\\('userData would be:', p.join\\(os.homedir\\(\\), 'AppData', 'Roaming', 'LuDownloader'\\)\\);\")",
+      "Read(//c/Users/Lukas/AppData/Roaming/LuDownloader/**)",
+      "Bash(python *)",
+      "Bash(node *)",
+      "Bash(del \"C:\\\\Users\\\\Lukas\\\\AppData\\\\Roaming\\\\LuDownloader\\\\achievement_cache\\\\625984\\\\game_achievements.json\")",
+      "Bash(Remove-Item *)",
+      "PowerShell(Get-ChildItem \"C:\\\\SW\\\\playniteDownloader\\\\AchievementPlugin\" -Force | ForEach-Object { if \\($_.PSIsContainer\\) { \"DIR  $\\($_.Name\\)\" } else { \"FILE $\\($_.Name\\)\" } })",
+      "PowerShell(Get-ChildItem \"C:\\\\SW\\\\playniteDownloader\\\\LuDownloader.Core\" -Force | ForEach-Object { if \\($_.PSIsContainer\\) { \"DIR  $\\($_.Name\\)\" } else { \"FILE $\\($_.Name\\)\" } })",
+      "PowerShell(Get-ChildItem \"C:\\\\SW\\\\playniteDownloader\\\\LuDownloader.App\" -Force | ForEach-Object { if \\($_.PSIsContainer\\) { \"DIR  $\\($_.Name\\)\" } else { \"FILE $\\($_.Name\\)\" } })",
+      "PowerShell(Get-ChildItem \"C:\\\\SW\\\\playniteDownloader\\\\BlankPlugin\\\\source\\\\deps\" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"C:\\\\SW\\\\playniteDownloader\\\\.codex\" -Force | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"C:\\\\SW\\\\playniteDownloader\" -Force | ForEach-Object { if \\($_.PSIsContainer\\) { \"DIR  $\\($_.Name\\)\" } else { \"FILE $\\($_.Name\\)\" } })"
     ]
   }
 }

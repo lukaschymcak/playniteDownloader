@@ -165,6 +165,13 @@ button, input, select, textarea, a { -webkit-app-region: no-drag; }
 .badge.info { color: #9EC8FF; background: rgba(45,92,160,.22); border-color: rgba(111,168,255,.32); }
 .badge.lua { color: #9FCBFF; background: rgba(48,91,156,.25); border-color: rgba(84,142,232,.5); }
 .badge.manifest { color: #DAB8FF; background: rgba(99,62,142,.25); border-color: rgba(161,104,224,.5); }
+.badge.achievements { color: var(--accent); background: var(--accent-soft); border-color: rgba(71, 213, 200, 0.4); }
+.badge.achievements.platinum { color: var(--grade-platinum); background: rgba(157, 227, 255, 0.18); border-color: rgba(157, 227, 255, 0.45); }
+
+.icon-bronze { color: var(--grade-bronze); }
+.icon-silver { color: var(--grade-silver); }
+.icon-gold { color: var(--grade-gold); }
+.icon-platinum { color: var(--grade-platinum); }
 .meta-row { display: flex; align-items: center; gap: 12px; color: #AAB2BC; font-size: 15px; font-variant-numeric: tabular-nums; }
 .dot-sep { color: #68727E; }
 .meta-path { color: var(--fg-3); font-size: 11.5px; font-family: Consolas, monospace; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
