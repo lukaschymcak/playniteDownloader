@@ -5,7 +5,7 @@ import type { BrowserWindow } from 'electron';
 import type { MorrenusSearchResponse, MorrenusSearchResult, MorrenusUserStats } from '../../shared/types';
 import { loadSettings } from './settings';
 
-const baseUrl = 'https://manifest.morrenus.xyz/api/v1';
+const baseUrl = 'https://hubcapmanifest.com/api/v1';
 
 async function authHeaders(): Promise<Record<string, string>> {
   const settings = await loadSettings();
